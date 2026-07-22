@@ -25,6 +25,8 @@ const SEL = {
     // Random hangar tags the widget div with VehicleMenu_menuWidget_*; the
     // Comp7 hangar only has the hashed VehicleMenuWidget_* class on it.
     menuWidget: '[class*="VehicleMenu_menuWidget"], [class*="VehicleMenuWidget_"]',
+    // A native vehicle-menu popup (crew/vehicle/customization) while it is open.
+    nativeMenu: '[class*="VehicleMenuWidget_menu_"]',
 };
 
 const OURS_ATTR  = "data-z4ae-button";
@@ -114,8 +116,10 @@ function injectButton() {
     iconWrap.appendChild(buttonIconSvg());
     btn.appendChild(iconWrap);
 
-    btn.addEventListener("click", function (e) {
-        e.stopPropagation();
+    // Deliberately NO stopPropagation: the click must reach the app's own
+    // outside-click handling so any open native menu closes when ours opens.
+    // Our document listener below ignores clicks on the button itself.
+    btn.addEventListener("click", function () {
         togglePopover();
     });
     btn.addEventListener("mouseenter", function () { setButtonHover(true); });
@@ -328,9 +332,12 @@ function togglePopover() {
     setPopoverOpen(!gPopoverOpen);
 }
 
-// close when clicking anywhere else
-document.addEventListener("click", function () {
-    if (gPopoverOpen) setPopoverOpen(false);
+// close when clicking anywhere else (clicks on our button toggle instead, and
+// clicks inside the popover never bubble this far)
+document.addEventListener("click", function (e) {
+    if (!gPopoverOpen) return;
+    if (gButton && (e.target === gButton || gButton.contains(e.target))) return;
+    setPopoverOpen(false);
 });
 
 // --------------------------------------------------------------------------
@@ -346,15 +353,26 @@ function onModelUpdate() {
     }
 }
 
+let gNativeMenuWasOpen = false;
+
 function startObserver() {
     try {
         const obs = new MutationObserver(function () {
             const menu = document.querySelector(SEL.menuWidget);
             if (menu && !menu.querySelector("[" + OURS_ATTR + "]")) injectButton();
+            // Edge-detect a native menu OPENING (closed -> open). A plain
+            // presence check would misfire when ours opens while the previous
+            // native menu is still being torn down by React.
+            const nativeOpen = !!document.querySelector(SEL.nativeMenu);
+            const nativeJustOpened = nativeOpen && !gNativeMenuWasOpen;
+            gNativeMenuWasOpen = nativeOpen;
             if (!menu && gPopoverOpen) {
                 // left the hangar route — drop the popover
                 gPopoverOpen = false;
                 removePopover();
+            } else if (menu && gPopoverOpen && nativeJustOpened) {
+                // a native menu just opened (hotkey etc.) — yield to it
+                setPopoverOpen(false);
             } else if (menu && gPopoverOpen && !document.getElementById(POPOVER_ID)) {
                 // a re-render recreated the button and took the popover with it
                 setPopoverOpen(true);
