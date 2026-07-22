@@ -1,0 +1,321 @@
+/* Auto Equipment Return — button + popover styles.
+   Cohtml rules: rem only (1rem ≈ 1px at every resolution), no float, no flex
+   gap, NO font-weight 600/bold (renders zero-height when the face is missing). */
+
+/* --- menu button (same dimensions as the native MenuButton / Tank-Stats) --- */
+.z4ae-menu-btn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 56rem;
+    height: 56rem;
+    position: relative;
+    z-index: 1;
+    transition: transform 0.1s cubic-bezier(0.17, 0.67, 0.83, 0.67);
+    cursor: pointer;
+    pointer-events: auto;
+}
+.mediaLarge .z4ae-menu-btn {
+    width: 64rem;
+    height: 64rem;
+    margin-left: 10rem;
+}
+/* native MenuButton_base__opened: the button slides up while its menu is open */
+.z4ae-menu-btn-opened {
+    transform: translateY(-12rem);
+}
+.z4ae-menu-btn-bg {
+    width: 96rem;
+    height: 96rem;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position-x: 50%;
+    background-position-y: 50%;
+}
+.mediaLarge .z4ae-menu-btn-bg {
+    width: 120rem;
+    height: 120rem;
+}
+.z4ae-menu-btn-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.z4ae-btn-svg {
+    width: 30rem;
+    height: 30rem;
+}
+.mediaLarge .z4ae-btn-svg {
+    width: 34rem;
+    height: 34rem;
+}
+
+/* --- popover ------------------------------------------------------------
+   Direct copy of the native vehicle-menu popup (MenuList/MenuItem rules from
+   mono/hangar/main/main.css), renamed to own stable z4ae-* classes and with
+   img:// asset paths instead of the R.images tokens (which don't resolve in
+   mod CSS). The .z4ae-large class replaces the .mediaLarge ancestor selector —
+   the popover hangs on <body>, outside the .media-wrapper, so the JS sets it
+   from the media context instead. */
+/* Anchored above the button like the native VehicleMenuWidget_menu
+   (absolute, bottom 60/70rem, centered on the button). The popover is a child
+   of .z4ae-menu-btn, so it slides up together with the opened button. */
+.z4ae-popover {
+    position: absolute;
+    left: 50%;
+    bottom: 60rem;
+    transform: translateX(-50%);
+    width: 300rem;
+    z-index: 1;
+    border-radius: 4rem;
+}
+.z4ae-popover.z4ae-large {
+    bottom: 70rem;
+}
+
+/* MenuList_content */
+.z4ae-list-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10rem 0;
+    border-radius: 2rem;
+    background: url(img://gui/maps/icons/hangar/vehicleMenu/menu_background.png) center no-repeat;
+    background-size: 100% 100%;
+    background-color: rgba(26, 26, 29, 0.95);
+}
+.z4ae-large .z4ae-list-content {
+    padding: 13rem 0 16rem;
+}
+
+/* MenuList_border / MenuList_bottom overlays */
+.z4ae-list-border,
+.z4ae-list-bottom {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+}
+.z4ae-list-border {
+    border-width: 2rem;
+    border-style: solid;
+    border-image: url(img://gui/maps/icons/hangar/vehicleMenu/menu_border.png) 2/2rem repeat;
+    pointer-events: none;
+}
+.z4ae-list-bottom {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    overflow: hidden;
+    pointer-events: none;
+}
+.z4ae-bottom-border {
+    width: 60rem;
+    height: 1rem;
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position-x: 50%;
+    background-position-y: 50%;
+}
+.z4ae-notch {
+    width: 22rem;
+    height: 6rem;
+    background: url(img://gui/maps/icons/hangar/vehicleMenu/menu_notch_extraSmall.png) center no-repeat;
+    background-size: contain;
+}
+.z4ae-large .z4ae-notch {
+    width: 32rem;
+    height: 9rem;
+    background-image: url(img://gui/maps/icons/hangar/vehicleMenu/menu_notch_large.png);
+}
+
+/* MenuList_divider */
+.z4ae-divider {
+    width: 100%;
+    height: 1rem;
+    margin: 11rem 0 10rem;
+    background: url(img://gui/maps/icons/hangar/vehicleMenu/menu_divider.png) center no-repeat;
+    background-size: 100% 100%;
+}
+
+/* header (own addition, matches the dimmed native palette) */
+.z4ae-header {
+    padding: 2rem 20rem 8rem 20rem;
+    font-size: 10rem;
+    letter-spacing: 0.03em;
+    color: rgba(238, 237, 233, 0.45);
+}
+
+/* MenuItem */
+.z4ae-item {
+    width: 100%;
+    height: 32rem;
+}
+.z4ae-item + .z4ae-item {
+    margin-top: 1rem;
+}
+.z4ae-large .z4ae-item + .z4ae-item {
+    margin-top: 8rem;
+}
+
+/* MenuItem_inner */
+.z4ae-item-inner {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    padding-right: 12rem;
+    opacity: 0.9;
+    position: relative;
+    cursor: pointer;
+}
+.z4ae-large .z4ae-item-inner {
+    height: 38rem;
+}
+.z4ae-item-inner-disabled {
+    cursor: default;
+    pointer-events: none;
+}
+
+/* MenuItem_hover */
+.z4ae-item-hover {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: url(img://gui/maps/icons/hangar/vehicleMenu/background_hover.png) center no-repeat;
+    background-size: 100% 100%;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+.z4ae-item-inner:hover .z4ae-item-hover {
+    opacity: 1;
+}
+
+/* MenuItem_icon (SVG glyph centered instead of the native PNG) */
+.z4ae-item-icon {
+    width: 56rem;
+    height: 56rem;
+    margin-left: -4rem;
+    opacity: 0.85;
+    position: relative;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.z4ae-large .z4ae-item-icon {
+    width: 64rem;
+    height: 64rem;
+}
+.z4ae-item-inner:hover .z4ae-item-icon {
+    opacity: 1;
+}
+.z4ae-item-inner-disabled .z4ae-item-icon {
+    opacity: 0.4;
+}
+.z4ae-row-svg {
+    width: 22rem;
+    height: 22rem;
+}
+.z4ae-large .z4ae-row-svg {
+    width: 25rem;
+    height: 25rem;
+}
+
+/* MenuItem_title */
+.z4ae-item-title {
+    display: flex;
+    flex: 1;
+    color: rgba(238, 237, 233, 0.9);
+    font-size: 14rem;
+    font-weight: 500;
+    line-height: 1.2;
+    text-shadow: 0 2rem rgba(0, 0, 0, 0.3);
+    letter-spacing: 0.03em;
+    opacity: 0.85;
+    position: relative;
+    transition: opacity 0.2s ease, color 0.2s ease;
+}
+.z4ae-large .z4ae-item-title {
+    margin-left: -6rem;
+    font-size: 16rem;
+    line-height: 1.3;
+}
+.z4ae-item-inner:hover .z4ae-item-title {
+    opacity: 1;
+}
+.z4ae-item-inner-disabled .z4ae-item-title {
+    opacity: 0.4;
+}
+
+/* the on/off switch sits at the right end of its menu row */
+.z4ae-switch {
+    width: 34rem;
+    height: 16rem;
+    border: 1rem solid rgba(238, 237, 233, 0.3);
+    background-color: rgba(238, 237, 233, 0.06);
+    position: relative;
+}
+.z4ae-switch-knob {
+    position: absolute;
+    top: 2rem;
+    left: 2rem;
+    width: 10rem;
+    height: 10rem;
+    background-color: rgba(238, 237, 233, 0.45);
+}
+.z4ae-switch-on {
+    border-color: rgba(128, 200, 57, 0.7);
+    background-color: rgba(128, 200, 57, 0.12);
+}
+.z4ae-switch-on .z4ae-switch-knob {
+    left: 20rem;
+    background-color: #80C839;
+}
+
+/* saved sets (own section, native palette) */
+.z4ae-set-block {
+    padding: 2rem 20rem 6rem 20rem;
+}
+.z4ae-set-label {
+    font-size: 11rem;
+    letter-spacing: 0.03em;
+    color: rgba(238, 237, 233, 0.5);
+    margin-bottom: 5rem;
+}
+.z4ae-slots {
+    display: flex;
+    flex-direction: row;
+}
+.z4ae-slot {
+    width: 40rem;
+    height: 40rem;
+    margin-right: 6rem;
+    border: 1rem solid rgba(238, 237, 233, 0.12);
+    background-color: rgba(238, 237, 233, 0.04);
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position-x: 50%;
+    background-position-y: 50%;
+}
+.z4ae-slot-empty {
+    border: 1rem dashed rgba(238, 237, 233, 0.15);
+}
+.z4ae-set-missing {
+    font-size: 11rem;
+    color: rgba(238, 237, 233, 0.35);
+}
