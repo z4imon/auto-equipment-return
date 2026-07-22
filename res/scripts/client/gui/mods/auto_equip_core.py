@@ -183,6 +183,24 @@ def _equip_opt_device(veh_inv_id, item_cd, slot_idx, all_setups, finance_operati
         callback((-1, None))
 
 
+@adisp_async
+def _equip_opt_devs_sequence(veh_inv_id, device_cds, callback=None):
+    """Apply the WHOLE opt-device layout of the ACTIVE setup in one command
+    (CMD_EQUIP_OPT_DEVS_SEQUENCE) — the native tank-setup confirm flow. This is
+    the only server path that accepts a device mounted in the OTHER setup of
+    the same vehicle; per-slot equipOptionalDevice rejects that with
+    RES_WRONG_ARGS (-2). CAUTION: this is the buy-and-install command — callers
+    must ensure every listed device is in the depot or on the vehicle, or the
+    server would buy it."""
+    def _cb(code, err_str='', ext=None):
+        callback((code, err_str))
+    try:
+        BigWorld.player().inventory.equipOptDevsSequence(veh_inv_id, [int(cd) for cd in device_cds], _cb)
+    except Exception:
+        LOG.exc('_equip_opt_devs_sequence RPC failed')
+        callback((-1, 'rpc failed'))
+
+
 # --------------------------------------------------------------------------
 # Saving
 # --------------------------------------------------------------------------
@@ -375,6 +393,12 @@ def apply_sets(veh_cd):
                     continue
                 yield _pause(_OP_PAUSE)
 
+            # `final` is the layout the sequence command applies at the end of
+            # this setup pass; slots we cannot serve fall back to their current
+            # content (occupant kept) or stay empty.
+            final = list(wanted)
+
+            # ---- phase 1+2 per slot: clear occupants, secure availability ----
             for slot_idx in range(cap):
                 if _g_abort or _selection_changed(veh_cd):
                     break
@@ -383,15 +407,16 @@ def apply_sets(veh_cd):
                     break
                 current = _setup_cds(vehicle, setup_idx)
                 cur = current[slot_idx]
-                want = wanted[slot_idx]
+                want = final[slot_idx]
                 if cur == want:
                     continue
 
-                # ---- clear the slot first --------------------------------
+                # clear the slot first
                 if cur:
                     cur_item = _fresh_item(cur)
                     if cur_item is None:
                         errors.append(u'Slot %d: unbekanntes Item %s' % (slot_idx + 1, cur))
+                        final[slot_idx] = cur
                         continue
                     other_indices = [i for i in _setup_indices(vehicle) if i != setup_idx]
                     in_other = any(vehicle.optDevices.setupLayouts.containsIntCD(cur, setupIdx=i) for i in other_indices)
@@ -401,41 +426,48 @@ def apply_sets(veh_cd):
                     else:
                         if not _free_demount_ok(cur_item):
                             skipped.append((cur_item.userName, u'Ausbau wäre kostenpflichtig'))
+                            final[slot_idx] = cur
                             continue
                         code, ext = yield _equip_opt_device(
                             vehicle.invID, 0, slot_idx, True, not cur_item.isRemovable)
                     if not _op_success(code):
                         errors.append(u'%s: Ausbau fehlgeschlagen (Code %s, %s)' % (cur_item.userName, code, ext))
+                        final[slot_idx] = cur
                         continue
                     yield _pause(_OP_PAUSE)
 
                 if not want:
                     continue
 
-                # ---- make the wanted device available --------------------
+                # make the wanted device available (depot / this vehicle / donor)
                 want_item = _fresh_item(want)
                 if want_item is None:
                     errors.append(u'Slot %d: unbekanntes Item %s' % (slot_idx + 1, want))
+                    final[slot_idx] = 0
                     continue
                 vehicle = _fresh_vehicle(veh_cd)
                 on_vehicle = vehicle.optDevices.setupLayouts.containsIntCD(want)
                 if not on_vehicle and want_item.inventoryCount <= 0:
                     if not _free_demount_ok(want_item):
                         skipped.append((want_item.userName, u'Ausbau vom anderen Panzer wäre kostenpflichtig'))
+                        final[slot_idx] = 0
                         continue
                     donor = _find_donor(want, veh_cd)
                     if donor is None:
                         skipped.append((want_item.userName, u'nicht im Lager und kein freier Panzer hat es'))
+                        final[slot_idx] = 0
                         continue
                     d_setup, d_slot = _locate_on_vehicle(donor, want)
                     if d_slot is None:
                         skipped.append((want_item.userName, u'auf %s nicht auffindbar' % donor.userName))
+                        final[slot_idx] = 0
                         continue
                     d_original = donor.optDevices.setupLayouts.layoutIndex
                     if d_setup != d_original:
                         code = yield _change_setup_index(donor.invID, d_setup)
                         if not _op_success(code):
                             skipped.append((want_item.userName, u'Setupwechsel auf %s fehlgeschlagen' % donor.userName))
+                            final[slot_idx] = 0
                             continue
                         yield _pause(_OP_PAUSE)
                     LOG.info('demounting %s from %s (setup %d slot %d)' % (want_item.name, donor.userName, d_setup, d_slot))
@@ -451,18 +483,36 @@ def apply_sets(veh_cd):
                             LOG.warning('could not switch %s back to setup %d' % (donor.userName, d_original))
                         yield _pause(_OP_PAUSE)
                     if not demount_ok:
+                        final[slot_idx] = 0
                         continue
 
-                # ---- install ---------------------------------------------
-                vehicle = _fresh_vehicle(veh_cd)
-                want_item = _fresh_item(want)
-                if vehicle is None or want_item is None:
+            # ---- phase 3: apply the whole setup layout in one command --------
+            if _g_abort or _selection_changed(veh_cd):
+                break
+            vehicle = _fresh_vehicle(veh_cd)
+            if vehicle is None:
+                break
+            current = _setup_cds(vehicle, setup_idx)
+            # money guarantee: drop every NEW device that is not verifiably in
+            # the depot or already on this vehicle — the sequence command would
+            # buy it otherwise.
+            for i in range(cap):
+                cd = final[i]
+                if not cd or cd == current[i]:
                     continue
-                code, ext = yield _equip_opt_device(vehicle.invID, want, slot_idx, False, False)
+                item = _fresh_item(cd)
+                if item is None or (item.inventoryCount <= 0
+                                    and not vehicle.optDevices.setupLayouts.containsIntCD(cd)):
+                    name = item.userName if item is not None else str(cd)
+                    skipped.append((name, u'nicht verfügbar — Einbau übersprungen'))
+                    final[i] = current[i]
+            if current != final:
+                changes = sum(1 for i in range(cap) if final[i] and final[i] != current[i])
+                code, err_str = yield _equip_opt_devs_sequence(vehicle.invID, final)
                 if _op_success(code):
-                    installed_count += 1
+                    installed_count += changes
                 else:
-                    errors.append(u'%s: Einbau fehlgeschlagen (Code %s, %s)' % (want_item.userName, code, ext))
+                    errors.append(u'Setup %d: Einbau fehlgeschlagen (Code %s, %s)' % (setup_idx + 1, code, err_str))
                 yield _pause(_OP_PAUSE)
 
         # ---- restore the originally active setup -------------------------
