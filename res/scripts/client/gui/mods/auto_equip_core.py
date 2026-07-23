@@ -22,7 +22,9 @@ _OPT_GROUP = TankSetupGroupsId.OPTIONAL_DEVICES_AND_BOOSTERS
 
 # Pause between server operations so the items cache settles before we read it
 # again (the equip callbacks can fire before the resync is fully applied).
-_OP_PAUSE = 0.3
+# Stale reads here are safe-direction only: the server state is authoritative,
+# worst case is a skipped install with a message — never a purchase.
+_OP_PAUSE = 0.1
 
 _g_busy = False
 _g_abort = False
@@ -139,6 +141,38 @@ def _push_msg(text, warning=False):
         LOG.exc('_push_msg failed')
 
 
+_WAITING_KEY = 'installEquipment'   # native veil text: "Mounting equipment..."
+
+
+def _waiting_show():
+    """Blocking gray hangar veil — the same one the client shows while
+    mounting equipment. Returns True when it was actually shown so the caller
+    knows a matching _waiting_hide is required."""
+    try:
+        from gui.Scaleform.Waiting import Waiting
+        Waiting.show(_WAITING_KEY)
+        return True
+    except Exception:
+        LOG.exc('_waiting_show failed')
+        return False
+
+
+def _waiting_hide():
+    try:
+        from gui.Scaleform.Waiting import Waiting
+        Waiting.hide(_WAITING_KEY)
+    except Exception:
+        LOG.exc('_waiting_hide failed')
+
+
+def _norm_layout(raw, cap):
+    """Saved cd list → per-slot layout of exactly `cap` entries (0 = empty)."""
+    cds = [int(cd) if cd else 0 for cd in list(raw)[:cap]]
+    while len(cds) < cap:
+        cds.append(0)
+    return cds
+
+
 @adisp_async
 def _pause(seconds, callback=None):
     BigWorld.callback(seconds, lambda: callback(None))
@@ -159,28 +193,51 @@ def _op_success(code):
     return code >= 0
 
 
+_RES_COOLDOWN = -5      # AccountCommands.RES_COOLDOWN
+_COOLDOWN_RETRIES = 4
+
+
+def _retry_on_cooldown(fire, callback, attempt=0):
+    """Runs an RPC and re-issues it when the server answers RES_COOLDOWN.
+    fire(done) must issue the RPC and report via done(code, result); the pause
+    grows per attempt (0.1/0.2/0.3/0.4s), after that the cooldown result is
+    passed through."""
+    def done(code, result):
+        if code == _RES_COOLDOWN and attempt < _COOLDOWN_RETRIES:
+            delay = 0.1 * (attempt + 1)
+            LOG.info('server cooldown, retrying in %.1fs (attempt %d)' % (delay, attempt + 1))
+            BigWorld.callback(delay, lambda: _retry_on_cooldown(fire, callback, attempt + 1))
+        else:
+            callback(result)
+    fire(done)
+
+
 @adisp_async
 def _change_setup_index(veh_inv_id, setup_idx, callback=None):
-    try:
-        BigWorld.player().inventory.changeVehicleSetupGroup(
-            veh_inv_id, _OPT_GROUP, setup_idx, lambda code: callback(code))
-    except Exception:
-        LOG.exc('_change_setup_index RPC failed')
-        callback(-1)
+    def fire(done):
+        try:
+            BigWorld.player().inventory.changeVehicleSetupGroup(
+                veh_inv_id, _OPT_GROUP, setup_idx, lambda code: done(code, code))
+        except Exception:
+            LOG.exc('_change_setup_index RPC failed')
+            done(-1, -1)
+    _retry_on_cooldown(fire, callback)
 
 
 @adisp_async
 def _equip_opt_device(veh_inv_id, item_cd, slot_idx, all_setups, finance_operation, callback=None):
     """item_cd = device intCD to install, or 0 to demount the slot.
     Never passes useDemountKit — demount kits must not be spent."""
-    def _cb(code, ext=None):
-        callback((code, ext))
-    try:
-        BigWorld.player().inventory.equipOptionalDevice(
-            veh_inv_id, item_cd, slot_idx, all_setups, finance_operation, _cb, False)
-    except Exception:
-        LOG.exc('_equip_opt_device RPC failed')
-        callback((-1, None))
+    def fire(done):
+        def _cb(code, ext=None):
+            done(code, (code, ext))
+        try:
+            BigWorld.player().inventory.equipOptionalDevice(
+                veh_inv_id, item_cd, slot_idx, all_setups, finance_operation, _cb, False)
+        except Exception:
+            LOG.exc('_equip_opt_device RPC failed')
+            done(-1, (-1, None))
+    _retry_on_cooldown(fire, callback)
 
 
 @adisp_async
@@ -192,13 +249,16 @@ def _equip_opt_devs_sequence(veh_inv_id, device_cds, callback=None):
     RES_WRONG_ARGS (-2). CAUTION: this is the buy-and-install command — callers
     must ensure every listed device is in the depot or on the vehicle, or the
     server would buy it."""
-    def _cb(code, err_str='', ext=None):
-        callback((code, err_str))
-    try:
-        BigWorld.player().inventory.equipOptDevsSequence(veh_inv_id, [int(cd) for cd in device_cds], _cb)
-    except Exception:
-        LOG.exc('_equip_opt_devs_sequence RPC failed')
-        callback((-1, 'rpc failed'))
+    cds = [int(cd) for cd in device_cds]
+    def fire(done):
+        def _cb(code, err_str='', ext=None):
+            done(code, (code, err_str))
+        try:
+            BigWorld.player().inventory.equipOptDevsSequence(veh_inv_id, cds, _cb)
+        except Exception:
+            LOG.exc('_equip_opt_devs_sequence RPC failed')
+            done(-1, (-1, 'rpc failed'))
+    _retry_on_cooldown(fire, callback)
 
 
 # --------------------------------------------------------------------------
@@ -253,7 +313,7 @@ def on_vehicle_changed():
         # Give the selection a moment to settle, then start (unless the user
         # switched again in between).
         veh_cd = item.intCD
-        BigWorld.callback(0.8, lambda: _start_if_still_selected(veh_cd))
+        BigWorld.callback(0.05, lambda: _start_if_still_selected(veh_cd))
     except Exception:
         LOG.exc('on_vehicle_changed failed')
 
@@ -351,6 +411,7 @@ def apply_sets(veh_cd):
     skipped = []    # (item name, reason)
     errors = []
     original_idx = None
+    veil_shown = False
     try:
         import mod_auto_equip
 
@@ -363,25 +424,27 @@ def apply_sets(veh_cd):
             return
         original_idx = vehicle.optDevices.setupLayouts.layoutIndex
         available_setups = _setup_indices(vehicle)
+        cap = _capacity(vehicle)
         plan = []
         if saved.get('set1') is not None and 0 in available_setups:
-            plan.append((0, saved['set1']))
+            plan.append((0, _norm_layout(saved['set1'], cap)))
         if saved.get('set2') is not None and 1 in available_setups:
-            plan.append((1, saved['set2']))
+            plan.append((1, _norm_layout(saved['set2'], cap)))
         if not plan:
             return
+        # Nothing to do → no veil flicker on every vehicle selection.
+        if all(_setup_cds(vehicle, idx) == wanted for idx, wanted in plan):
+            return
         LOG.info('apply_sets: start for %s, plan=%s' % (vehicle.userName, plan))
+        veil_shown = _waiting_show()
 
-        for setup_idx, wanted_raw in plan:
+        for setup_idx, wanted in plan:
             if _g_abort or _selection_changed(veh_cd):
                 break
             vehicle = _fresh_vehicle(veh_cd)
             if vehicle is None:
                 break
             cap = _capacity(vehicle)
-            wanted = [int(cd) if cd else 0 for cd in list(wanted_raw)[:cap]]
-            while len(wanted) < cap:
-                wanted.append(0)
             if _setup_cds(vehicle, setup_idx) == wanted:
                 continue
 
@@ -411,8 +474,12 @@ def apply_sets(veh_cd):
                 if cur == want:
                     continue
 
-                # clear the slot first
-                if cur:
+                # Clear the slot first — but only if the device leaves this
+                # setup entirely. If it merely moves to another slot of the
+                # same setup, the sequence command repositions it for free
+                # (native swapSlots + confirm works exactly like that), so no
+                # demount round-trip is needed.
+                if cur and cur not in wanted:
                     cur_item = _fresh_item(cur)
                     if cur_item is None:
                         errors.append(u'Slot %d: unbekanntes Item %s' % (slot_idx + 1, cur))
@@ -478,10 +545,10 @@ def apply_sets(veh_cd):
                         errors.append(u'%s: Ausbau von %s fehlgeschlagen (Code %s, %s)' % (want_item.userName, donor.userName, code, ext))
                     yield _pause(_OP_PAUSE)
                     if d_setup != d_original:
+                        # No pause needed: nothing below reads donor state.
                         code = yield _change_setup_index(donor.invID, d_original)
                         if not _op_success(code):
                             LOG.warning('could not switch %s back to setup %d' % (donor.userName, d_original))
-                        yield _pause(_OP_PAUSE)
                     if not demount_ok:
                         final[slot_idx] = 0
                         continue
@@ -538,6 +605,8 @@ def apply_sets(veh_cd):
     except Exception:
         LOG.exc('apply_sets failed')
     finally:
+        if veil_shown:
+            _waiting_hide()
         _g_busy = False
         _g_abort = False
         _notify_refresh()
