@@ -19,6 +19,7 @@
     width: 64rem;
     height: 64rem;
     margin-left: 10rem;
+    margin-right: 10rem;
 }
 /* native MenuButton_base__opened: the button slides up while its menu is open;
    the opened background art already shows the X, so our icon disappears */
