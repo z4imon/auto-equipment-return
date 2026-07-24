@@ -174,10 +174,15 @@ def log_equipment_overview():
         LOG.exc('log_equipment_overview failed')
 
 
-def _push_msg(text, warning=False):
+def _push_msg(text, warning=False, error=False):
     try:
         from gui import SystemMessages
-        sm_type = SystemMessages.SM_TYPE.Warning if warning else SystemMessages.SM_TYPE.Information
+        if error:
+            sm_type = SystemMessages.SM_TYPE.Error
+        elif warning:
+            sm_type = SystemMessages.SM_TYPE.Warning
+        else:
+            sm_type = SystemMessages.SM_TYPE.Information
         SystemMessages.pushMessage(text, type=sm_type)
     except Exception:
         LOG.exc('_push_msg failed')
@@ -515,22 +520,22 @@ def _resolve_downgrades(vehicle, layout, veh_cd):
     return out, notes
 
 
+@adisp_async
 @adisp_process
-def apply_sets(veh_cd):
-    """Restore both saved sets onto the vehicle. All server operations run
+def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
+               use_veil=True, push_summary=True, callback=None):
+    """Restore both saved sets onto one vehicle. All server operations run
     sequentially; every failure is recorded and the run continues with the next
-    slot. Never spends money (see module docstring)."""
-    global _g_busy, _g_abort
-    if _g_busy:
-        return
-    _g_busy = True
-    _g_abort = False
-    _notify_refresh()
+    slot. Never spends money (see module docstring). Busy-state handling lives
+    in the callers (apply_sets / equip_primary_vehicles); the outcome is
+    reported via callback as a dict — `missing` lists the devices that could
+    not be sourced for free."""
     installed_count = 0
     skipped = []    # (item name, reason)
     errors = []
     donated = []    # (item name, donor vehicle name)
     downgraded = []  # (trophy name, standard name)
+    missing = []    # item names that could not be sourced at all
     original_idx = None
     veil_shown = False
     try:
@@ -556,7 +561,7 @@ def apply_sets(veh_cd):
         # Downgrade BEFORE the no-op check: with the standard variant already
         # mounted, the resolved plan matches the vehicle and nothing runs —
         # otherwise every selection would demount and remount it.
-        if mod_auto_equip.is_downgrade_enabled():
+        if force_downgrade or mod_auto_equip.is_downgrade_enabled():
             resolved = []
             for setup_idx, wanted in plan:
                 wanted, notes = _resolve_downgrades(vehicle, wanted, veh_cd)
@@ -569,10 +574,11 @@ def apply_sets(veh_cd):
         if all(_setup_cds(vehicle, idx) == wanted for idx, wanted in plan):
             return
         LOG.info('apply_sets: start for %s, plan=%s' % (vehicle.userName, plan))
-        veil_shown = _waiting_show()
+        if use_veil:
+            veil_shown = _waiting_show()
 
         for setup_idx, wanted in plan:
-            if _g_abort or _selection_changed(veh_cd):
+            if _g_abort or (watch_selection and _selection_changed(veh_cd)):
                 break
             vehicle = _fresh_vehicle(veh_cd)
             if vehicle is None:
@@ -596,7 +602,7 @@ def apply_sets(veh_cd):
 
             # ---- phase 1+2 per slot: clear occupants, secure availability ----
             for slot_idx in range(cap):
-                if _g_abort or _selection_changed(veh_cd):
+                if _g_abort or (watch_selection and _selection_changed(veh_cd)):
                     break
                 vehicle = _fresh_vehicle(veh_cd)
                 if vehicle is None:
@@ -650,16 +656,19 @@ def apply_sets(veh_cd):
                 if not on_vehicle and want_item.inventoryCount <= 0:
                     if not _free_demount_ok(want_item):
                         skipped.append((want_item.userName, u'Ausbau vom anderen Panzer wäre kostenpflichtig'))
+                        missing.append(want_item.userName)
                         final[slot_idx] = 0
                         continue
                     donor = _find_donor(want, veh_cd)
                     if donor is None:
                         skipped.append((want_item.userName, u'nicht im Lager und kein freier Panzer hat es'))
+                        missing.append(want_item.userName)
                         final[slot_idx] = 0
                         continue
                     d_setup, d_slot = _locate_on_vehicle(donor, want)
                     if d_slot is None:
                         skipped.append((want_item.userName, u'auf %s nicht auffindbar' % donor.userName))
+                        missing.append(want_item.userName)
                         final[slot_idx] = 0
                         continue
                     d_original = donor.optDevices.setupLayouts.layoutIndex
@@ -689,7 +698,7 @@ def apply_sets(veh_cd):
                         continue
 
             # ---- phase 3: apply the whole setup layout in one command --------
-            if _g_abort or _selection_changed(veh_cd):
+            if _g_abort or (watch_selection and _selection_changed(veh_cd)):
                 break
             vehicle = _fresh_vehicle(veh_cd)
             if vehicle is None:
@@ -707,6 +716,7 @@ def apply_sets(veh_cd):
                                     and not vehicle.optDevices.setupLayouts.containsIntCD(cd)):
                     name = item.userName if item is not None else str(cd)
                     skipped.append((name, u'nicht verfügbar — Einbau übersprungen'))
+                    missing.append(name)
                     final[i] = current[i]
             if current != final:
                 changes = sum(1 for i in range(cap) if final[i] and final[i] != current[i])
@@ -726,7 +736,7 @@ def apply_sets(veh_cd):
                 LOG.warning('could not restore active setup %s on %s' % (original_idx, veh_cd))
 
         # ---- summary ------------------------------------------------------
-        if installed_count or skipped or errors or donated:
+        if push_summary and (installed_count or skipped or errors or donated):
             lines = []
             if installed_count:
                 lines.append(u'AutoEquip: %d Teil(e) eingebaut' % installed_count)
@@ -742,7 +752,144 @@ def apply_sets(veh_cd):
         LOG.info('apply_sets: done for %s — installed=%d skipped=%d errors=%d'
                  % (veh_cd, installed_count, len(skipped), len(errors)))
     except Exception:
+        LOG.exc('_apply_one failed')
+    finally:
+        if veil_shown:
+            _waiting_hide()
+        if callback is not None:
+            callback({'installed': installed_count, 'skipped': skipped,
+                      'errors': errors, 'donated': donated,
+                      'downgraded': downgraded, 'missing': missing})
+
+
+@adisp_process
+def apply_sets(veh_cd):
+    """Single-vehicle apply (selection trigger / popover button)."""
+    global _g_busy, _g_abort
+    if _g_busy:
+        return
+    _g_busy = True
+    _g_abort = False
+    _notify_refresh()
+    try:
+        yield _apply_one(veh_cd)
+    except Exception:
         LOG.exc('apply_sets failed')
+    finally:
+        _g_busy = False
+        _g_abort = False
+        _notify_refresh()
+
+
+def _filtered_primary_vehicles():
+    """Favorite ('Primary') inventory vehicles that pass the current carousel
+    filters. The filter state is read exactly like the hangar reads it: a
+    BattlePassCarouselFilter loaded from the saved account settings. Falls back
+    to all Primary vehicles if the filter cannot be built."""
+    from gui.shared.utils.requesters import REQ_CRITERIA
+    criteria = REQ_CRITERIA.INVENTORY | REQ_CRITERIA.VEHICLE.FAVORITE
+    try:
+        # same mode gate the random-hangar carousel uses (RANDOM_MODE_CRITERIA)
+        criteria |= (~REQ_CRITERIA.VEHICLE.MODE_HIDDEN
+                     | ~REQ_CRITERIA.VEHICLE.BATTLE_ROYALE
+                     | ~REQ_CRITERIA.VEHICLE.EVENT_BATTLE
+                     | REQ_CRITERIA.VEHICLE.ACTIVE_IN_NATION_GROUP)
+    except Exception:
+        LOG.exc('mode criteria unavailable — ignoring')
+    try:
+        from gui.filters.battle_pass_carousel_filter import BattlePassCarouselFilter
+        flt = BattlePassCarouselFilter()
+        flt.load()
+        criteria |= flt.criteria
+    except Exception:
+        LOG.exc('carousel filter unavailable — using all Primary vehicles')
+    try:
+        vehicles = _items_cache().items.getVehicles(criteria)
+        return sorted(vehicles.itervalues(), key=lambda v: (-v.level, v.userName))
+    except Exception:
+        LOG.exc('_filtered_primary_vehicles failed')
+        return []
+
+
+@adisp_process
+def equip_primary_vehicles():
+    """Popover button: equip ALL filtered Primary vehicles with their saved
+    sets, trophy devices falling back to the standard variant. Posts one
+    summary message plus — on shortage — an error message listing how many of
+    which device are missing."""
+    global _g_busy, _g_abort
+    import mod_auto_equip
+    if _g_busy:
+        _push_msg(u'AutoEquip: Einbau läuft bereits', warning=True)
+        return
+    targets = _filtered_primary_vehicles()
+    if not targets:
+        _push_msg(u'AutoEquip: Keine Primärpanzer im aktuellen Karussell-Filter', warning=True)
+        return
+    with_sets = []
+    without_sets = 0
+    for veh in targets:
+        saved = mod_auto_equip.get_sets(veh.intCD)
+        if saved and (saved.get('set1') is not None or saved.get('set2') is not None):
+            with_sets.append(veh)
+        else:
+            without_sets += 1
+    if not with_sets:
+        _push_msg(u'AutoEquip: Keiner der %d Primärpanzer hat gespeicherte Sets' % len(targets), warning=True)
+        return
+    _g_busy = True
+    _g_abort = False
+    _notify_refresh()
+    veil_shown = _waiting_show()
+    processed = 0
+    total_installed = 0
+    total_donated = 0
+    all_downgraded = []
+    all_errors = []
+    missing_total = {}   # item name -> count
+    try:
+        LOG.info('equip_primary_vehicles: %d target(s): %s'
+                 % (len(with_sets), [v.userName for v in with_sets]))
+        for veh in with_sets:
+            if _g_abort:
+                break
+            res = yield _apply_one(veh.intCD, watch_selection=False,
+                                   force_downgrade=True, use_veil=False,
+                                   push_summary=False)
+            processed += 1
+            total_installed += res.get('installed', 0)
+            total_donated += len(res.get('donated', []))
+            for note in res.get('downgraded', []):
+                if note not in all_downgraded:
+                    all_downgraded.append(note)
+            for err in res.get('errors', []):
+                all_errors.append(u'%s: %s' % (veh.userName, err))
+            for name in res.get('missing', []):
+                missing_total[name] = missing_total.get(name, 0) + 1
+
+        lines = [u'AutoEquip: %d Primärpanzer verarbeitet, %d Teil(e) eingebaut'
+                 % (processed, total_installed)]
+        if total_donated:
+            lines.append(u'%d Teil(e) von anderen Panzern ausgebaut' % total_donated)
+        for pink_name, std_name in all_downgraded:
+            lines.append(u'Downgrade: %s ersetzt durch %s' % (pink_name, std_name))
+        if without_sets:
+            lines.append(u'%d Panzer ohne gespeicherte Sets übersprungen' % without_sets)
+        for err in all_errors[:8]:
+            lines.append(u'Fehler: %s' % err)
+        if len(all_errors) > 8:
+            lines.append(u'… und %d weitere Fehler (siehe Log)' % (len(all_errors) - 8))
+        _push_msg(u'<br/>'.join(lines), warning=bool(all_errors))
+
+        if missing_total:
+            miss_lines = [u'AutoEquip: Nicht genug Equipment für alle Primärpanzer!', u'Es fehlen:']
+            for name in sorted(missing_total):
+                miss_lines.append(u'%d× %s' % (missing_total[name], name))
+            _push_msg(u'<br/>'.join(miss_lines), error=True)
+        LOG.info('equip_primary_vehicles: done — processed=%d installed=%d missing=%s'
+                 % (processed, total_installed, missing_total))
+    except Exception:
+        LOG.exc('equip_primary_vehicles failed')
     finally:
         if veil_shown:
             _waiting_hide()

@@ -55,6 +55,7 @@ _UI_STRINGS = {
     'save2': u'Set 2 speichern',
     'saveBoth': u'Beide Sets speichern',
     'applyNow': u'Jetzt einbauen',
+    'equipPrimary': u'Alle Primärpanzer ausstatten',
     'notSaved': u'Noch nichts gespeichert',
     'noSetup2': u'Kein zweites Loadout verfügbar',
     'busy': u'Einbau läuft…',
@@ -218,10 +219,10 @@ def _unsubscribe_vehicle():
 # ==========================================================================
 
 class AutoEquipViewModel(ViewModel):
-    __slots__ = ('onJsLog', 'onToggleEnabled', 'onToggleDowngrade', 'onSaveSet', 'onApplyNow')
+    __slots__ = ('onJsLog', 'onToggleEnabled', 'onToggleDowngrade', 'onSaveSet', 'onApplyNow', 'onEquipPrimary')
 
     def __init__(self):
-        super(AutoEquipViewModel, self).__init__(properties=2, commands=5)
+        super(AutoEquipViewModel, self).__init__(properties=2, commands=6)
 
     def getDataJson(self):
         return self._getString(0)
@@ -244,6 +245,7 @@ class AutoEquipViewModel(ViewModel):
         self.onToggleDowngrade = self._addCommand('onToggleDowngrade')
         self.onSaveSet = self._addCommand('onSaveSet')
         self.onApplyNow = self._addCommand('onApplyNow')
+        self.onEquipPrimary = self._addCommand('onEquipPrimary')
         gf_mod_inject(self, _VIEW_ALIAS, styles=[
             'coui://gui/gameface/mods/z4imon/AutoEquipView/AutoEquipView.css'
         ], modules=[
@@ -279,6 +281,7 @@ class AutoEquipView(ViewComponent):
             (self.viewModel.onToggleDowngrade, self._onToggleDowngrade),
             (self.viewModel.onSaveSet, self._onSaveSet),
             (self.viewModel.onApplyNow, self._onApplyNow),
+            (self.viewModel.onEquipPrimary, self._onEquipPrimary),
         )
 
     def _onJsLog(self, data=None):
@@ -329,6 +332,14 @@ class AutoEquipView(ViewComponent):
             _push_data()
         except Exception:
             LOG.exc('_onApplyNow failed')
+
+    def _onEquipPrimary(self, data=None):
+        try:
+            import auto_equip_core
+            auto_equip_core.equip_primary_vehicles()
+            _push_data()
+        except Exception:
+            LOG.exc('_onEquipPrimary failed')
 
 
 # ==========================================================================

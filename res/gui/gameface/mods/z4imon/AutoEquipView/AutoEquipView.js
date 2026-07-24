@@ -175,6 +175,10 @@ const ROW_ICONS = {
         "M3 6.5 H12 V3.5 L17 8 L12 12.5 V9.5 H3 Z",
         "M17 13.5 H8 V10.5 L3 15 L8 19.5 V16.5 H17 Z",
     ],
+    // star = the "Primary" vehicle marker
+    star: [
+        "M10 1.8 L12.47 6.79 L17.98 7.59 L14 11.47 L14.94 16.96 L10 14.36 L5.06 16.96 L6 11.47 L2.02 7.59 L7.53 6.79 Z",
+    ],
 };
 
 function rowIconSvg(name) {
@@ -332,6 +336,9 @@ function buildPopover() {
     } else {
         content.appendChild(buildMenuRow(ui("applyNow", "Jetzt einbauen"), "apply", function () {
             cmd("onApplyNow");
+        }));
+        content.appendChild(buildMenuRow(ui("equipPrimary", "Alle Primärpanzer ausstatten"), "star", function () {
+            cmd("onEquipPrimary");
         }));
     }
 
