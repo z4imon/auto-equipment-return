@@ -27,6 +27,8 @@ const SEL = {
     menuWidget: '[class*="VehicleMenu_menuWidget"], [class*="VehicleMenuWidget_"]',
     // A native vehicle-menu popup (crew/vehicle/customization) while it is open.
     nativeMenu: '[class*="VehicleMenuWidget_menu_"]',
+    // The native MenuButton whose popup is currently open.
+    openedMenuButton: '[class*="MenuButton_base__opened"]',
 };
 
 const OURS_ATTR  = "data-z4ae-button";
@@ -107,6 +109,23 @@ function setButtonHover(hovered) {
     applyButtonBackground();
 }
 
+// Close any open native vehicle-menu popup by re-clicking its opened toggle
+// button — the native MenuButton onClick calls close() when already open.
+function closeNativeMenus() {
+    const opened = document.querySelectorAll(SEL.openedMenuButton);
+    for (let i = 0; i < opened.length; i++) {
+        try {
+            opened[i].dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+        } catch (e) {
+            try {
+                const ev = document.createEvent("MouseEvents");
+                ev.initEvent("click", true, true);
+                opened[i].dispatchEvent(ev);
+            } catch (e2) { warn("closeNativeMenus failed: " + e2); }
+        }
+    }
+}
+
 function injectButton() {
     const menu = document.querySelector(SEL.menuWidget);
     if (!menu) return false;
@@ -119,10 +138,13 @@ function injectButton() {
     iconWrap.appendChild(buttonIconSvg());
     btn.appendChild(iconWrap);
 
-    // Deliberately NO stopPropagation: the click must reach the app's own
-    // outside-click handling so any open native menu closes when ours opens.
-    // Our document listener below ignores clicks on the button itself.
     btn.addEventListener("click", function () {
+        // The app's outside-click handler will not close an open native menu
+        // for us: it sits on the widget container and our button lives INSIDE
+        // that container. Close native menus first, while gPopoverOpen is
+        // still false — the synthetic click bubbles through our document
+        // listener too, which must not close the popover we open right after.
+        if (!gPopoverOpen) closeNativeMenus();
         togglePopover();
     });
     btn.addEventListener("mouseenter", function () { setButtonHover(true); });
