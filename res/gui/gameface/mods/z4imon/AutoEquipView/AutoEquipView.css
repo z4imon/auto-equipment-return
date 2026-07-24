@@ -110,7 +110,14 @@
     bottom: 48rem;
     transform: translateX(-50%);
     width: 300rem;
-    z-index: 1;
+    /* Natively the popup sits BEHIND its button (in the DOM it comes before
+       the button row, and same z-index means DOM order wins) — the button's
+       own art renders on top of the popup near the notch. Ours is nested
+       INSIDE the button and would otherwise paint over it (both at z-index:
+       1); a negative value drops it below the button's own bg/icon/arrow
+       layers (they're all z-index:auto) within the button's own local
+       stacking context, without sinking below anything outside it. */
+    z-index: -1;
     border-radius: 4rem;
 }
 .z4ae-popover.z4ae-large {
