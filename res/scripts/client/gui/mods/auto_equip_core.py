@@ -464,22 +464,29 @@ def _obtainable_free(vehicle, veh_cd, item, donor_exclude=None):
 
 
 def _downgrade_item(vehicle, pink_item):
-    """The standard (regular) counterpart of a trophy device that fits the
-    vehicle, or None. Trophy and standard variants share the descriptor
-    groupName; the vehicle filter selects the class matching this vehicle.
-    Should several classes pass, the most expensive (best) one wins."""
+    """The standard (regular) counterpart of a special device that fits the
+    vehicle, or None. Special and standard variants share the descriptor
+    ARCHETYPE (e.g. both 'coatedOptics' or both 'improvedRotationMechanism') —
+    groupName looked like the right key at first (trophyBasicCoatedOptics does
+    declare a matching one) but most items leave it unset, in which case it
+    defaults to the item's own unique internal name and never matches anything
+    (this is why 'Bounty Rotation Mechanism' never found its standard sibling
+    despite plenty being in stock). archetype has no such gap; it is always
+    filled in for every tier/trophy/deluxe/modernized variant of a device.
+    The vehicle filter selects the class matching this vehicle. Should several
+    classes pass, the most expensive (best) one wins."""
     try:
         from gui.shared.gui_items import GUI_ITEM_TYPE
         from gui.shared.utils.requesters import REQ_CRITERIA
-        group = pink_item.descriptor.groupName
-        if not group:
+        archetype = pink_item.descriptor.archetype
+        if not archetype:
             return None
         best = None
         best_price = -1
         devices = _items_cache().items.getItems(GUI_ITEM_TYPE.OPTIONALDEVICE, REQ_CRITERIA.EMPTY)
         for item in devices.itervalues():
             try:
-                if not item.isRegular or item.descriptor.groupName != group:
+                if not item.isRegular or item.descriptor.archetype != archetype:
                     continue
                 ok, _ = item.descriptor.checkCompatibilityWithVehicle(vehicle.descriptor)
                 if not ok:
@@ -500,17 +507,20 @@ def _downgrade_item(vehicle, pink_item):
 
 
 def _resolve_downgrades(vehicle, layout, veh_cd, donor_exclude=None):
-    """Downgrade option: swap trophy devices that cannot be sourced for free
-    with their standard counterpart — but only when THAT one is sourceable for
-    free itself, otherwise the normal skip flow reports the trophy device.
-    Returns (new layout, [(trophy name, standard name), ...])."""
+    """Downgrade option: swap special devices (trophy/pink, bounty/modernized,
+    deluxe) that cannot be sourced for free with their standard counterpart —
+    but only when THAT one is sourceable for free itself, otherwise the normal
+    skip flow reports the special device. isRegular is the same "plain
+    standard device" check _downgrade_item uses to pick the replacement, so
+    this covers every special category symmetrically.
+    Returns (new layout, [(special name, standard name), ...])."""
     out = list(layout)
     notes = []
     for i, cd in enumerate(layout):
         if not cd:
             continue
         item = _fresh_item(cd)
-        if item is None or not getattr(item, 'isTrophy', False):
+        if item is None or getattr(item, 'isRegular', True):
             continue
         if _obtainable_free(vehicle, veh_cd, item, donor_exclude):
             continue
