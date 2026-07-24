@@ -67,25 +67,13 @@ function ui(key, fallback) { return gUi[key] || fallback; }
 // --------------------------------------------------------------------------
 const media = MediaContext();
 const SVGNS = "http://www.w3.org/2000/svg";
-const ICON_FILL = "#D2D0CD";
 
-function buttonIconSvg() {
-    // Two opposing arrows — "equipment moves back and forth".
-    const svg = document.createElementNS(SVGNS, "svg");
-    svg.setAttribute("viewBox", "0 0 20 20");
-    svg.setAttribute("width", "30");
-    svg.setAttribute("height", "30");
-    svg.setAttribute("fill", "none");
-    svg.setAttribute("class", "z4ae-btn-svg");
-    const p1 = document.createElementNS(SVGNS, "path");
-    p1.setAttribute("d", "M3 6.5 H12 V3.5 L17 8 L12 12.5 V9.5 H3 Z");
-    p1.setAttribute("fill", ICON_FILL);
-    const p2 = document.createElementNS(SVGNS, "path");
-    p2.setAttribute("d", "M17 13.5 H8 V10.5 L3 15 L8 19.5 V16.5 H17 Z");
-    p2.setAttribute("fill", ICON_FILL);
-    svg.appendChild(p1);
-    svg.appendChild(p2);
-    return svg;
+const BUTTON_ICON = "img://gui/maps/icons/z4imon/AutoEquipmentIcon.png";
+
+function buttonIconImg() {
+    const img = el("div", "z4ae-btn-img");
+    bg(img, BUTTON_ICON);
+    return img;
 }
 
 // Native button art ships in per-resolution folders; same mapping the native
@@ -135,7 +123,7 @@ function injectButton() {
     btn.setAttribute(OURS_ATTR, "1");
     btn.appendChild(el("div", "z4ae-menu-btn-bg"));
     const iconWrap = el("div", "z4ae-menu-btn-icon");
-    iconWrap.appendChild(buttonIconSvg());
+    iconWrap.appendChild(buttonIconImg());
     btn.appendChild(iconWrap);
 
     btn.addEventListener("click", function () {
