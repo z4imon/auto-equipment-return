@@ -153,7 +153,16 @@ function injectButton() {
     btn.addEventListener("mouseenter", function () { setButtonHover(true); });
     btn.addEventListener("mouseleave", function () { setButtonHover(false); });
 
-    menu.appendChild(btn);
+    // Native buttons render left-to-right as crew, vehicle, customization
+    // (each tagged data-test-id="<type>"). Slot ours in right before
+    // customization, i.e. between vehicle and customization, instead of
+    // appending it after everything.
+    const customizationBtn = menu.querySelector('[data-test-id="customization"]');
+    if (customizationBtn && customizationBtn.parentNode) {
+        customizationBtn.parentNode.insertBefore(btn, customizationBtn);
+    } else {
+        menu.appendChild(btn);
+    }
     gButton = btn;
     applyButtonBackground();
     return true;
