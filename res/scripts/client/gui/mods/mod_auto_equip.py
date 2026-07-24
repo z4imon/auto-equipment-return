@@ -13,6 +13,7 @@ from auto_equip_log import LOG
 
 CONFIG = {
     'autoEquipEnabled': True,   # global switch for the automatic install on vehicle selection
+    'downgradeEnabled': False,  # replace unavailable trophy devices with their standard variant
     'sets': {},
 }
 
@@ -44,6 +45,7 @@ def load_config():
             with open(path, 'r') as fh:
                 data = json.load(fh)
             CONFIG['autoEquipEnabled'] = bool(data.get('autoEquipEnabled', True))
+            CONFIG['downgradeEnabled'] = bool(data.get('downgradeEnabled', False))
             sets = data.get('sets', {})
             clean = {}
             if isinstance(sets, dict):
@@ -70,6 +72,7 @@ def save_config():
         with open(path, 'w') as fh:
             json.dump({
                 'autoEquipEnabled': bool(CONFIG['autoEquipEnabled']),
+                'downgradeEnabled': bool(CONFIG['downgradeEnabled']),
                 'sets': CONFIG['sets'],
             }, fh, indent=4)
     except Exception:
@@ -97,6 +100,16 @@ def set_auto_enabled(value):
     CONFIG['autoEquipEnabled'] = bool(value)
     save_config()
     return CONFIG['autoEquipEnabled']
+
+
+def is_downgrade_enabled():
+    return bool(CONFIG['downgradeEnabled']) and not _g_disabled
+
+
+def set_downgrade_enabled(value):
+    CONFIG['downgradeEnabled'] = bool(value)
+    save_config()
+    return CONFIG['downgradeEnabled']
 
 
 def get_sets(veh_cd):

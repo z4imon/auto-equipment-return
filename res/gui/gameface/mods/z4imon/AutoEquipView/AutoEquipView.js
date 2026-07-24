@@ -309,6 +309,11 @@ function buildPopover() {
     content.appendChild(buildCheckboxRow(ui("autoLabel", "Automatisch einbauen"), !!gData.enabled, function () {
         cmd("onToggleEnabled");
     }));
+    // downgrade: fall back to the standard variant when a trophy device
+    // cannot be sourced for free
+    content.appendChild(buildCheckboxRow(ui("downgradeLabel", "Enable Downgrade"), !!gData.downgrade, function () {
+        cmd("onToggleDowngrade");
+    }));
 
     // actions as menu rows
     content.appendChild(buildMenuRow(ui("save1", "Set 1 speichern"), "save", function () {

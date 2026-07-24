@@ -48,6 +48,7 @@ _PLUS_CHECK_MAX_ATTEMPTS = 10
 _UI_STRINGS = {
     'title': u'Equipment-Sets',
     'autoLabel': u'Automatisch einbauen',
+    'downgradeLabel': u'Enable Downgrade',
     'set1': u'Set 1',
     'set2': u'Set 2',
     'save1': u'Set 1 speichern',
@@ -139,6 +140,7 @@ def _build_data():
         'vehicleName': u'',
         'vehicleCD': 0,
         'enabled': mod_auto_equip.is_auto_enabled(),
+        'downgrade': mod_auto_equip.is_downgrade_enabled(),
         'hasSetup2': False,
         'saved1': None,
         'saved2': None,
@@ -216,10 +218,10 @@ def _unsubscribe_vehicle():
 # ==========================================================================
 
 class AutoEquipViewModel(ViewModel):
-    __slots__ = ('onJsLog', 'onToggleEnabled', 'onSaveSet', 'onApplyNow')
+    __slots__ = ('onJsLog', 'onToggleEnabled', 'onToggleDowngrade', 'onSaveSet', 'onApplyNow')
 
     def __init__(self):
-        super(AutoEquipViewModel, self).__init__(properties=2, commands=4)
+        super(AutoEquipViewModel, self).__init__(properties=2, commands=5)
 
     def getDataJson(self):
         return self._getString(0)
@@ -239,6 +241,7 @@ class AutoEquipViewModel(ViewModel):
         self._addStringProperty('uiJson', '{}')
         self.onJsLog = self._addCommand('onJsLog')
         self.onToggleEnabled = self._addCommand('onToggleEnabled')
+        self.onToggleDowngrade = self._addCommand('onToggleDowngrade')
         self.onSaveSet = self._addCommand('onSaveSet')
         self.onApplyNow = self._addCommand('onApplyNow')
         gf_mod_inject(self, _VIEW_ALIAS, styles=[
@@ -273,6 +276,7 @@ class AutoEquipView(ViewComponent):
         return (
             (self.viewModel.onJsLog, self._onJsLog),
             (self.viewModel.onToggleEnabled, self._onToggleEnabled),
+            (self.viewModel.onToggleDowngrade, self._onToggleDowngrade),
             (self.viewModel.onSaveSet, self._onSaveSet),
             (self.viewModel.onApplyNow, self._onApplyNow),
         )
@@ -299,6 +303,14 @@ class AutoEquipView(ViewComponent):
             _push_data()
         except Exception:
             LOG.exc('_onToggleEnabled failed')
+
+    def _onToggleDowngrade(self, data=None):
+        try:
+            import mod_auto_equip
+            mod_auto_equip.set_downgrade_enabled(not mod_auto_equip.is_downgrade_enabled())
+            _push_data()
+        except Exception:
+            LOG.exc('_onToggleDowngrade failed')
 
     def _onSaveSet(self, data=None):
         try:

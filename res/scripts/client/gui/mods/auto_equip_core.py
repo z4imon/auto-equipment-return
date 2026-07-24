@@ -438,6 +438,83 @@ def _locate_on_vehicle(vehicle, want_cd):
     return None, None
 
 
+def _obtainable_free(vehicle, veh_cd, item):
+    """True if the device can be sourced without spending anything: already on
+    this vehicle, in the depot, or free-demountable from a donor vehicle."""
+    try:
+        if vehicle.optDevices.setupLayouts.containsIntCD(item.intCD):
+            return True
+        if item.inventoryCount > 0:
+            return True
+        if not _free_demount_ok(item):
+            return False
+        return _find_donor(item.intCD, veh_cd) is not None
+    except Exception:
+        LOG.exc('_obtainable_free failed')
+        return False
+
+
+def _downgrade_item(vehicle, pink_item):
+    """The standard (regular) counterpart of a trophy device that fits the
+    vehicle, or None. Trophy and standard variants share the descriptor
+    groupName; the vehicle filter selects the class matching this vehicle.
+    Should several classes pass, the most expensive (best) one wins."""
+    try:
+        from gui.shared.gui_items import GUI_ITEM_TYPE
+        from gui.shared.utils.requesters import REQ_CRITERIA
+        group = pink_item.descriptor.groupName
+        if not group:
+            return None
+        best = None
+        best_price = -1
+        devices = _items_cache().items.getItems(GUI_ITEM_TYPE.OPTIONALDEVICE, REQ_CRITERIA.EMPTY)
+        for item in devices.itervalues():
+            try:
+                if not item.isRegular or item.descriptor.groupName != group:
+                    continue
+                ok, _ = item.descriptor.checkCompatibilityWithVehicle(vehicle.descriptor)
+                if not ok:
+                    continue
+                price = 0
+                try:
+                    price = int(item.buyPrices.itemPrice.price.credits or 0)
+                except Exception:
+                    pass
+            except Exception:
+                continue
+            if price > best_price:
+                best, best_price = item, price
+        return best
+    except Exception:
+        LOG.exc('_downgrade_item failed')
+        return None
+
+
+def _resolve_downgrades(vehicle, layout, veh_cd):
+    """Downgrade option: swap trophy devices that cannot be sourced for free
+    with their standard counterpart — but only when THAT one is sourceable for
+    free itself, otherwise the normal skip flow reports the trophy device.
+    Returns (new layout, [(trophy name, standard name), ...])."""
+    out = list(layout)
+    notes = []
+    for i, cd in enumerate(layout):
+        if not cd:
+            continue
+        item = _fresh_item(cd)
+        if item is None or not getattr(item, 'isTrophy', False):
+            continue
+        if _obtainable_free(vehicle, veh_cd, item):
+            continue
+        alt = _downgrade_item(vehicle, item)
+        if alt is None or alt.intCD in out:
+            continue
+        if not _obtainable_free(vehicle, veh_cd, alt):
+            continue
+        out[i] = alt.intCD
+        notes.append((item.userName, alt.userName))
+    return out, notes
+
+
 @adisp_process
 def apply_sets(veh_cd):
     """Restore both saved sets onto the vehicle. All server operations run
@@ -453,6 +530,7 @@ def apply_sets(veh_cd):
     skipped = []    # (item name, reason)
     errors = []
     donated = []    # (item name, donor vehicle name)
+    downgraded = []  # (trophy name, standard name)
     original_idx = None
     veil_shown = False
     try:
@@ -475,6 +553,18 @@ def apply_sets(veh_cd):
             plan.append((1, _norm_layout(saved['set2'], cap)))
         if not plan:
             return
+        # Downgrade BEFORE the no-op check: with the standard variant already
+        # mounted, the resolved plan matches the vehicle and nothing runs —
+        # otherwise every selection would demount and remount it.
+        if mod_auto_equip.is_downgrade_enabled():
+            resolved = []
+            for setup_idx, wanted in plan:
+                wanted, notes = _resolve_downgrades(vehicle, wanted, veh_cd)
+                for note in notes:
+                    if note not in downgraded:
+                        downgraded.append(note)
+                resolved.append((setup_idx, wanted))
+            plan = resolved
         # Nothing to do → no veil flicker on every vehicle selection.
         if all(_setup_cds(vehicle, idx) == wanted for idx, wanted in plan):
             return
@@ -640,6 +730,8 @@ def apply_sets(veh_cd):
             lines = []
             if installed_count:
                 lines.append(u'AutoEquip: %d Teil(e) eingebaut' % installed_count)
+            for pink_name, std_name in downgraded:
+                lines.append(u'Downgrade: %s ersetzt durch %s' % (pink_name, std_name))
             for name, donor_name in donated:
                 lines.append(u'%s ausgebaut von %s' % (name, donor_name))
             for name, reason in skipped:
