@@ -45,27 +45,27 @@
     width: 120rem;
     height: 120rem;
 }
+/* same geometry as the Tank-Stats button icon (.z4ts-menu-btn-icon) */
 .z4ae-menu-btn-icon {
+    width: 56rem;
+    height: 56rem;
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     pointer-events: none;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-.z4ae-btn-img {
-    width: 30rem;
-    height: 30rem;
     background-repeat: no-repeat;
     background-size: contain;
     background-position-x: 50%;
     background-position-y: 50%;
 }
-.mediaLarge .z4ae-btn-img {
-    width: 34rem;
-    height: 34rem;
+.media-upscale .z4ae-menu-btn-icon {
+    width: 44rem;
+    height: 44rem;
+}
+.mediaLarge .z4ae-menu-btn-icon {
+    width: 64rem;
+    height: 64rem;
 }
 
 /* --- popover ------------------------------------------------------------

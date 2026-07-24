@@ -70,12 +70,6 @@ const SVGNS = "http://www.w3.org/2000/svg";
 
 const BUTTON_ICON = "img://gui/maps/icons/z4imon/AutoEquipmentIcon.png";
 
-function buttonIconImg() {
-    const img = el("div", "z4ae-btn-img");
-    bg(img, BUTTON_ICON);
-    return img;
-}
-
 // Native button art ships in per-resolution folders; same mapping the native
 // MenuButton (and the Tank-Stats button) uses.
 function btnSize() {
@@ -122,8 +116,10 @@ function injectButton() {
     const btn = el("div", "z4ae-menu-btn");
     btn.setAttribute(OURS_ATTR, "1");
     btn.appendChild(el("div", "z4ae-menu-btn-bg"));
+    // like the Tank-Stats button: the icon div IS the full button area,
+    // the image drawn on it directly (56rem, media-scaled via CSS)
     const iconWrap = el("div", "z4ae-menu-btn-icon");
-    iconWrap.appendChild(buttonIconImg());
+    bg(iconWrap, BUTTON_ICON);
     btn.appendChild(iconWrap);
 
     btn.addEventListener("click", function () {
