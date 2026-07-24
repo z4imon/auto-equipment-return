@@ -24,7 +24,7 @@ _OPT_GROUP = TankSetupGroupsId.OPTIONAL_DEVICES_AND_BOOSTERS
 # again (the equip callbacks can fire before the resync is fully applied).
 # Stale reads here are safe-direction only: the server state is authoritative,
 # worst case is a skipped install with a message — never a purchase.
-_OP_PAUSE = 0.1
+_OP_PAUSE = 0.01
 
 _g_busy = False
 _g_abort = False
@@ -130,6 +130,48 @@ def snapshot_sets(vehicle):
     set1 = _setup_cds(vehicle, 0)
     set2 = _setup_cds(vehicle, 1) if has_second_setup(vehicle) else None
     return {'set1': set1, 'set2': set2}
+
+
+_g_overview_logged = False
+
+
+def log_equipment_overview():
+    """Logs every owned optional device: name, intCD, depot count and on how
+    many vehicles it is mounted. A device sitting in both setups of one vehicle
+    is one physical item, so it counts once per vehicle. Runs once per session."""
+    global _g_overview_logged
+    if _g_overview_logged:
+        return
+    try:
+        from gui.shared.gui_items import GUI_ITEM_TYPE
+        from gui.shared.utils.requesters import REQ_CRITERIA
+        mounted = {}
+        vehicles = _items_cache().items.getVehicles(REQ_CRITERIA.INVENTORY)
+        for veh in vehicles.itervalues():
+            cds = set()
+            try:
+                for setup_idx in _setup_indices(veh):
+                    cds.update(cd for cd in _setup_cds(veh, setup_idx) if cd)
+            except Exception:
+                continue
+            for cd in cds:
+                mounted[cd] = mounted.get(cd, 0) + 1
+        devices = _items_cache().items.getItems(GUI_ITEM_TYPE.OPTIONALDEVICE, REQ_CRITERIA.EMPTY)
+        rows = []
+        for cd, item in devices.iteritems():
+            depot = item.inventoryCount
+            on_veh = mounted.get(int(cd), 0)
+            if depot <= 0 and on_veh <= 0:
+                continue
+            rows.append((item.userName, int(cd), depot, on_veh))
+        rows.sort()
+        _g_overview_logged = True
+        LOG.info('equipment overview: %d owned optional devices' % len(rows))
+        for name, cd, depot, on_veh in rows:
+            LOG.info((u'  %s | cd=%d | Lager=%d | montiert auf %d Fahrzeug(en)'
+                      % (name, cd, depot, on_veh)).encode('utf-8'))
+    except Exception:
+        LOG.exc('log_equipment_overview failed')
 
 
 def _push_msg(text, warning=False):
@@ -410,6 +452,7 @@ def apply_sets(veh_cd):
     installed_count = 0
     skipped = []    # (item name, reason)
     errors = []
+    donated = []    # (item name, donor vehicle name)
     original_idx = None
     veil_shown = False
     try:
@@ -541,7 +584,9 @@ def apply_sets(veh_cd):
                     code, ext = yield _equip_opt_device(
                         donor.invID, 0, d_slot, True, not want_item.isRemovable)
                     demount_ok = _op_success(code)
-                    if not demount_ok:
+                    if demount_ok:
+                        donated.append((want_item.userName, donor.userName))
+                    else:
                         errors.append(u'%s: Ausbau von %s fehlgeschlagen (Code %s, %s)' % (want_item.userName, donor.userName, code, ext))
                     yield _pause(_OP_PAUSE)
                     if d_setup != d_original:
@@ -591,10 +636,12 @@ def apply_sets(veh_cd):
                 LOG.warning('could not restore active setup %s on %s' % (original_idx, veh_cd))
 
         # ---- summary ------------------------------------------------------
-        if installed_count or skipped or errors:
+        if installed_count or skipped or errors or donated:
             lines = []
             if installed_count:
                 lines.append(u'AutoEquip: %d Teil(e) eingebaut' % installed_count)
+            for name, donor_name in donated:
+                lines.append(u'%s ausgebaut von %s' % (name, donor_name))
             for name, reason in skipped:
                 lines.append(u'Übersprungen: %s — %s' % (name, reason))
             for err in errors:

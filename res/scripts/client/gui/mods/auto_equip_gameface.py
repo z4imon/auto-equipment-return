@@ -90,6 +90,20 @@ def _icon_name(item):
         return ''
 
 
+def _overlay_name(item):
+    """Overlay art name for trophy/deluxe devices ('' = none).
+
+    Same source as the native slots: getOverlayType() yields e.g.
+    'equipmentTrophyBasic' for pink devices, '' for regular ones; the art is
+    gui/maps/icons/artefact/<type>_overlay.png.
+    """
+    try:
+        overlay_type = item.getOverlayType()
+        return ('%s_overlay' % overlay_type) if overlay_type else ''
+    except Exception:
+        return ''
+
+
 def _set_payload(cds):
     """One saved set list -> JS payload (None stays None = not saved)."""
     if cds is None:
@@ -104,9 +118,10 @@ def _set_payload(cds):
             continue
         try:
             item = items.getItemByCD(int(cd))
-            out.append({'cd': int(cd), 'icon': _icon_name(item), 'name': item.userName})
+            out.append({'cd': int(cd), 'icon': _icon_name(item),
+                        'overlay': _overlay_name(item), 'name': item.userName})
         except Exception:
-            out.append({'cd': int(cd), 'icon': '', 'name': '?'})
+            out.append({'cd': int(cd), 'icon': '', 'overlay': '', 'name': '?'})
     return out
 
 
@@ -329,6 +344,7 @@ def _check_wot_plus(attempt):
         if auto_equip_core.has_wot_plus():
             _g_plus_state = True
             LOG.info('WoT Plus subscription found — mod active')
+            auto_equip_core.log_equipment_overview()
             if _g_hangar_view is not None:
                 _subscribe_vehicle()
                 _do_inject(_g_hangar_view)

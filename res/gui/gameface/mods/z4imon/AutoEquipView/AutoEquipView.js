@@ -179,6 +179,15 @@ function buildSlotRow(slots) {
         if (slot && slot.icon) {
             const s = el("div", "z4ae-slot");
             bg(s, DEVICE_ICON(slot.icon));
+            if (slot.overlay) {
+                // Trophy/deluxe marker, layered like the native Bonus part:
+                // clipped corner box with the oversized overlay art inside.
+                const clip = el("div", "z4ae-slot-overlay-clip");
+                const ov = el("div", "z4ae-slot-overlay");
+                bg(ov, DEVICE_ICON(slot.overlay));
+                clip.appendChild(ov);
+                s.appendChild(clip);
+            }
             row.appendChild(s);
         } else {
             row.appendChild(el("div", "z4ae-slot z4ae-slot-empty"));

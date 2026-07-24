@@ -306,11 +306,33 @@
     flex-direction: row;
 }
 .z4ae-slot {
+    position: relative;
     width: 40rem;
     height: 40rem;
     margin-right: 6rem;
     border: 1rem solid rgba(238, 237, 233, 0.12);
     background-color: rgba(238, 237, 233, 0.04);
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position-x: 50%;
+    background-position-y: 50%;
+}
+/* Trophy/deluxe corner marker — native Bonus part at half scale (their
+   80rem slot: clip 54rem, art 96rem at -23/-19; our slot is 40rem). */
+.z4ae-slot-overlay-clip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 27rem;
+    height: 27rem;
+    overflow: hidden;
+}
+.z4ae-slot-overlay {
+    position: absolute;
+    top: -12rem;
+    left: -10rem;
+    width: 48rem;
+    height: 48rem;
     background-repeat: no-repeat;
     background-size: contain;
     background-position-x: 50%;
