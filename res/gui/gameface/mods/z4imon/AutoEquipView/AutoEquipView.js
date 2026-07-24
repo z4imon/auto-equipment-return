@@ -83,6 +83,24 @@ function applyButtonBackground() {
     // Same art states as the native MenuButton: opened > hover > enabled.
     const postfix = gPopoverOpen ? "_opened" : gBtnHovered ? "_hover" : "";
     bg(bgEl, "img://gui/maps/icons/hangar/vehicleMenu/" + btnSize() + "/btn_enabled" + postfix + ".png");
+    applyButtonArrow();
+}
+
+// Small chevron the native MenuButton shows above every expandable button
+// (crew/vehicle/customization) — the "click to open" affordance. Hidden once
+// the popover is open, exactly like the native one hides it once its menu
+// is open (arrow_enabled is the only state our button ever needs; the
+// warning/critical variants exist for native menu items only).
+function applyButtonArrow() {
+    if (!gButton) return;
+    const arrowEl = gButton.querySelector(".z4ae-menu-btn-arrow");
+    if (!arrowEl) return;
+    if (gPopoverOpen) {
+        arrowEl.style.display = "none";
+        return;
+    }
+    arrowEl.style.display = "";
+    bg(arrowEl, "img://gui/maps/icons/hangar/vehicleMenu/" + btnSize() + "/arrow_enabled.png");
 }
 
 function setButtonHover(hovered) {
@@ -121,6 +139,7 @@ function injectButton() {
     const iconWrap = el("div", "z4ae-menu-btn-icon");
     bg(iconWrap, BUTTON_ICON);
     btn.appendChild(iconWrap);
+    btn.appendChild(el("div", "z4ae-menu-btn-arrow"));
 
     btn.addEventListener("click", function () {
         // The app's outside-click handler will not close an open native menu

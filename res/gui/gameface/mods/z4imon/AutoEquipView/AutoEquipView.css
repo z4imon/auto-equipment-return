@@ -67,6 +67,25 @@
     width: 64rem;
     height: 64rem;
 }
+/* native MenuButton_arrow — the small chevron every expandable vehicle-menu
+   button shows above itself as a "click to open" hint. JS hides it while our
+   popover is open, matching the native buttons' own behavior. */
+.z4ae-menu-btn-arrow {
+    width: 24rem;
+    height: 24rem;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-12rem, -5rem);
+    pointer-events: none;
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position-x: 50%;
+    background-position-y: 50%;
+}
+.mediaLarge .z4ae-menu-btn-arrow {
+    transform: translate(-12rem, -8rem);
+}
 
 /* --- popover ------------------------------------------------------------
    Direct copy of the native vehicle-menu popup (MenuList/MenuItem rules from
