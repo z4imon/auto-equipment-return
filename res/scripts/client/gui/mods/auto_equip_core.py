@@ -577,6 +577,21 @@ def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
         if use_veil:
             veil_shown = _waiting_show()
 
+        # Local depot-availability ledger for this run, immune to items-cache
+        # resync lag: seeded once per cd from a fresh read, then updated by our
+        # OWN successful demounts/installs. A cache re-read after a demount we
+        # just performed (own vehicle or donor) can still show the OLD count —
+        # the server ack landed, but the resync push hasn't caught up yet —
+        # which previously made the money-guard below discard a perfectly
+        # successful donor demount as "not available".
+        avail = {}
+
+        def _avail(cd):
+            if cd not in avail:
+                it = _fresh_item(cd)
+                avail[cd] = it.inventoryCount if it is not None else 0
+            return avail[cd]
+
         for setup_idx, wanted in plan:
             if _g_abort or (watch_selection and _selection_changed(veh_cd)):
                 break
@@ -640,6 +655,8 @@ def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
                         errors.append(u'%s: Ausbau fehlgeschlagen (Code %s, %s)' % (cur_item.userName, code, ext))
                         final[slot_idx] = cur
                         continue
+                    if not in_other:
+                        avail[cur] = _avail(cur) + 1   # freed to depot
                     yield _pause(_OP_PAUSE)
 
                 if not want:
@@ -653,7 +670,7 @@ def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
                     continue
                 vehicle = _fresh_vehicle(veh_cd)
                 on_vehicle = vehicle.optDevices.setupLayouts.containsIntCD(want)
-                if not on_vehicle and want_item.inventoryCount <= 0:
+                if not on_vehicle and _avail(want) <= 0:
                     if not _free_demount_ok(want_item):
                         skipped.append((want_item.userName, u'Ausbau vom anderen Panzer wäre kostenpflichtig'))
                         missing.append(want_item.userName)
@@ -685,6 +702,7 @@ def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
                     demount_ok = _op_success(code)
                     if demount_ok:
                         donated.append((want_item.userName, donor.userName))
+                        avail[want] = _avail(want) + 1   # freed to depot
                     else:
                         errors.append(u'%s: Ausbau von %s fehlgeschlagen (Code %s, %s)' % (want_item.userName, donor.userName, code, ext))
                     yield _pause(_OP_PAUSE)
@@ -712,12 +730,14 @@ def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
                 if not cd or cd == current[i]:
                     continue
                 item = _fresh_item(cd)
-                if item is None or (item.inventoryCount <= 0
-                                    and not vehicle.optDevices.setupLayouts.containsIntCD(cd)):
+                on_veh = vehicle.optDevices.setupLayouts.containsIntCD(cd)
+                if item is None or (_avail(cd) <= 0 and not on_veh):
                     name = item.userName if item is not None else str(cd)
                     skipped.append((name, u'nicht verfügbar — Einbau übersprungen'))
                     missing.append(name)
                     final[i] = current[i]
+                elif not on_veh:
+                    avail[cd] = _avail(cd) - 1   # consumed by this install
             if current != final:
                 changes = sum(1 for i in range(cap) if final[i] and final[i] != current[i])
                 code, err_str = yield _equip_opt_devs_sequence(vehicle.invID, final)
