@@ -44,22 +44,12 @@ _g_vehicle_sub = False
 _g_plus_state = None         # None = not checked yet, True = has WoT Plus, False = no sub
 _PLUS_CHECK_MAX_ATTEMPTS = 10
 
-# German UI strings for the popover (pushed via uiJson).
-_UI_STRINGS = {
-    'title': u'Equipment-Sets',
-    'autoLabel': u'Automatisch einbauen',
-    'downgradeLabel': u'Enable Downgrade',
-    'set1': u'Set 1',
-    'set2': u'Set 2',
-    'save1': u'Set 1 speichern',
-    'save2': u'Set 2 speichern',
-    'saveBoth': u'Beide Sets speichern',
-    'applyNow': u'Jetzt einbauen',
-    'equipPrimary': u'Alle Primärpanzer ausstatten',
-    'notSaved': u'Noch nichts gespeichert',
-    'noSetup2': u'Kein zweites Loadout verfügbar',
-    'busy': u'Einbau läuft…',
-}
+def _ui_strings():
+    """Popover UI text for the current client language (uiJson payload).
+    Fetched fresh — not cached at import time — so it always reflects
+    whatever auto_equip_i18n.init() loaded during mod init."""
+    import auto_equip_i18n
+    return auto_equip_i18n.ui_strings()
 
 
 # ==========================================================================
@@ -269,7 +259,7 @@ class AutoEquipView(ViewComponent):
     def _onLoading(self, *args, **kwargs):
         super(AutoEquipView, self)._onLoading()
         try:
-            self.viewModel.setUiJson(json.dumps(_UI_STRINGS))
+            self.viewModel.setUiJson(json.dumps(_ui_strings()))
             self.viewModel.setDataJson(json.dumps(_build_data()))
         except Exception:
             LOG.exc('AutoEquipView._onLoading failed')
@@ -384,9 +374,10 @@ def _check_wot_plus(attempt):
             _g_plus_state = False
             LOG.warning('no WoT Plus subscription — shutting the mod down')
             try:
+                import auto_equip_i18n
                 from gui import SystemMessages
                 SystemMessages.pushMessage(
-                    u'Auto Equipment Return ist deaktiviert: Kein aktives WoT-Plus-Abonnement gefunden.',
+                    auto_equip_i18n.t('noSubscription'),
                     type=SystemMessages.SM_TYPE.Warning)
             except Exception:
                 LOG.exc('could not push no-subscription message')

@@ -137,6 +137,8 @@ def init():
     try:
         if os.name == 'nt':
             load_config()
+        import auto_equip_i18n
+        auto_equip_i18n.init()
         import auto_equip_gameface
         auto_equip_gameface.init()
         LOG.info('mod_auto_equip.init() finished OK')
