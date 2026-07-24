@@ -407,14 +407,18 @@ def _selection_changed(veh_cd):
         return True
 
 
-def _find_donor(want_cd, exclude_cd):
+def _find_donor(want_cd, exclude_cd, donor_exclude=None):
     """First unlocked inventory vehicle (not in battle/queue/prebattle) that has
-    the device in any of its setups."""
+    the device in any of its setups. donor_exclude additionally rules out a
+    whole set of vehicles — used in the batch run so Primary vehicles never
+    cannibalize each other's just-installed equipment."""
     try:
         from gui.shared.utils.requesters import REQ_CRITERIA
         vehicles = _items_cache().items.getVehicles(REQ_CRITERIA.INVENTORY)
         for veh in vehicles.itervalues():
             if veh.intCD == exclude_cd:
+                continue
+            if donor_exclude and veh.intCD in donor_exclude:
                 continue
             try:
                 if not veh.optDevices.setupLayouts.containsIntCD(want_cd):
@@ -443,7 +447,7 @@ def _locate_on_vehicle(vehicle, want_cd):
     return None, None
 
 
-def _obtainable_free(vehicle, veh_cd, item):
+def _obtainable_free(vehicle, veh_cd, item, donor_exclude=None):
     """True if the device can be sourced without spending anything: already on
     this vehicle, in the depot, or free-demountable from a donor vehicle."""
     try:
@@ -453,7 +457,7 @@ def _obtainable_free(vehicle, veh_cd, item):
             return True
         if not _free_demount_ok(item):
             return False
-        return _find_donor(item.intCD, veh_cd) is not None
+        return _find_donor(item.intCD, veh_cd, donor_exclude) is not None
     except Exception:
         LOG.exc('_obtainable_free failed')
         return False
@@ -495,7 +499,7 @@ def _downgrade_item(vehicle, pink_item):
         return None
 
 
-def _resolve_downgrades(vehicle, layout, veh_cd):
+def _resolve_downgrades(vehicle, layout, veh_cd, donor_exclude=None):
     """Downgrade option: swap trophy devices that cannot be sourced for free
     with their standard counterpart — but only when THAT one is sourceable for
     free itself, otherwise the normal skip flow reports the trophy device.
@@ -508,12 +512,12 @@ def _resolve_downgrades(vehicle, layout, veh_cd):
         item = _fresh_item(cd)
         if item is None or not getattr(item, 'isTrophy', False):
             continue
-        if _obtainable_free(vehicle, veh_cd, item):
+        if _obtainable_free(vehicle, veh_cd, item, donor_exclude):
             continue
         alt = _downgrade_item(vehicle, item)
         if alt is None or alt.intCD in out:
             continue
-        if not _obtainable_free(vehicle, veh_cd, alt):
+        if not _obtainable_free(vehicle, veh_cd, alt, donor_exclude):
             continue
         out[i] = alt.intCD
         notes.append((item.userName, alt.userName))
@@ -523,7 +527,7 @@ def _resolve_downgrades(vehicle, layout, veh_cd):
 @adisp_async
 @adisp_process
 def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
-               use_veil=True, push_summary=True, callback=None):
+               use_veil=True, push_summary=True, donor_exclude=None, callback=None):
     """Restore both saved sets onto one vehicle. All server operations run
     sequentially; every failure is recorded and the run continues with the next
     slot. Never spends money (see module docstring). Busy-state handling lives
@@ -564,7 +568,7 @@ def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
         if force_downgrade or mod_auto_equip.is_downgrade_enabled():
             resolved = []
             for setup_idx, wanted in plan:
-                wanted, notes = _resolve_downgrades(vehicle, wanted, veh_cd)
+                wanted, notes = _resolve_downgrades(vehicle, wanted, veh_cd, donor_exclude)
                 for note in notes:
                     if note not in downgraded:
                         downgraded.append(note)
@@ -676,7 +680,7 @@ def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
                         missing.append(want_item.userName)
                         final[slot_idx] = 0
                         continue
-                    donor = _find_donor(want, veh_cd)
+                    donor = _find_donor(want, veh_cd, donor_exclude)
                     if donor is None:
                         skipped.append((want_item.userName, u'nicht im Lager und kein freier Panzer hat es'))
                         missing.append(want_item.userName)
@@ -857,6 +861,12 @@ def equip_primary_vehicles():
     if not with_sets:
         _push_msg(u'AutoEquip: Keiner der %d Primärpanzer hat gespeicherte Sets' % len(targets), warning=True)
         return
+    # Primary vehicles in this batch must never donate to each other — without
+    # this, vehicle B (processed after A) would happily demount the very
+    # device A just received, ping-ponging equipment instead of ending with
+    # every Primary equipped. Only vehicles OUTSIDE this batch stay eligible
+    # as donors.
+    batch_cds = set(v.intCD for v in with_sets)
     _g_busy = True
     _g_abort = False
     _notify_refresh()
@@ -875,7 +885,7 @@ def equip_primary_vehicles():
                 break
             res = yield _apply_one(veh.intCD, watch_selection=False,
                                    force_downgrade=True, use_veil=False,
-                                   push_summary=False)
+                                   push_summary=False, donor_exclude=batch_cds)
             processed += 1
             total_installed += res.get('installed', 0)
             total_donated += len(res.get('donated', []))
