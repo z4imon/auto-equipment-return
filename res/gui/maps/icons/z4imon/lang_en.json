@@ -50,5 +50,7 @@
     "batchMissingListHeader": "Missing:",
     "batchMissingLine": "%(count)d× %(name)s",
 
-    "noSubscription": "Auto Equipment Return is disabled: no active WoT Plus subscription found."
+    "noSubscription": "Auto Equipment Return is disabled: no active WoT Plus subscription found.",
+
+    "autoDisabledAfterBatch": "AutoEquip: Auto-install has been turned off so browsing other vehicles doesn't accidentally shuffle equipment around. Re-enable it any time via the toggle in the menu."
 }

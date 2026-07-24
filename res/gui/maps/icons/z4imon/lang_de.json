@@ -50,5 +50,7 @@
     "batchMissingListHeader": "Es fehlen:",
     "batchMissingLine": "%(count)d× %(name)s",
 
-    "noSubscription": "Auto Equipment Return ist deaktiviert: Kein aktives WoT-Plus-Abonnement gefunden."
+    "noSubscription": "Auto Equipment Return ist deaktiviert: Kein aktives WoT-Plus-Abonnement gefunden.",
+
+    "autoDisabledAfterBatch": "AutoEquip: Automatisches Einbauen wurde deaktiviert, damit beim Ansehen anderer Fahrzeuge nicht versehentlich Equipment hin- und hergetauscht wird. Über den Schalter im Menü wieder aktivierbar."
 }

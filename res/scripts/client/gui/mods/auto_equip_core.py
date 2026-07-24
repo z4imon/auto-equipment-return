@@ -175,7 +175,7 @@ def log_equipment_overview():
         LOG.exc('log_equipment_overview failed')
 
 
-def _push_msg(text, warning=False, error=False):
+def _push_msg(text, warning=False, error=False, priority=None):
     try:
         from gui import SystemMessages
         if error:
@@ -184,7 +184,7 @@ def _push_msg(text, warning=False, error=False):
             sm_type = SystemMessages.SM_TYPE.Warning
         else:
             sm_type = SystemMessages.SM_TYPE.Information
-        SystemMessages.pushMessage(text, type=sm_type)
+        SystemMessages.pushMessage(text, type=sm_type, priority=priority)
     except Exception:
         LOG.exc('_push_msg failed')
 
@@ -926,6 +926,18 @@ def equip_primary_vehicles():
             for name in sorted(missing_total):
                 miss_lines.append(t('batchMissingLine', count=missing_total[name], name=name))
             _push_msg(u'<br/>'.join(miss_lines), error=True)
+
+        # Auto-install would otherwise re-shuffle equipment the moment the
+        # player browses through the OTHER vehicles right after this batch —
+        # each selection re-triggers apply_sets, which can pull a device back
+        # off a Primary vehicle for the one just selected. Turning it off
+        # protects the freshly-equipped fleet; only announce it when it
+        # actually changed something.
+        if mod_auto_equip.is_auto_enabled():
+            mod_auto_equip.set_auto_enabled(False)
+            from gui.shared.notifications import NotificationPriorityLevel
+            _push_msg(t('autoDisabledAfterBatch'), warning=True, priority=NotificationPriorityLevel.HIGH)
+
         LOG.info('equip_primary_vehicles: done — processed=%d installed=%d missing=%s'
                  % (processed, total_installed, missing_total))
     except Exception:
