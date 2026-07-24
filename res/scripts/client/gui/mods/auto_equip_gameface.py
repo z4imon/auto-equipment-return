@@ -93,15 +93,22 @@ def _icon_name(item):
 def _overlay_name(item):
     """Overlay art name for trophy/deluxe devices ('' = none).
 
-    Same source as the native slots: getOverlayType() yields e.g.
-    'equipmentTrophyBasic' for pink devices, '' for regular ones; the art is
-    gui/maps/icons/artefact/<type>_overlay.png.
+    Same art set the native hangar loadout panel uses
+    (gui/maps/icons/components/loadout_item/overlays/<size>/<name>.png); it is
+    drawn at 100% of the icon, so it scales with it.
     """
     try:
-        overlay_type = item.getOverlayType()
-        return ('%s_overlay' % overlay_type) if overlay_type else ''
+        if item.isDeluxe:
+            return 'improved'
+        if item.isModernized:
+            return 'experimental_%d_level' % item.level
+        if item.isUpgradable:
+            return 'trophy_1_level'
+        if item.isUpgraded:
+            return 'trophy_2_level'
     except Exception:
-        return ''
+        pass
+    return ''
 
 
 def _set_payload(cds):

@@ -33,6 +33,9 @@ const OURS_ATTR  = "data-z4ae-button";
 const POPOVER_ID = "z4ae-popover";
 
 const DEVICE_ICON = (name) => "img://gui/maps/icons/artefact/" + name + ".png";
+// Trophy/deluxe marker art, stretched over the icon at 100% like the native
+// hangar loadout slots do (s48x48 = the set used for small slot sizes).
+const OVERLAY_ICON = (name) => "img://gui/maps/icons/components/loadout_item/overlays/s48x48/" + name + ".png";
 
 let gButton = null;
 let gBtnHovered = false;
@@ -180,13 +183,9 @@ function buildSlotRow(slots) {
             const s = el("div", "z4ae-slot");
             bg(s, DEVICE_ICON(slot.icon));
             if (slot.overlay) {
-                // Trophy/deluxe marker, layered like the native Bonus part:
-                // clipped corner box with the oversized overlay art inside.
-                const clip = el("div", "z4ae-slot-overlay-clip");
                 const ov = el("div", "z4ae-slot-overlay");
-                bg(ov, DEVICE_ICON(slot.overlay));
-                clip.appendChild(ov);
-                s.appendChild(clip);
+                bg(ov, OVERLAY_ICON(slot.overlay));
+                s.appendChild(ov);
             }
             row.appendChild(s);
         } else {

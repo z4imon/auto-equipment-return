@@ -317,22 +317,14 @@
     background-position-x: 50%;
     background-position-y: 50%;
 }
-/* Trophy/deluxe corner marker — native Bonus part at half scale (their
-   80rem slot: clip 54rem, art 96rem at -23/-19; our slot is 40rem). */
-.z4ae-slot-overlay-clip {
+/* Trophy/deluxe marker — stretched over the whole icon exactly like the
+   native hangar loadout slots, so it scales 1:1 with the equipment image. */
+.z4ae-slot-overlay {
     position: absolute;
     top: 0;
     left: 0;
-    width: 27rem;
-    height: 27rem;
-    overflow: hidden;
-}
-.z4ae-slot-overlay {
-    position: absolute;
-    top: -12rem;
-    left: -10rem;
-    width: 48rem;
-    height: 48rem;
+    width: 100%;
+    height: 100%;
     background-repeat: no-repeat;
     background-size: contain;
     background-position-x: 50%;
