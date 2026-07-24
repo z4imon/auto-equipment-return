@@ -8,6 +8,8 @@ Every demount that would cost anything is skipped and reported instead —
 _free_demount_ok gates all of them. The raw inventory RPCs used here show no
 confirm dialogs, so a skipped check would silently charge."""
 
+import time
+
 import BigWorld
 
 from auto_equip_log import LOG
@@ -31,6 +33,27 @@ _g_busy = False
 _g_abort = False
 _g_last_cd = None          # last vehicle intCD we reacted to (dedupes resync onChanged storms)
 _g_refresh_cb = None       # gameface callback: refresh popover data after state changes
+
+# Perf log: time spent scanning the player's OTHER vehicles for donors
+# (_find_donor, including the calls _obtainable_free makes while checking
+# whether a downgrade candidate is sourceable). Reset/logged only by the
+# top-level entry points (apply_sets, equip_primary_vehicles) — _apply_one
+# itself never touches these, so a batch run yields one aggregate line
+# instead of per-vehicle spam.
+_g_donor_search_seconds = 0.0
+_g_donor_search_count = 0
+
+
+def _reset_donor_search_stats():
+    global _g_donor_search_seconds, _g_donor_search_count
+    _g_donor_search_seconds = 0.0
+    _g_donor_search_count = 0
+
+
+def _log_donor_search_stats(context):
+    LOG.info('%s: spent %.3fs scanning other vehicles for donors (%d lookup%s)'
+             % (context, _g_donor_search_seconds, _g_donor_search_count,
+                '' if _g_donor_search_count == 1 else 's'))
 
 
 def set_refresh_cb(cb):
@@ -408,7 +431,7 @@ def _selection_changed(veh_cd):
         return True
 
 
-def _find_donor(want_cd, exclude_cd, donor_exclude=None):
+def _find_donor_impl(want_cd, exclude_cd, donor_exclude=None):
     """First unlocked inventory vehicle (not in battle/queue/prebattle) that has
     the device in any of its setups. donor_exclude additionally rules out a
     whole set of vehicles — used in the batch run so Primary vehicles never
@@ -432,6 +455,18 @@ def _find_donor(want_cd, exclude_cd, donor_exclude=None):
     except Exception:
         LOG.exc('_find_donor failed')
     return None
+
+
+def _find_donor(want_cd, exclude_cd, donor_exclude=None):
+    """Timed wrapper around _find_donor_impl — every call scans the player's
+    full inventory vehicle list, so this is where "time spent searching other
+    vehicles" is actually spent. See _g_donor_search_seconds."""
+    global _g_donor_search_seconds, _g_donor_search_count
+    t0 = time.time()
+    result = _find_donor_impl(want_cd, exclude_cd, donor_exclude)
+    _g_donor_search_seconds += time.time() - t0
+    _g_donor_search_count += 1
+    return result
 
 
 def _locate_on_vehicle(vehicle, want_cd):
@@ -806,11 +841,13 @@ def apply_sets(veh_cd):
     _g_busy = True
     _g_abort = False
     _notify_refresh()
+    _reset_donor_search_stats()
     try:
         yield _apply_one(veh_cd)
     except Exception:
         LOG.exc('apply_sets failed')
     finally:
+        _log_donor_search_stats('apply_sets(%s)' % veh_cd)
         _g_busy = False
         _g_abort = False
         _notify_refresh()
@@ -881,6 +918,7 @@ def equip_primary_vehicles():
     _g_busy = True
     _g_abort = False
     _notify_refresh()
+    _reset_donor_search_stats()
     veil_shown = _waiting_show()
     processed = 0
     total_installed = 0
@@ -943,6 +981,7 @@ def equip_primary_vehicles():
     except Exception:
         LOG.exc('equip_primary_vehicles failed')
     finally:
+        _log_donor_search_stats('equip_primary_vehicles(%d vehicle(s))' % processed)
         if veil_shown:
             _waiting_hide()
         _g_busy = False
