@@ -101,14 +101,20 @@
 .z4ae-popover {
     position: absolute;
     left: 50%;
-    bottom: 60rem;
+    /* Native anchors this popup to a STATIONARY sibling container at
+       bottom: 60/70rem, with only the button itself rising -12rem to meet it.
+       Ours instead lives INSIDE the button (so it slides along if the button
+       ever moves), which means it inherits that same -12rem — subtracting it
+       here cancels the double-shift and reproduces the native overlap/notch
+       look instead of floating 12rem too high. */
+    bottom: 48rem;
     transform: translateX(-50%);
     width: 300rem;
     z-index: 1;
     border-radius: 4rem;
 }
 .z4ae-popover.z4ae-large {
-    bottom: 70rem;
+    bottom: 58rem;
 }
 
 /* MenuList_content */
