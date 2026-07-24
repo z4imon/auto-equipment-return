@@ -266,29 +266,100 @@
     opacity: 0.4;
 }
 
-/* the on/off switch sits at the right end of its menu row */
-.z4ae-switch {
-    width: 34rem;
+/* auto-install row — native ui-kit checkbox (like the crew menu's
+   auto-return row: box left, label right, no hover background) */
+.z4ae-check-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    height: 32rem;
+    padding-left: 20rem;
+    padding-right: 5rem;
+    cursor: pointer;
+}
+.z4ae-large .z4ae-check-row {
+    height: 38rem;
+}
+/* Checkbox_check (small) */
+.z4ae-check {
+    width: 16rem;
     height: 16rem;
-    border: 1rem solid rgba(238, 237, 233, 0.3);
-    background-color: rgba(238, 237, 233, 0.06);
+    display: flex;
+    justify-content: center;
+    align-items: center;
     position: relative;
 }
-.z4ae-switch-knob {
+.z4ae-check-fill {
     position: absolute;
-    top: 2rem;
-    left: 2rem;
-    width: 10rem;
-    height: 10rem;
-    background-color: rgba(238, 237, 233, 0.45);
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
 }
-.z4ae-switch-on {
-    border-color: rgba(128, 200, 57, 0.7);
-    background-color: rgba(128, 200, 57, 0.12);
+/* Checkbox_background */
+.z4ae-check-bg {
+    border-radius: 1rem;
+    background-image: url(img://gui/maps/icons/ui_kit/checkbox/background.png);
+    background-repeat: repeat;
+    background-position: center center;
+    background-size: 100% auto;
 }
-.z4ae-switch-on .z4ae-switch-knob {
-    left: 20rem;
-    background-color: #80C839;
+/* Checkbox_border */
+.z4ae-check-border {
+    border-width: 1rem;
+    border-style: solid;
+    border-radius: 1rem;
+    border-image-source: url(img://gui/maps/icons/ui_kit/checkbox/primary_checkbox_border.png);
+    border-image-slice: 4;
+    border-image-width: 4rem;
+    border-image-repeat: repeat;
+    box-shadow: inset 0 0 0 1rem rgba(13, 14, 16, 0.24);
+}
+/* Checkbox_overlay (hover tint) */
+.z4ae-check-overlay {
+    border-radius: 1rem;
+    z-index: 1;
+    transition: background-color 0.1s ease-out;
+}
+.z4ae-check-row:hover .z4ae-check-overlay {
+    background-color: rgba(237, 230, 217, 0.24);
+}
+/* Checkbox_checkIcon — 18rem, deliberately larger than the 16rem box */
+.z4ae-check-icon {
+    width: 18rem;
+    height: 18rem;
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position-x: 50%;
+    background-position-y: 50%;
+    opacity: 0;
+    position: relative;
+    z-index: 1;
+    transition: opacity 0.1s ease;
+}
+.z4ae-check-row-checked .z4ae-check-icon {
+    opacity: 1;
+}
+/* MenuList_label */
+.z4ae-check-label {
+    padding-left: 8rem;
+    color: rgba(238, 237, 233, 0.9);
+    font-size: 14rem;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: 0.03em;
+    opacity: 0.85;
+    transition: opacity 0.2s ease, color 0.2s ease;
+}
+.z4ae-large .z4ae-check-label {
+    padding-left: 10rem;
+    font-size: 16rem;
+    line-height: 1.3;
+}
+.z4ae-check-row:hover .z4ae-check-label,
+.z4ae-check-row-checked .z4ae-check-label {
+    opacity: 1;
 }
 
 /* saved sets (own section, native palette) */

@@ -175,10 +175,6 @@ const ROW_ICONS = {
         "M3 6.5 H12 V3.5 L17 8 L12 12.5 V9.5 H3 Z",
         "M17 13.5 H8 V10.5 L3 15 L8 19.5 V16.5 H17 Z",
     ],
-    // ring = the auto on/off toggle
-    auto: [
-        "M10 3 a7 7 0 1 0 0.001 0 Z M10 5.5 a4.5 4.5 0 1 1 -0.001 0 Z",
-    ],
 };
 
 function rowIconSvg(name) {
@@ -256,6 +252,28 @@ function buildMenuRow(label, iconName, onClick, disabled) {
     return item;
 }
 
+// Native ui-kit checkbox: layered box (background texture, border image,
+// hover overlay) + the check icon, which is slightly larger than the box.
+function buildCheckboxRow(label, checked, onClick) {
+    const row = el("div", "z4ae-check-row" + (checked ? " z4ae-check-row-checked" : ""));
+    const check = el("div", "z4ae-check");
+    check.appendChild(el("div", "z4ae-check-fill z4ae-check-bg"));
+    check.appendChild(el("div", "z4ae-check-fill z4ae-check-border"));
+    check.appendChild(el("div", "z4ae-check-fill z4ae-check-overlay"));
+    const tick = el("div", "z4ae-check-icon");
+    bg(tick, "img://gui/maps/icons/ui_kit/checkbox/icon_check.png");
+    check.appendChild(tick);
+    row.appendChild(check);
+    const lab = el("div", "z4ae-check-label");
+    lab.textContent = label;
+    row.appendChild(lab);
+    row.addEventListener("click", function (e) {
+        e.stopPropagation();
+        onClick();
+    });
+    return row;
+}
+
 function cmd(name, args) {
     try {
         if (model.model && model.model[name]) model.model[name](args || {});
@@ -286,14 +304,11 @@ function buildPopover() {
 
     content.appendChild(el("div", "z4ae-divider"));
 
-    // auto-install toggle row (menu row + switch on the right)
-    const toggleRow = buildMenuRow(ui("autoLabel", "Automatisch einbauen"), "auto", function () {
+    // auto-install toggle — native ui-kit checkbox row, same style as the
+    // crew menu's "auto return" checkbox (not uppercased there either)
+    content.appendChild(buildCheckboxRow(ui("autoLabel", "Automatisch einbauen"), !!gData.enabled, function () {
         cmd("onToggleEnabled");
-    });
-    const toggle = el("div", "z4ae-switch" + (gData.enabled ? " z4ae-switch-on" : ""));
-    toggle.appendChild(el("div", "z4ae-switch-knob"));
-    toggleRow.firstChild.appendChild(toggle);   // firstChild = inner
-    content.appendChild(toggleRow);
+    }));
 
     // actions as menu rows
     content.appendChild(buildMenuRow(ui("save1", "Set 1 speichern"), "save", function () {
