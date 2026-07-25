@@ -52,5 +52,13 @@
 
     "noSubscription": "Auto Equipment Return is disabled: no active WoT Plus subscription found.",
 
-    "autoDisabledAfterBatch": "AutoEquip: Auto-install has been turned off so browsing other vehicles doesn't accidentally shuffle equipment around. Re-enable it any time via the toggle in the menu."
+    "autoDisabledAfterBatch": "AutoEquip: Auto-install has been turned off so browsing other vehicles doesn't accidentally shuffle equipment around. Re-enable it any time via the toggle in the menu.",
+
+    "importModDisplayName": "Auto Equipment Return – Import",
+    "importAccountLabel": "Your account ID: %(accountId)s",
+    "importDropdownLabel": "Import saved configs from kurzdor's auto equipment return",
+    "importButtonText": "Import",
+    "importDoneMsg": "Kurzdor import (%(file)s): %(imported)d vehicle(s) imported, %(skipped)d skipped (already had own sets)",
+    "importEmptyMsg": "Kurzdor import (%(file)s): file has no importable vehicles",
+    "importFailedMsg": "Kurzdor import failed (see log)"
 }

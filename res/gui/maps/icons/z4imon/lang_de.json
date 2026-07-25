@@ -52,5 +52,13 @@
 
     "noSubscription": "Auto Equipment Return ist deaktiviert: Kein aktives WoT-Plus-Abonnement gefunden.",
 
-    "autoDisabledAfterBatch": "AutoEquip: Automatisches Einbauen wurde deaktiviert, damit beim Ansehen anderer Fahrzeuge nicht versehentlich Equipment hin- und hergetauscht wird. Über den Schalter im Menü wieder aktivierbar."
+    "autoDisabledAfterBatch": "AutoEquip: Automatisches Einbauen wurde deaktiviert, damit beim Ansehen anderer Fahrzeuge nicht versehentlich Equipment hin- und hergetauscht wird. Über den Schalter im Menü wieder aktivierbar.",
+
+    "importModDisplayName": "Auto Equipment Return – Import",
+    "importAccountLabel": "Deine Account-ID: %(accountId)s",
+    "importDropdownLabel": "Gespeicherte Setups von Kurzdors Auto Equipment Return importieren",
+    "importButtonText": "Import",
+    "importDoneMsg": "Kurzdor-Import (%(file)s): %(imported)d Fahrzeug(e) importiert, %(skipped)d übersprungen (bereits eigene Sets vorhanden)",
+    "importEmptyMsg": "Kurzdor-Import (%(file)s): Datei enthält keine importierbaren Fahrzeuge",
+    "importFailedMsg": "Kurzdor-Import fehlgeschlagen (siehe Log)"
 }

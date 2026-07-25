@@ -141,6 +141,8 @@ def init():
         auto_equip_i18n.init()
         import auto_equip_gameface
         auto_equip_gameface.init()
+        import auto_equip_import
+        auto_equip_import.register()
         LOG.info('mod_auto_equip.init() finished OK')
     except Exception:
         LOG.exc('mod_auto_equip.init() failed')
