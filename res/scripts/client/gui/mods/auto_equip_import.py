@@ -17,6 +17,9 @@ import glob
 import zlib
 import pickle
 
+import BigWorld
+from PlayerEvents import g_playerEvents
+
 from auto_equip_log import LOG
 from auto_equip_i18n import t
 
@@ -133,7 +136,7 @@ def register():
     folder aren't present)."""
     global _g_files
     try:
-        from gui.modsSettingsApi import g_modsSettingsApi, templates
+        from gui.modsSettingsApi import g_modsSettingsApi  # noqa: F401
     except Exception:
         LOG.info('ModsSettingsAPI not installed - kurzdor import disabled')
         return
@@ -143,12 +146,33 @@ def register():
         LOG.info('kurzdor auto-equipment-return folder not found or empty - import disabled')
         return
 
+    account_id = _account_id()
+    if account_id:
+        _finish_register(account_id)
+        return
+
+    # mod init() runs before login. Account.databaseID is explicitly reset
+    # to None in Account.onBecomePlayer() and only filled in later, right
+    # before Account.showGUI() fires g_playerEvents.onAccountShowGUI - wait
+    # for that instead of guessing a timeout.
+    LOG.info('kurzdor import: account id not ready yet, waiting for onAccountShowGUI')
+    g_playerEvents.onAccountShowGUI += _on_account_show_gui
+
+
+def _on_account_show_gui(ctx=None):
+    g_playerEvents.onAccountShowGUI -= _on_account_show_gui
+    _finish_register(_account_id())
+
+
+def _finish_register(account_id):
+    from gui.modsSettingsApi import g_modsSettingsApi, templates
+
     options = [os.path.splitext(os.path.basename(p))[0] for p in _g_files]
 
     template = {
         'modDisplayName': t('importModDisplayName'),
         'column1': [
-            templates.createLabel(t('importAccountLabel', accountId=_account_id())),
+            templates.createLabel(t('importAccountLabel', accountId=account_id)),
             templates.createDropdown(
                 t('importDropdownLabel'), _VAR_FILE, options, 0,
                 button=templates.createButton(text=t('importButtonText'), width=70, height=23)
@@ -162,6 +186,8 @@ def register():
             g_modsSettingsApi.registerCallback(_MOD_LINKAGE, onModSettingsChanged, onButtonClicked)
         else:
             g_modsSettingsApi.setModTemplate(_MOD_LINKAGE, template, onModSettingsChanged, onButtonClicked)
-        LOG.info('registered kurzdor import panel (%d file(s) found)' % len(_g_files))
+        player = BigWorld.player()
+        LOG.info('registered kurzdor import panel (%d file(s), accountId=%s, player=%s, rawDatabaseID=%s)' % (
+            len(_g_files), account_id, player is not None, getattr(player, 'databaseID', None)))
     except Exception:
         LOG.exc('auto_equip_import.register failed')
