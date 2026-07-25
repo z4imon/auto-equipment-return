@@ -5,12 +5,15 @@ players already have data for). Everything here degrades quietly if
 ModsSettingsAPI isn't installed, or kurzdor's data folder doesn't exist.
 
 kurzdor's .dat files are zlib-compressed pickle(protocol 0) dumps of:
-    {'vehicles': {<veh intCD>: [[item intCD, ...], <bool flag>], ...},
+    {'vehicles': {<veh invID>: [[item intCD, ...], <bool flag>], ...},
      'timestamp': <int>, 'version': 1}
 Equipment lists are 3 long (1 preset) or 6 long (2 presets, 3 slots each);
-0 means an empty slot. Vehicle/item IDs are native WoT intCDs, the same
-space our own config already keys and stores by, so no translation is
-needed to reuse them directly.
+0 means an empty slot. The equipment IDs are native WoT intCDs; the vehicle
+key is the vehicle's inventory ID (invID), NOT its type compactDescr
+(confirmed: kurzdor's vehicle keys don't decode as valid compactDescrs, and
+are in the same small numeric range as WoT invIDs). Our own config now keys
+by invID too (see mod_auto_equip.py), so no translation is needed to reuse
+kurzdor's vehicle keys directly.
 """
 import os
 import glob
@@ -77,7 +80,7 @@ def _import_from_file(path):
     skipped = 0
     for veh_id, entry in vehicles.iteritems():
         try:
-            veh_cd = int(veh_id)
+            veh_inv_id = int(veh_id)
         except (TypeError, ValueError):
             continue
         if not isinstance(entry, (list, tuple)) or not entry:
@@ -85,13 +88,13 @@ def _import_from_file(path):
         equip = entry[0]
         if not isinstance(equip, (list, tuple)) or not equip:
             continue
-        if mod_auto_equip.get_sets(veh_cd) is not None:
+        if mod_auto_equip.get_sets(veh_inv_id) is not None:
             skipped += 1
             continue
         equip = _sanitize(equip)
         set1 = equip[0:3]
-        set2 = equip[3:6] if len(equip) >= 6 else None
-        mod_auto_equip.store_sets(veh_cd, set1=set1, set2=set2)
+        set2 = equip[3:6] if len(equip) > 3 else None
+        mod_auto_equip.store_sets(veh_inv_id, set1=set1, set2=set2)
         imported += 1
     return imported, skipped
 

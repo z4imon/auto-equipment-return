@@ -6,8 +6,11 @@ from auto_equip_log import LOG
 # --------------------------------------------------------------------------
 # Persisted configuration (hand-editable plain JSON, per user preference)
 #
-# sets: { "<vehicle intCD>": { "set1": [intCD, intCD, intCD] or null,
+# sets: { "<vehicle invID>": { "set1": [intCD, intCD, intCD] or null,
 #                              "set2": [intCD, intCD, intCD] or null } }
+# Keyed by the vehicle's inventory ID (not its type compactDescr) so imported
+# data from kurzdor's Auto Equipment Return mod - which uses the same
+# invID-based scheme - lines up without translation.
 # A 0 inside a set list means "slot empty on purpose".
 # --------------------------------------------------------------------------
 
@@ -112,15 +115,15 @@ def set_downgrade_enabled(value):
     return CONFIG['downgradeEnabled']
 
 
-def get_sets(veh_cd):
+def get_sets(veh_inv_id):
     """The stored sets entry for a vehicle, or None if nothing is saved yet."""
-    return CONFIG['sets'].get(str(veh_cd))
+    return CONFIG['sets'].get(str(veh_inv_id))
 
 
-def store_sets(veh_cd, set1=None, set2=None):
+def store_sets(veh_inv_id, set1=None, set2=None):
     """Store (overwrite) the given set lists for a vehicle. Pass None to leave
     a set untouched."""
-    entry = CONFIG['sets'].setdefault(str(veh_cd), {'set1': None, 'set2': None})
+    entry = CONFIG['sets'].setdefault(str(veh_inv_id), {'set1': None, 'set2': None})
     if set1 is not None:
         entry['set1'] = [int(cd) for cd in set1]
     if set2 is not None:

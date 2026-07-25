@@ -129,7 +129,7 @@ def _build_data():
     import auto_equip_core
     data = {
         'vehicleName': u'',
-        'vehicleCD': 0,
+        'vehicleInvID': 0,
         'enabled': mod_auto_equip.is_auto_enabled(),
         'downgrade': mod_auto_equip.is_downgrade_enabled(),
         'hasSetup2': False,
@@ -142,9 +142,9 @@ def _build_data():
         vehicle = g_currentVehicle.item
         if vehicle is not None:
             data['vehicleName'] = vehicle.userName
-            data['vehicleCD'] = vehicle.intCD
+            data['vehicleInvID'] = vehicle.invID
             data['hasSetup2'] = auto_equip_core.has_second_setup(vehicle)
-            saved = mod_auto_equip.get_sets(vehicle.intCD)
+            saved = mod_auto_equip.get_sets(vehicle.invID)
             if saved:
                 data['saved1'] = _set_payload(saved.get('set1'))
                 data['saved2'] = _set_payload(saved.get('set2'))

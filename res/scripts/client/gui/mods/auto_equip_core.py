@@ -31,7 +31,7 @@ _OP_PAUSE = 0.01
 
 _g_busy = False
 _g_abort = False
-_g_last_cd = None          # last vehicle intCD we reacted to (dedupes resync onChanged storms)
+_g_last_inv_id = None      # last vehicle invID we reacted to (dedupes resync onChanged storms)
 _g_refresh_cb = None       # gameface callback: refresh popover data after state changes
 
 # Perf log: time spent scanning the player's OTHER vehicles for donors
@@ -93,12 +93,19 @@ def has_wot_plus():
         return False
 
 
-def _fresh_vehicle(veh_cd):
-    """Always re-fetch the gui item — instances are recreated on cache sync."""
+def _fresh_vehicle(veh_inv_id):
+    """Always re-fetch the gui item — instances are recreated on cache sync.
+    Looked up by invID (not intCD/compactDescr): our config keys vehicles by
+    invID to line up with kurzdor's Auto Equipment Return save format."""
     try:
-        return _items_cache().items.getItemByCD(veh_cd)
+        from gui.shared.utils.requesters import REQ_CRITERIA
+        vehicles = _items_cache().items.getVehicles(
+            REQ_CRITERIA.INVENTORY | REQ_CRITERIA.VEHICLE.SPECIFIC_BY_INV_ID([veh_inv_id]))
+        for veh in vehicles.itervalues():
+            return veh
+        return None
     except Exception:
-        LOG.exc('_fresh_vehicle(%s) failed' % veh_cd)
+        LOG.exc('_fresh_vehicle(%s) failed' % veh_inv_id)
         return None
 
 
@@ -349,7 +356,7 @@ def save_sets(which):
     set2 = snap['set2'] if which in (2, 3) else None
     if which == 2 and snap['set2'] is None:
         return t('noSecondSetup')
-    mod_auto_equip.store_sets(vehicle.intCD, set1=set1, set2=set2)
+    mod_auto_equip.store_sets(vehicle.invID, set1=set1, set2=set2)
     LOG.info('saved sets for %s (which=%s): set1=%s set2=%s' % (vehicle.userName, which, set1, set2))
     if which == 1:
         return t('set1Saved')
@@ -365,40 +372,40 @@ def save_sets(which):
 def on_vehicle_changed():
     """Called from g_currentVehicle.onChanged. Applies the saved sets when the
     selection moved to a different vehicle."""
-    global _g_last_cd
+    global _g_last_inv_id
     try:
         import mod_auto_equip
         from CurrentVehicle import g_currentVehicle
         item = g_currentVehicle.item
         if item is None:
             return
-        if item.intCD == _g_last_cd:
+        if item.invID == _g_last_inv_id:
             return
-        _g_last_cd = item.intCD
+        _g_last_inv_id = item.invID
         _notify_refresh()
         if not mod_auto_equip.is_auto_enabled():
             return
-        saved = mod_auto_equip.get_sets(item.intCD)
+        saved = mod_auto_equip.get_sets(item.invID)
         if not saved or (saved.get('set1') is None and saved.get('set2') is None):
             return
         # Give the selection a moment to settle, then start (unless the user
         # switched again in between).
-        veh_cd = item.intCD
-        BigWorld.callback(0.05, lambda: _start_if_still_selected(veh_cd))
+        veh_inv_id = item.invID
+        BigWorld.callback(0.05, lambda: _start_if_still_selected(veh_inv_id))
     except Exception:
         LOG.exc('on_vehicle_changed failed')
 
 
-def _start_if_still_selected(veh_cd):
+def _start_if_still_selected(veh_inv_id):
     try:
         from CurrentVehicle import g_currentVehicle
         item = g_currentVehicle.item
-        if item is None or item.intCD != veh_cd:
+        if item is None or item.invID != veh_inv_id:
             return
         if _g_busy:
-            LOG.warning('apply already running, skipping trigger for %s' % veh_cd)
+            LOG.warning('apply already running, skipping trigger for %s' % veh_inv_id)
             return
-        apply_sets(veh_cd)
+        apply_sets(veh_inv_id)
     except Exception:
         LOG.exc('_start_if_still_selected failed')
 
@@ -413,7 +420,7 @@ def apply_now():
         if _g_busy:
             _push_msg(t('alreadyRunning'), warning=True)
             return
-        apply_sets(item.intCD)
+        apply_sets(item.invID)
     except Exception:
         LOG.exc('apply_now failed')
 
@@ -422,16 +429,16 @@ def apply_now():
 # The apply run
 # --------------------------------------------------------------------------
 
-def _selection_changed(veh_cd):
+def _selection_changed(veh_inv_id):
     try:
         from CurrentVehicle import g_currentVehicle
         item = g_currentVehicle.item
-        return item is None or item.intCD != veh_cd
+        return item is None or item.invID != veh_inv_id
     except Exception:
         return True
 
 
-def _find_donor_impl(want_cd, exclude_cd, donor_exclude=None):
+def _find_donor_impl(want_cd, exclude_inv_id, donor_exclude=None):
     """First unlocked inventory vehicle (not in battle/queue/prebattle) that has
     the device in any of its setups. donor_exclude additionally rules out a
     whole set of vehicles — used in the batch run so Primary vehicles never
@@ -440,9 +447,9 @@ def _find_donor_impl(want_cd, exclude_cd, donor_exclude=None):
         from gui.shared.utils.requesters import REQ_CRITERIA
         vehicles = _items_cache().items.getVehicles(REQ_CRITERIA.INVENTORY)
         for veh in vehicles.itervalues():
-            if veh.intCD == exclude_cd:
+            if veh.invID == exclude_inv_id:
                 continue
-            if donor_exclude and veh.intCD in donor_exclude:
+            if donor_exclude and veh.invID in donor_exclude:
                 continue
             try:
                 if not veh.optDevices.setupLayouts.containsIntCD(want_cd):
@@ -457,13 +464,13 @@ def _find_donor_impl(want_cd, exclude_cd, donor_exclude=None):
     return None
 
 
-def _find_donor(want_cd, exclude_cd, donor_exclude=None):
+def _find_donor(want_cd, exclude_inv_id, donor_exclude=None):
     """Timed wrapper around _find_donor_impl — every call scans the player's
     full inventory vehicle list, so this is where "time spent searching other
     vehicles" is actually spent. See _g_donor_search_seconds."""
     global _g_donor_search_seconds, _g_donor_search_count
     t0 = time.time()
-    result = _find_donor_impl(want_cd, exclude_cd, donor_exclude)
+    result = _find_donor_impl(want_cd, exclude_inv_id, donor_exclude)
     _g_donor_search_seconds += time.time() - t0
     _g_donor_search_count += 1
     return result
@@ -483,7 +490,7 @@ def _locate_on_vehicle(vehicle, want_cd):
     return None, None
 
 
-def _obtainable_free(vehicle, veh_cd, item, donor_exclude=None):
+def _obtainable_free(vehicle, veh_inv_id, item, donor_exclude=None):
     """True if the device can be sourced without spending anything: already on
     this vehicle, in the depot, or free-demountable from a donor vehicle."""
     try:
@@ -493,7 +500,7 @@ def _obtainable_free(vehicle, veh_cd, item, donor_exclude=None):
             return True
         if not _free_demount_ok(item):
             return False
-        return _find_donor(item.intCD, veh_cd, donor_exclude) is not None
+        return _find_donor(item.intCD, veh_inv_id, donor_exclude) is not None
     except Exception:
         LOG.exc('_obtainable_free failed')
         return False
@@ -542,7 +549,7 @@ def _downgrade_item(vehicle, pink_item):
         return None
 
 
-def _resolve_downgrades(vehicle, layout, veh_cd, donor_exclude=None):
+def _resolve_downgrades(vehicle, layout, veh_inv_id, donor_exclude=None):
     """Downgrade option: swap special devices (trophy/pink, bounty/modernized,
     deluxe) that cannot be sourced for free with their standard counterpart —
     but only when THAT one is sourceable for free itself, otherwise the normal
@@ -558,12 +565,12 @@ def _resolve_downgrades(vehicle, layout, veh_cd, donor_exclude=None):
         item = _fresh_item(cd)
         if item is None or getattr(item, 'isRegular', True):
             continue
-        if _obtainable_free(vehicle, veh_cd, item, donor_exclude):
+        if _obtainable_free(vehicle, veh_inv_id, item, donor_exclude):
             continue
         alt = _downgrade_item(vehicle, item)
         if alt is None or alt.intCD in out:
             continue
-        if not _obtainable_free(vehicle, veh_cd, alt, donor_exclude):
+        if not _obtainable_free(vehicle, veh_inv_id, alt, donor_exclude):
             continue
         out[i] = alt.intCD
         notes.append((item.userName, alt.userName))
@@ -572,7 +579,7 @@ def _resolve_downgrades(vehicle, layout, veh_cd, donor_exclude=None):
 
 @adisp_async
 @adisp_process
-def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
+def _apply_one(veh_inv_id, watch_selection=True, force_downgrade=False,
                use_veil=True, push_summary=True, donor_exclude=None, callback=None):
     """Restore both saved sets onto one vehicle. All server operations run
     sequentially; every failure is recorded and the run continues with the next
@@ -591,12 +598,12 @@ def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
     try:
         import mod_auto_equip
 
-        saved = mod_auto_equip.get_sets(veh_cd)
-        vehicle = _fresh_vehicle(veh_cd)
+        saved = mod_auto_equip.get_sets(veh_inv_id)
+        vehicle = _fresh_vehicle(veh_inv_id)
         if saved is None or vehicle is None:
             return
         if vehicle.isLocked:
-            LOG.warning('apply_sets: vehicle %s is locked, aborting' % veh_cd)
+            LOG.warning('apply_sets: vehicle %s is locked, aborting' % veh_inv_id)
             return
         original_idx = vehicle.optDevices.setupLayouts.layoutIndex
         available_setups = _setup_indices(vehicle)
@@ -614,7 +621,7 @@ def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
         if force_downgrade or mod_auto_equip.is_downgrade_enabled():
             resolved = []
             for setup_idx, wanted in plan:
-                wanted, notes = _resolve_downgrades(vehicle, wanted, veh_cd, donor_exclude)
+                wanted, notes = _resolve_downgrades(vehicle, wanted, veh_inv_id, donor_exclude)
                 for note in notes:
                     if note not in downgraded:
                         downgraded.append(note)
@@ -643,9 +650,9 @@ def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
             return avail[cd]
 
         for setup_idx, wanted in plan:
-            if _g_abort or (watch_selection and _selection_changed(veh_cd)):
+            if _g_abort or (watch_selection and _selection_changed(veh_inv_id)):
                 break
-            vehicle = _fresh_vehicle(veh_cd)
+            vehicle = _fresh_vehicle(veh_inv_id)
             if vehicle is None:
                 break
             cap = _capacity(vehicle)
@@ -667,9 +674,9 @@ def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
 
             # ---- phase 1+2 per slot: clear occupants, secure availability ----
             for slot_idx in range(cap):
-                if _g_abort or (watch_selection and _selection_changed(veh_cd)):
+                if _g_abort or (watch_selection and _selection_changed(veh_inv_id)):
                     break
-                vehicle = _fresh_vehicle(veh_cd)
+                vehicle = _fresh_vehicle(veh_inv_id)
                 if vehicle is None:
                     break
                 current = _setup_cds(vehicle, setup_idx)
@@ -718,7 +725,7 @@ def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
                     errors.append(t('errUnknownItem', slot=slot_idx + 1, cd=want))
                     final[slot_idx] = 0
                     continue
-                vehicle = _fresh_vehicle(veh_cd)
+                vehicle = _fresh_vehicle(veh_inv_id)
                 on_vehicle = vehicle.optDevices.setupLayouts.containsIntCD(want)
                 if not on_vehicle and _avail(want) <= 0:
                     if not _free_demount_ok(want_item):
@@ -726,7 +733,7 @@ def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
                         missing.append(want_item.userName)
                         final[slot_idx] = 0
                         continue
-                    donor = _find_donor(want, veh_cd, donor_exclude)
+                    donor = _find_donor(want, veh_inv_id, donor_exclude)
                     if donor is None:
                         skipped.append((want_item.userName, t('reasonNoDonor')))
                         missing.append(want_item.userName)
@@ -766,9 +773,9 @@ def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
                         continue
 
             # ---- phase 3: apply the whole setup layout in one command --------
-            if _g_abort or (watch_selection and _selection_changed(veh_cd)):
+            if _g_abort or (watch_selection and _selection_changed(veh_inv_id)):
                 break
-            vehicle = _fresh_vehicle(veh_cd)
+            vehicle = _fresh_vehicle(veh_inv_id)
             if vehicle is None:
                 break
             current = _setup_cds(vehicle, setup_idx)
@@ -798,12 +805,12 @@ def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
                 yield _pause(_OP_PAUSE)
 
         # ---- restore the originally active setup -------------------------
-        vehicle = _fresh_vehicle(veh_cd)
+        vehicle = _fresh_vehicle(veh_inv_id)
         if vehicle is not None and original_idx is not None \
                 and vehicle.optDevices.setupLayouts.layoutIndex != original_idx:
             code = yield _change_setup_index(vehicle.invID, original_idx)
             if not _op_success(code):
-                LOG.warning('could not restore active setup %s on %s' % (original_idx, veh_cd))
+                LOG.warning('could not restore active setup %s on %s' % (original_idx, veh_inv_id))
 
         # ---- summary ------------------------------------------------------
         if push_summary and (installed_count or skipped or errors or donated):
@@ -820,7 +827,7 @@ def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
                 lines.append(t('summaryError', err=err))
             _push_msg(u'<br/>'.join(lines), warning=bool(skipped or errors))
         LOG.info('apply_sets: done for %s — installed=%d skipped=%d errors=%d'
-                 % (veh_cd, installed_count, len(skipped), len(errors)))
+                 % (veh_inv_id, installed_count, len(skipped), len(errors)))
     except Exception:
         LOG.exc('_apply_one failed')
     finally:
@@ -833,7 +840,7 @@ def _apply_one(veh_cd, watch_selection=True, force_downgrade=False,
 
 
 @adisp_process
-def apply_sets(veh_cd):
+def apply_sets(veh_inv_id):
     """Single-vehicle apply (selection trigger / popover button)."""
     global _g_busy, _g_abort
     if _g_busy:
@@ -843,11 +850,11 @@ def apply_sets(veh_cd):
     _notify_refresh()
     _reset_donor_search_stats()
     try:
-        yield _apply_one(veh_cd)
+        yield _apply_one(veh_inv_id)
     except Exception:
         LOG.exc('apply_sets failed')
     finally:
-        _log_donor_search_stats('apply_sets(%s)' % veh_cd)
+        _log_donor_search_stats('apply_sets(%s)' % veh_inv_id)
         _g_busy = False
         _g_abort = False
         _notify_refresh()
@@ -901,7 +908,7 @@ def equip_primary_vehicles():
     with_sets = []
     without_sets = 0
     for veh in targets:
-        saved = mod_auto_equip.get_sets(veh.intCD)
+        saved = mod_auto_equip.get_sets(veh.invID)
         if saved and (saved.get('set1') is not None or saved.get('set2') is not None):
             with_sets.append(veh)
         else:
@@ -914,7 +921,7 @@ def equip_primary_vehicles():
     # device A just received, ping-ponging equipment instead of ending with
     # every Primary equipped. Only vehicles OUTSIDE this batch stay eligible
     # as donors.
-    batch_cds = set(v.intCD for v in with_sets)
+    batch_inv_ids = set(v.invID for v in with_sets)
     _g_busy = True
     _g_abort = False
     _notify_refresh()
@@ -932,9 +939,9 @@ def equip_primary_vehicles():
         for veh in with_sets:
             if _g_abort:
                 break
-            res = yield _apply_one(veh.intCD, watch_selection=False,
+            res = yield _apply_one(veh.invID, watch_selection=False,
                                    force_downgrade=True, use_veil=False,
-                                   push_summary=False, donor_exclude=batch_cds)
+                                   push_summary=False, donor_exclude=batch_inv_ids)
             processed += 1
             total_installed += res.get('installed', 0)
             total_donated += len(res.get('donated', []))
