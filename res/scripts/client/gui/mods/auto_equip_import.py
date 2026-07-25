@@ -171,6 +171,7 @@ def _finish_register(account_id):
 
     template = {
         'modDisplayName': t('importModDisplayName'),
+        'enabled': True,
         'column1': [
             templates.createLabel(t('importAccountLabel', accountId=account_id)),
             templates.createDropdown(
