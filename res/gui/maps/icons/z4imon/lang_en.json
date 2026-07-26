@@ -57,8 +57,10 @@
     "importModDisplayName": "Auto Equipment Return – Import",
     "importAccountLabel": "Your account ID: %(accountId)s",
     "importDropdownLabel": "Import saved configs from kurzdor's auto equipment return",
+    "importOwnDropdownLabel": "Import saved configs from another of your accounts",
     "importButtonText": "Import",
     "importDoneMsg": "Kurzdor import (%(file)s): %(imported)d vehicle(s) imported, %(skipped)d skipped (already had own sets)",
-    "importEmptyMsg": "Kurzdor import (%(file)s): file has no importable vehicles",
-    "importFailedMsg": "Kurzdor import failed (see log)"
+    "importOwnDoneMsg": "Import from %(file)s: %(imported)d vehicle(s) imported, %(skipped)d skipped (already had own sets), %(unmatched)d not owned on this account",
+    "importEmptyMsg": "Import (%(file)s): file has no importable vehicles",
+    "importFailedMsg": "Import failed (see log)"
 }

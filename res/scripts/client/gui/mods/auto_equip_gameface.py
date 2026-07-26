@@ -336,33 +336,8 @@ class AutoEquipView(ViewComponent):
 # Hangar hook plumbing + WoT Plus gate
 # ==========================================================================
 
-def _debug_log_player_attrs():
-    """TEMPORARY diagnostic: dump every non-callable attribute of
-    BigWorld.player() to find out why databaseID isn't resolving. Remove once
-    the kurzdor-import account-id issue is understood."""
-    try:
-        player = BigWorld.player()
-        LOG.info('DEBUG _debug_log_player_attrs: player=%r' % player)
-        if player is None:
-            return
-        for name in dir(player):
-            if name.startswith('__'):
-                continue
-            try:
-                value = getattr(player, name)
-            except Exception as exc:
-                LOG.info('DEBUG player.%s = <error reading: %s>' % (name, exc))
-                continue
-            if callable(value):
-                continue
-            LOG.info('DEBUG player.%s = %r' % (name, value))
-    except Exception:
-        LOG.exc('DEBUG _debug_log_player_attrs failed')
-
-
 def _on_hangar_main_loaded(view):
     global _pending_hangar_view, _g_hangar_view
-    _debug_log_player_attrs()
     _g_hangar_view = view
     if _g_plus_state is False:
         return

@@ -109,6 +109,24 @@ def _fresh_vehicle(veh_inv_id):
         return None
 
 
+def resolve_inv_id_by_cd(veh_cd):
+    """The current account's own invID for a vehicle TYPE (intCD/compactDescr),
+    or None if that vehicle isn't in this account's inventory. invID is only
+    meaningful within the account that assigned it, so this is how a saved set
+    from a DIFFERENT account gets remapped onto the current one (see
+    auto_equip_import.py's own-account cross-import)."""
+    try:
+        from gui.shared.utils.requesters import REQ_CRITERIA
+        vehicles = _items_cache().items.getVehicles(
+            REQ_CRITERIA.INVENTORY | REQ_CRITERIA.VEHICLE.SPECIFIC_BY_CD([veh_cd]))
+        for veh in vehicles.itervalues():
+            return veh.invID
+        return None
+    except Exception:
+        LOG.exc('resolve_inv_id_by_cd(%s) failed' % veh_cd)
+        return None
+
+
 def _fresh_item(int_cd):
     try:
         return _items_cache().items.getItemByCD(int_cd)
@@ -356,7 +374,7 @@ def save_sets(which):
     set2 = snap['set2'] if which in (2, 3) else None
     if which == 2 and snap['set2'] is None:
         return t('noSecondSetup')
-    mod_auto_equip.store_sets(vehicle.invID, set1=set1, set2=set2)
+    mod_auto_equip.store_sets(vehicle.invID, set1=set1, set2=set2, veh_cd=vehicle.intCD)
     LOG.info('saved sets for %s (which=%s): set1=%s set2=%s' % (vehicle.userName, which, set1, set2))
     if which == 1:
         return t('set1Saved')

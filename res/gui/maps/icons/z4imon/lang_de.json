@@ -57,8 +57,10 @@
     "importModDisplayName": "Auto Equipment Return – Import",
     "importAccountLabel": "Deine Account-ID: %(accountId)s",
     "importDropdownLabel": "Gespeicherte Setups von Kurzdors Auto Equipment Return importieren",
+    "importOwnDropdownLabel": "Gespeicherte Setups von einem deiner anderen Accounts importieren",
     "importButtonText": "Import",
     "importDoneMsg": "Kurzdor-Import (%(file)s): %(imported)d Fahrzeug(e) importiert, %(skipped)d übersprungen (bereits eigene Sets vorhanden)",
-    "importEmptyMsg": "Kurzdor-Import (%(file)s): Datei enthält keine importierbaren Fahrzeuge",
-    "importFailedMsg": "Kurzdor-Import fehlgeschlagen (siehe Log)"
+    "importOwnDoneMsg": "Import von %(file)s: %(imported)d Fahrzeug(e) importiert, %(skipped)d übersprungen (bereits eigene Sets vorhanden), %(unmatched)d auf diesem Account nicht vorhanden",
+    "importEmptyMsg": "Import (%(file)s): Datei enthält keine importierbaren Fahrzeuge",
+    "importFailedMsg": "Import fehlgeschlagen (siehe Log)"
 }
