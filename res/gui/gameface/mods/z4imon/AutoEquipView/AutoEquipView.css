@@ -439,7 +439,17 @@
     background-position-y: 50%;
 }
 .z4ae-slot-empty {
-    border: 1rem dashed rgba(238, 237, 233, 0.15);
+    /* cohtml/Gameface doesn't support border-style: dashed — fake it with
+       four repeating-linear-gradient strips, one per edge, instead. */
+    border: none;
+    background-image:
+        repeating-linear-gradient(90deg, rgba(238, 237, 233, 0.3) 0, rgba(238, 237, 233, 0.3) 4rem, transparent 4rem, transparent 8rem),
+        repeating-linear-gradient(90deg, rgba(238, 237, 233, 0.3) 0, rgba(238, 237, 233, 0.3) 4rem, transparent 4rem, transparent 8rem),
+        repeating-linear-gradient(180deg, rgba(238, 237, 233, 0.3) 0, rgba(238, 237, 233, 0.3) 4rem, transparent 4rem, transparent 8rem),
+        repeating-linear-gradient(180deg, rgba(238, 237, 233, 0.3) 0, rgba(238, 237, 233, 0.3) 4rem, transparent 4rem, transparent 8rem);
+    background-size: 100% 1rem, 100% 1rem, 1rem 100%, 1rem 100%;
+    background-position: top left, bottom left, top left, top right;
+    background-repeat: no-repeat, no-repeat, no-repeat, no-repeat;
 }
 .z4ae-set-missing {
     font-size: 11rem;

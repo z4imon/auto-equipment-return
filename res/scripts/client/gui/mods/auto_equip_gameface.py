@@ -154,10 +154,19 @@ def _build_data():
 
 
 def _push_data():
+    global _g_view, _g_injected_view_id
     if _g_view is None:
         return
     try:
-        _g_view.viewModel.setDataJson(json.dumps(_build_data()))
+        view_model = _g_view.viewModel
+        if view_model is None:
+            # Underlying native view was already torn down (e.g. hangar/subhangar
+            # transition) — drop the stale reference so the next hangar load
+            # re-injects instead of hitting this every refresh.
+            _g_view = None
+            _g_injected_view_id = None
+            return
+        view_model.setDataJson(json.dumps(_build_data()))
     except Exception:
         LOG.exc('_push_data failed')
 
