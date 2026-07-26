@@ -346,9 +346,6 @@ function buildPopover() {
     if (gData.busy) {
         content.appendChild(buildMenuRow(ui("busy", "Einbau läuft…"), "apply", null, true));
     } else {
-        content.appendChild(buildMenuRow(ui("applyNow", "Jetzt einbauen"), "apply", function () {
-            cmd("onApplyNow");
-        }));
         content.appendChild(buildMenuRow(ui("equipPrimary", "Alle Primärpanzer ausstatten"), "star", function () {
             cmd("onEquipPrimary");
         }));

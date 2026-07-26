@@ -218,10 +218,10 @@ def _unsubscribe_vehicle():
 # ==========================================================================
 
 class AutoEquipViewModel(ViewModel):
-    __slots__ = ('onJsLog', 'onToggleEnabled', 'onToggleDowngrade', 'onSaveSet', 'onApplyNow', 'onEquipPrimary')
+    __slots__ = ('onJsLog', 'onToggleEnabled', 'onToggleDowngrade', 'onSaveSet', 'onEquipPrimary')
 
     def __init__(self):
-        super(AutoEquipViewModel, self).__init__(properties=2, commands=6)
+        super(AutoEquipViewModel, self).__init__(properties=2, commands=5)
 
     def getDataJson(self):
         return self._getString(0)
@@ -243,7 +243,6 @@ class AutoEquipViewModel(ViewModel):
         self.onToggleEnabled = self._addCommand('onToggleEnabled')
         self.onToggleDowngrade = self._addCommand('onToggleDowngrade')
         self.onSaveSet = self._addCommand('onSaveSet')
-        self.onApplyNow = self._addCommand('onApplyNow')
         self.onEquipPrimary = self._addCommand('onEquipPrimary')
         gf_mod_inject(self, _VIEW_ALIAS, styles=[
             'coui://gui/gameface/mods/z4imon/AutoEquipView/AutoEquipView.css'
@@ -279,7 +278,6 @@ class AutoEquipView(ViewComponent):
             (self.viewModel.onToggleEnabled, self._onToggleEnabled),
             (self.viewModel.onToggleDowngrade, self._onToggleDowngrade),
             (self.viewModel.onSaveSet, self._onSaveSet),
-            (self.viewModel.onApplyNow, self._onApplyNow),
             (self.viewModel.onEquipPrimary, self._onEquipPrimary),
         )
 
@@ -323,14 +321,6 @@ class AutoEquipView(ViewComponent):
             _push_data()
         except Exception:
             LOG.exc('_onSaveSet failed')
-
-    def _onApplyNow(self, data=None):
-        try:
-            import auto_equip_core
-            auto_equip_core.apply_now()
-            _push_data()
-        except Exception:
-            LOG.exc('_onApplyNow failed')
 
     def _onEquipPrimary(self, data=None):
         try:

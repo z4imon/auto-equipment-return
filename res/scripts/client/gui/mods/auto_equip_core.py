@@ -492,21 +492,6 @@ def _start_if_still_selected(veh_inv_id):
         LOG.exc('_start_if_still_selected failed')
 
 
-def apply_now():
-    """Popover button: apply the saved sets to the current vehicle immediately."""
-    try:
-        from CurrentVehicle import g_currentVehicle
-        item = g_currentVehicle.item
-        if item is None:
-            return
-        if _g_busy:
-            _push_msg(t('alreadyRunning'), warning=True)
-            return
-        apply_sets(item.invID)
-    except Exception:
-        LOG.exc('apply_now failed')
-
-
 # --------------------------------------------------------------------------
 # The apply run
 # --------------------------------------------------------------------------
