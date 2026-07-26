@@ -91,8 +91,19 @@ def _sanitize(raw):
 def _import_from_kurzdor_file(path):
     """Imports every vehicle entry from a kurzdor .dat into our own config.
     Vehicles that already have saved sets in our config are left untouched
-    (existing data always wins over an import)."""
+    (existing data always wins over an import).
+
+    kurzdor's save format has no vehicle-type id at all (see the module
+    docstring) - only his own account-scoped vehicle key, which we trust as
+    this account's real invID. That's fine for THIS import, but it leaves
+    every entry (both the ones just imported and any older ones already
+    sitting in the config) without a vehicleCD - and vehicleCD is exactly
+    what a LATER cross-account import needs to remap a set correctly onto a
+    DIFFERENT WoT account. So every kurzdor import finishes with a bulk
+    backfill pass over the account's actual owned vehicles (reading invID
+    AND intCD straight off each live vehicle object) to fill that in."""
     import mod_auto_equip
+    import auto_equip_core
     obj = _load_kurzdor_dat(path)
     vehicles = obj.get('vehicles', {}) if isinstance(obj, dict) else {}
     imported = 0
@@ -115,6 +126,7 @@ def _import_from_kurzdor_file(path):
         set2 = equip[3:6] if len(equip) > 3 else None
         mod_auto_equip.store_sets(veh_inv_id, set1=set1, set2=set2)
         imported += 1
+    auto_equip_core.backfill_vehicle_cds()
     return imported, skipped
 
 

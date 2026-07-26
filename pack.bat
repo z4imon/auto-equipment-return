@@ -1,1 +1,1 @@
-C:\Python27\Python.exe packer.py -u Z4imon -n auto_equipment_return -v 0.39 -d "Saves two equipment sets per vehicle and automatically re-installs them when the vehicle is selected. Missing devices are pulled from the depot or demounted for free from other vehicles (requires WoT Plus)."
+C:\Python27\Python.exe packer.py -u Z4imon -n auto_equipment_return -v 0.40 -d "Saves two equipment sets per vehicle and automatically re-installs them when the vehicle is selected. Missing devices are pulled from the depot or demounted for free from other vehicles (requires WoT Plus)."

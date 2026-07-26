@@ -186,6 +186,19 @@ def store_sets(veh_inv_id, set1=None, set2=None, veh_cd=None):
     return entry
 
 
+def backfill_vehicle_cd(veh_inv_id, veh_cd):
+    """Fills in vehicleCD on an already-saved entry that predates that field
+    (kurzdor imports don't carry it - see auto_equip_import.py). No-op if the
+    entry has no saved sets, or already has a vehicleCD. Returns True if a
+    vehicleCD was actually written."""
+    entry = CONFIG['sets'].get(str(veh_inv_id))
+    if entry is None or entry.get('vehicleCD'):
+        return False
+    entry['vehicleCD'] = int(veh_cd)
+    save_config()
+    return True
+
+
 # --------------------------------------------------------------------------
 # WoT lifecycle hooks
 # --------------------------------------------------------------------------

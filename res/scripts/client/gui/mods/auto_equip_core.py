@@ -127,6 +127,70 @@ def resolve_inv_id_by_cd(veh_cd):
         return None
 
 
+def backfill_vehicle_cds():
+    """PROBLEM: kurzdor's save format has no vehicle-type id at all (see
+    auto_equip_import.py's module docstring) - only his own account-scoped
+    vehicle key, which we trust as this account's real invID. That trust is
+    fine for the import itself (same account => his key IS our key), but it
+    leaves every entry imported from him with vehicleCD=None - and
+    vehicleCD is exactly what a LATER cross-account import needs to remap a
+    set correctly onto a DIFFERENT WoT account. Left unfixed, anything
+    imported from kurzdor (or saved before vehicleCD existed) stays stuck as
+    "not owned on this account" the moment you try to move it to another one.
+
+    FIX part 1: iterate every vehicle the account actually owns and read
+    invID AND intCD directly off that SAME live vehicle object, then backfill
+    whichever saved entry has that invID. A per-invID lookup done separately
+    (resolving one id at a time right after each import) turned out
+    unreliable here - reading both ids off the object we already have in
+    hand, in one pass over the whole inventory, is what actually works.
+
+    FIX part 2: the silent first-run import (see auto_equip_import.py's
+    auto_import_for_account) runs the moment the account id becomes known,
+    which is BEFORE the items cache has synced the account's inventory —
+    confirmed via logging: "scanned 0 owned vehicle(s)". getVehicles() isn't
+    an error in that state, it's just empty. So this waits for
+    itemsCache.onSyncCompleted (same event CurrentVehicle itself waits on)
+    before actually scanning, running immediately only if already synced
+    (e.g. a manual import triggered later from the hangar settings panel)."""
+    try:
+        cache = _items_cache()
+        if cache.isSynced():
+            _run_vehicle_cd_backfill()
+        else:
+            LOG.info('backfill_vehicle_cds: items cache not synced yet, waiting for onSyncCompleted')
+            try:
+                cache.onSyncCompleted -= _on_items_synced_for_backfill
+            except Exception:
+                pass
+            cache.onSyncCompleted += _on_items_synced_for_backfill
+    except Exception:
+        LOG.exc('backfill_vehicle_cds failed')
+
+
+def _on_items_synced_for_backfill(*args):
+    try:
+        _items_cache().onSyncCompleted -= _on_items_synced_for_backfill
+    except Exception:
+        pass
+    _run_vehicle_cd_backfill()
+
+
+def _run_vehicle_cd_backfill():
+    try:
+        import mod_auto_equip
+        from gui.shared.utils.requesters import REQ_CRITERIA
+        vehicles = _items_cache().items.getVehicles(REQ_CRITERIA.INVENTORY)
+        filled = 0
+        for veh in vehicles.itervalues():
+            if mod_auto_equip.backfill_vehicle_cd(veh.invID, veh.intCD):
+                filled += 1
+        LOG.info('backfill_vehicle_cds: scanned %d owned vehicle(s), filled in %d vehicleCD(s)'
+                 % (len(vehicles), filled))
+    except Exception:
+        LOG.exc('backfill_vehicle_cds failed (_run_vehicle_cd_backfill)')
+
+
 def _fresh_item(int_cd):
     try:
         return _items_cache().items.getItemByCD(int_cd)
