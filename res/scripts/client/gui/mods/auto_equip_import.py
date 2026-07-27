@@ -58,11 +58,9 @@ _VAR_OWN_FILE = 'ownAccountFile'
 
 _SETS_PER_KURZDOR_ENTRY = 3
 
-# The note shown under the kurzdor dropdown, one panel Label per key. See
-# _other_account_notes for why it has to be split up like this, and why no
-# single one of these strings may exceed _LABEL_MAX_CHARS.
-_NOTE_KEYS = ('importOtherAccountWhy', 'importOtherAccountWhy2',
-              'importOtherAccountStep1', 'importOtherAccountStep2')
+# The one-line note under the kurzdor dropdown. See _other_account_note for
+# why it stays a single short label and may not exceed _LABEL_MAX_CHARS.
+_NOTE_KEY = 'importOtherAccountWhy'
 _LABEL_MAX_CHARS = 130
 
 # Dropdown option index -> full path, and the account we're logged in as.
@@ -319,19 +317,20 @@ def _kurzdor_options():
     return options
 
 
-def _other_account_notes(account_id, templates):
-    """Why the foreign files can't be imported, and the detour that works.
+def _other_account_note(account_id, templates):
+    """One short line stating the rule, with the full explanation and the
+    detour behind its info icon.
 
-    One Label component per line, and each line must FIT ON ONE LINE: the
-    panel's labels are a fixed 800px wide, don't wrap, and silently clip what
-    doesn't fit - and they render "\\n" as a space rather than a line break.
-    So keep every one of these strings under ~130 characters; the check
-    harness enforces it. (Tooltips are a different renderer and do break, on
-    <br/> - see importOtherAccountTooltip.)"""
+    Panel labels are a fixed 800px, never wrap, silently clip what doesn't fit
+    and render "\\n" as a space, so prose simply doesn't belong in them - no
+    other mod in a shared modsettings.dat ships a label over 50 characters.
+    Tooltips are the opposite renderer and do break on "\\n", as do 166 of the
+    852 tooltip bodies in the client's own tooltips.mo, none of which use
+    <br>."""
     if not _has_other_account_files():
         return []
-    return [templates.createLabel(t(key, accountId=account_id))
-            for key in _NOTE_KEYS]
+    return [templates.createLabel(t(_NOTE_KEY, accountId=account_id),
+                                  tooltip=t('importOtherAccountTooltip'))]
 
 
 def _import_button(templates):
@@ -345,7 +344,7 @@ def _build_column(account_id, templates):
             t('importDropdownLabel'), _VAR_KURZDOR_FILE, _kurzdor_options(), 0,
             tooltip=t('importOtherAccountTooltip') if _has_other_account_files() else None,
             button=_import_button(templates)))
-        column.extend(_other_account_notes(account_id, templates))
+        column.extend(_other_account_note(account_id, templates))
     if _own_files:
         column.append(templates.createDropdown(
             t('importOwnDropdownLabel'), _VAR_OWN_FILE,
