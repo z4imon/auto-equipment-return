@@ -2,7 +2,7 @@
 """Everything this mod shows the player outside its own popover: system
 messages in the notification centre, and the blocking hangar veil."""
 
-from auto_equip_log import LOG
+from .log import LOG
 
 # The native veil text key - reuses the client's own "Mounting equipment..."
 _WAITING_KEY = 'installEquipment'

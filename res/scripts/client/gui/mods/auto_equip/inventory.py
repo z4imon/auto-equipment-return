@@ -15,9 +15,8 @@ from post_progression_common import TankSetupGroupsId
 from skeletons.gui.game_control import IWotPlusController
 from skeletons.gui.shared import IItemsCache
 
-import auto_equip_config as config
-import auto_equip_hangar as hangar
-from auto_equip_log import LOG
+from . import config, hangar
+from .log import LOG
 
 OPT_DEVICE_GROUP = TankSetupGroupsId.OPTIONAL_DEVICES_AND_BOOSTERS
 
@@ -93,7 +92,7 @@ def inv_id_for_vehicle_type(veh_cd):
     """This account's own invID for a vehicle TYPE (intCD/compactDescr), or
     None if the account doesn't own that vehicle. An invID only means anything
     within the account that assigned it, so this is how a set saved on a
-    DIFFERENT account gets remapped onto this one (see auto_equip_import.py)."""
+    DIFFERENT account gets remapped onto this one (see importer.py)."""
     try:
         criteria = _criteria()
         vehicles = _items_cache().items.getVehicles(
@@ -286,7 +285,7 @@ def _credit_price(item):
 #
 # Every mode hangar lists a different set than the random one and remembers the
 # player's carousel filter separately, so both halves of the query depend on
-# WHICH hangar is open (auto_equip_hangar tracks that):
+# WHICH hangar is open (hangar.py tracks that):
 #
 #   * the eligibility gate - who may be taken into this mode at all. Each mode
 #     answers that itself, so we ask its own controller instead of rebuilding

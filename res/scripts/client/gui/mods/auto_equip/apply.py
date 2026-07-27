@@ -4,7 +4,7 @@
 MONEY GUARANTEE: no operation in this module ever spends gold, credits or a
 demount kit. Every demount that would cost something is skipped and reported
 instead, and no device is installed unless it was verifiably free to obtain.
-The raw RPCs in auto_equip_rpc show no confirm dialogs, so a missing check
+The raw RPCs in rpc.py show no confirm dialogs, so a missing check
 here would charge the player silently.
 
 One run per vehicle works through three phases per setup:
@@ -22,12 +22,9 @@ import BigWorld
 
 from adisp import adisp_async, adisp_process
 
-import auto_equip_config as config
-import auto_equip_inventory as inventory
-import auto_equip_messages as messages
-import auto_equip_rpc as rpc
-from auto_equip_i18n import t
-from auto_equip_log import LOG
+from . import config, inventory, messages, rpc
+from .i18n import t
+from .log import LOG
 
 _MAX_SUMMARY_ERRORS = 8
 

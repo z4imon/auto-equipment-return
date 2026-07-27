@@ -7,14 +7,14 @@ ResMgr.openSection(path).asBinary + json.loads pattern the openwg_gameface base
 mod uses for its own res_map.json. A .wotmod's contents are not a real
 filesystem path, so plain open() can't reach them.
 
-Internal/debug log lines (auto_equip_log.LOG.*) are deliberately NOT covered
+Internal/debug log lines (log.LOG.*) are deliberately NOT covered
 here — they never reach the player, only the mod's own log file."""
 
 import json
 
 import ResMgr
 
-from auto_equip_log import LOG
+from .log import LOG
 
 _LANG_PATH = u'gui/maps/icons/z4imon/lang_%s.json'
 _SUPPORTED = ('de', 'en')
