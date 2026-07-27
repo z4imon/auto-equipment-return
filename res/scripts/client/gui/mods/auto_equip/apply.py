@@ -4,7 +4,7 @@
 MONEY GUARANTEE: no operation in this module ever spends gold, credits or a
 demount kit. Every demount that would cost something is skipped and reported
 instead, and no device is installed unless it was verifiably free to obtain.
-The raw RPCs in auto_equip_rpc show no confirm dialogs, so a missing check
+The raw RPCs in rpc.py show no confirm dialogs, so a missing check
 here would charge the player silently.
 
 One run per vehicle works through three phases per setup:
@@ -21,13 +21,12 @@ run reads top-down; everything else is plain, synchronous and testable by eye.
 import BigWorld
 
 from adisp import adisp_async, adisp_process
+from CurrentVehicle import g_currentVehicle
+from gui.shared.notifications import NotificationPriorityLevel
 
-import auto_equip_config as config
-import auto_equip_inventory as inventory
-import auto_equip_messages as messages
-import auto_equip_rpc as rpc
-from auto_equip_i18n import t
-from auto_equip_log import LOG
+from . import config, inventory, messages, rpc
+from .i18n import t
+from .log import LOG
 
 _MAX_SUMMARY_ERRORS = 8
 
@@ -211,7 +210,6 @@ def _is_free_to_obtain(vehicle, veh_inv_id, item, options):
 
 def _selection_moved_away(veh_inv_id):
     try:
-        from CurrentVehicle import g_currentVehicle
         item = g_currentVehicle.item
         return item is None or item.invID != veh_inv_id
     except Exception:
@@ -583,7 +581,6 @@ def on_vehicle_changed():
     the selection moves to a different vehicle."""
     global _last_inv_id
     try:
-        from CurrentVehicle import g_currentVehicle
         vehicle = g_currentVehicle.item
         if vehicle is None or vehicle.invID == _last_inv_id:
             return
@@ -722,6 +719,5 @@ def _disable_auto_install_after_batch():
     if not config.is_auto_enabled():
         return
     config.set_auto_enabled(False)
-    from gui.shared.notifications import NotificationPriorityLevel
     messages.push_warning(t('autoDisabledAfterBatch'),
                           priority=NotificationPriorityLevel.HIGH)

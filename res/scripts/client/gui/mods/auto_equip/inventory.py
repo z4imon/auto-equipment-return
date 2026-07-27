@@ -10,14 +10,15 @@ each helper re-fetches what it needs.
 
 import time
 
+from gui.shared.gui_items import GUI_ITEM_TYPE
+from gui.shared.utils.requesters import REQ_CRITERIA
 from helpers import dependency
 from post_progression_common import TankSetupGroupsId
 from skeletons.gui.game_control import IWotPlusController
 from skeletons.gui.shared import IItemsCache
 
-import auto_equip_config as config
-import auto_equip_hangar as hangar
-from auto_equip_log import LOG
+from . import config, hangar
+from .log import LOG
 
 OPT_DEVICE_GROUP = TankSetupGroupsId.OPTIONAL_DEVICES_AND_BOOSTERS
 
@@ -28,11 +29,6 @@ def _items_cache():
 
 def _wot_plus():
     return dependency.instance(IWotPlusController)
-
-
-def _criteria():
-    from gui.shared.utils.requesters import REQ_CRITERIA
-    return REQ_CRITERIA
 
 
 # ---------------------------------------------------------------------------
@@ -68,7 +64,7 @@ def is_free_to_demount(item):
 def owned_vehicles():
     """Every vehicle in the player's inventory, as a list."""
     try:
-        return list(_items_cache().items.getVehicles(_criteria().INVENTORY).itervalues())
+        return list(_items_cache().items.getVehicles(REQ_CRITERIA.INVENTORY).itervalues())
     except Exception:
         LOG.exc('owned_vehicles failed')
         return []
@@ -78,9 +74,9 @@ def vehicle_by_inv_id(veh_inv_id):
     """Fresh gui item for one owned vehicle, looked up by inventory id (which
     is what the config keys sets by), or None."""
     try:
-        criteria = _criteria()
         vehicles = _items_cache().items.getVehicles(
-            criteria.INVENTORY | criteria.VEHICLE.SPECIFIC_BY_INV_ID([veh_inv_id]))
+            REQ_CRITERIA.INVENTORY
+            | REQ_CRITERIA.VEHICLE.SPECIFIC_BY_INV_ID([veh_inv_id]))
         for vehicle in vehicles.itervalues():
             return vehicle
         return None
@@ -93,11 +89,10 @@ def inv_id_for_vehicle_type(veh_cd):
     """This account's own invID for a vehicle TYPE (intCD/compactDescr), or
     None if the account doesn't own that vehicle. An invID only means anything
     within the account that assigned it, so this is how a set saved on a
-    DIFFERENT account gets remapped onto this one (see auto_equip_import.py)."""
+    DIFFERENT account gets remapped onto this one (see importer.py)."""
     try:
-        criteria = _criteria()
         vehicles = _items_cache().items.getVehicles(
-            criteria.INVENTORY | criteria.VEHICLE.SPECIFIC_BY_CD([veh_cd]))
+            REQ_CRITERIA.INVENTORY | REQ_CRITERIA.VEHICLE.SPECIFIC_BY_CD([veh_cd]))
         for vehicle in vehicles.itervalues():
             return vehicle.invID
         return None
@@ -114,8 +109,8 @@ def device_by_cd(int_cd):
 
 
 def all_optional_devices():
-    from gui.shared.gui_items import GUI_ITEM_TYPE
-    return _items_cache().items.getItems(GUI_ITEM_TYPE.OPTIONALDEVICE, _criteria().EMPTY)
+    return _items_cache().items.getItems(GUI_ITEM_TYPE.OPTIONALDEVICE,
+                                         REQ_CRITERIA.EMPTY)
 
 
 # ---------------------------------------------------------------------------
@@ -286,7 +281,7 @@ def _credit_price(item):
 #
 # Every mode hangar lists a different set than the random one and remembers the
 # player's carousel filter separately, so both halves of the query depend on
-# WHICH hangar is open (auto_equip_hangar tracks that):
+# WHICH hangar is open (hangar.py tracks that):
 #
 #   * the eligibility gate - who may be taken into this mode at all. Each mode
 #     answers that itself, so we ask its own controller instead of rebuilding
@@ -319,9 +314,8 @@ def filtered_primary_vehicles():
     """Favourite vehicles of the hangar the player is currently in that pass
     that hangar's carousel filter, best tier first."""
     mode = hangar.active_mode()
-    criteria = _criteria()
-    query = criteria.INVENTORY | criteria.VEHICLE.FAVORITE
-    query |= _eligibility_criteria(criteria, mode)
+    query = REQ_CRITERIA.INVENTORY | REQ_CRITERIA.VEHICLE.FAVORITE
+    query |= _eligibility_criteria(REQ_CRITERIA, mode)
     query |= _carousel_filter_criteria(mode)
     try:
         vehicles = _items_cache().items.getVehicles(query)
@@ -411,7 +405,7 @@ def _carousel_filter_criteria(mode):
     except Exception:
         LOG.exc('carousel filter %s unavailable - using all Primary vehicles'
                 % class_name)
-        return _criteria().EMPTY
+        return REQ_CRITERIA.EMPTY
 
 
 # ---------------------------------------------------------------------------
