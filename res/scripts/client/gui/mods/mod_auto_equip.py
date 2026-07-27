@@ -22,6 +22,7 @@ from gui.shared.utils import getPlayerDatabaseID
 from PlayerEvents import g_playerEvents
 
 from .auto_equip import config, i18n, importer
+from .auto_equip import __version__
 from .auto_equip.log import LOG
 
 

@@ -1,5 +1,4 @@
 import logging
-import traceback
 
 _LOGGER_NAME = 'AutoEquipmentReturn'
 _PREFIX = '[AutoEquip] '
@@ -32,8 +31,7 @@ class _ModLogger(object):
 
     def exc(self, msg, *args):
         """Log a message plus the current exception traceback."""
-        self._logger.error(_PREFIX + 'EXCEPTION: ' + str(msg), *args)
-        self._logger.error(_PREFIX + traceback.format_exc())
+        self._logger.error(_PREFIX + 'EXCEPTION: ' + str(msg), *args, exc_info=True)
 
 
 LOG = _ModLogger()
