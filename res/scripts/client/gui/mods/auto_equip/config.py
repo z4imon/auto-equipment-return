@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Persisted settings and saved equipment sets, one JSON file per account.
 
-    %APPDATA%/Wargaming.net/WorldOfTanks/mods/z4imon/autoequipmentreturn/<accountId>.json
+    <the client's preferences folder>/mods/z4imon/autoequipmentreturn/<accountId>.json
 
 (the same folder shape kurzdor's mod uses), so switching between accounts on
 the same PC never mixes up saved sets. File layout:
@@ -17,7 +17,7 @@ data imported from kurzdor's Auto Equipment Return mod - which uses the same
 scheme - lines up without translation. vehicleCD (the vehicle's type
 compactDescr) is recorded alongside purely so a set can later be remapped onto
 a DIFFERENT account's own invID for that vehicle type; an invID is only
-meaningful within the account that assigned it (see auto_equip_import.py).
+meaningful within the account that assigned it (see importer.py).
 A 0 inside a set list means "slot empty on purpose".
 
 Plain, hand-editable JSON with real booleans, on purpose.
@@ -26,7 +26,9 @@ Plain, hand-editable JSON with real booleans, on purpose.
 import json
 import os
 
-from auto_equip_log import LOG
+from helpers import getPreferencesDirPath
+
+from .log import LOG
 
 _DEFAULTS = {
     'autoEquipEnabled': True,   # install saved sets automatically on vehicle selection
@@ -49,10 +51,12 @@ _mod_disabled = False
 # Paths
 # ---------------------------------------------------------------------------
 
+def mods_dir():
+    return os.path.join(getPreferencesDirPath(), 'mods')
+
+
 def account_files_dir():
-    appdata = os.getenv('APPDATA', '')
-    return os.path.join(appdata, 'Wargaming.net', 'WorldOfTanks', 'mods',
-                        'z4imon', 'autoequipmentreturn')
+    return os.path.join(mods_dir(), 'z4imon', 'autoequipmentreturn')
 
 
 def _config_path(account_id):
@@ -121,10 +125,10 @@ def load_for_account(account_id):
 
 
 def _import_kurzdor_save_once():
-    # Imported lazily: auto_equip_import reads this module at import time.
+    # Imported lazily: importer reads this module at import time.
     try:
-        import auto_equip_import
-        auto_equip_import.auto_import_for_account(_account_id)
+        from . import importer
+        importer.auto_import_for_account(_account_id)
     except Exception:
         LOG.exc('kurzdor first-run auto-import failed')
 
@@ -210,7 +214,7 @@ def store_sets(veh_inv_id, set1=None, set2=None, veh_cd=None):
 
 def fill_in_vehicle_cd(veh_inv_id, veh_cd):
     """Fills in vehicleCD on an already-saved entry that predates that field
-    (kurzdor imports carry no vehicle type id - see auto_equip_import.py).
+    (kurzdor imports carry no vehicle type id - see importer.py).
     Returns True only if a value was actually written."""
     entry = saved_sets(veh_inv_id)
     if entry is None or entry.get('vehicleCD'):

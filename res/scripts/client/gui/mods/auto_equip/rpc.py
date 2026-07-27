@@ -11,15 +11,15 @@ validates everything and answers with a negative code on failure.
 
 Because these are the raw calls, no confirm dialog ever appears - which is
 exactly why the caller must do its own money checks before installing
-anything. See auto_equip_apply's money guarantee.
+anything. See apply.py's money guarantee.
 """
 
 import BigWorld
 
 from adisp import adisp_async
 
-from auto_equip_inventory import OPT_DEVICE_GROUP
-from auto_equip_log import LOG
+from .inventory import OPT_DEVICE_GROUP
+from .log import LOG
 
 # Pause between operations so the items cache settles before we read it again;
 # the equip callbacks can fire before the resync has fully landed. Stale reads

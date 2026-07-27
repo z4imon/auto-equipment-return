@@ -2,18 +2,19 @@
 """Everything this mod shows the player outside its own popover: system
 messages in the notification centre, and the blocking hangar veil."""
 
-from auto_equip_log import LOG
+from gui import SystemMessages
+from gui.Scaleform.Waiting import Waiting
+
+from .log import LOG
 
 # The native veil text key - reuses the client's own "Mounting equipment..."
 _WAITING_KEY = 'installEquipment'
 
 
 def _push(text, type_name, priority):
-    """type_name is an attribute of SystemMessages.SM_TYPE. Both it and the
-    module are resolved here so nothing else has to import the client's
-    message plumbing."""
+    """type_name is an attribute of SystemMessages.SM_TYPE, resolved here so
+    nothing else has to know the client's message plumbing."""
     try:
-        from gui import SystemMessages
         SystemMessages.pushMessage(text,
                                    type=getattr(SystemMessages.SM_TYPE, type_name),
                                    priority=priority)
@@ -46,7 +47,6 @@ def show_waiting():
     """Shows the blocking grey hangar veil. Returns True when it actually
     appeared, so the caller knows a matching hide_waiting() is required."""
     try:
-        from gui.Scaleform.Waiting import Waiting
         Waiting.show(_WAITING_KEY)
         return True
     except Exception:
@@ -56,7 +56,6 @@ def show_waiting():
 
 def hide_waiting():
     try:
-        from gui.Scaleform.Waiting import Waiting
         Waiting.hide(_WAITING_KEY)
     except Exception:
         LOG.exc('hide_waiting failed')

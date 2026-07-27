@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """The hangar popover: a Gameface view injected into the hangar's main layout,
-and into every game mode that brings a hangar of its own (auto_equip_hangar
-owns that list).
+and into every game mode that brings a hangar of its own (hangar.py owns that
+list).
 
 The mod stays inert without a WoT Plus subscription (a hard gate the player
 asked for), so the flow is: hook the hangar load -> check for the subscription
@@ -12,12 +12,12 @@ import json
 
 import BigWorld
 
-import auto_equip_config as config
-import auto_equip_apply as apply_engine
-import auto_equip_hangar as hangar
-import auto_equip_inventory as inventory
-import auto_equip_save as save
-from auto_equip_log import LOG
+from CurrentVehicle import g_currentVehicle
+
+from . import config, hangar, i18n, inventory, messages, save
+from . import apply as apply_engine
+from .i18n import t
+from .log import LOG
 
 try:
     from frameworks.wulf import ViewModel
@@ -130,7 +130,6 @@ def _build_data():
         'busy': apply_engine.is_busy(),
     }
     try:
-        from CurrentVehicle import g_currentVehicle
         vehicle = g_currentVehicle.item
         if vehicle is None:
             return data
@@ -185,7 +184,6 @@ def _on_vehicle_changed(*args, **kwargs):
 def _subscribe_to_vehicle():
     global _subscribed_to_vehicle
     try:
-        from CurrentVehicle import g_currentVehicle
         try:
             g_currentVehicle.onChanged -= _on_vehicle_changed
         except Exception:
@@ -203,7 +201,6 @@ def _unsubscribe_from_vehicle():
     if not _subscribed_to_vehicle:
         return
     try:
-        from CurrentVehicle import g_currentVehicle
         g_currentVehicle.onChanged -= _on_vehicle_changed
     except Exception:
         LOG.exc('failed to unsubscribe from g_currentVehicle.onChanged')
@@ -264,8 +261,7 @@ class AutoEquipView(ViewComponent):
     def _onLoading(self, *args, **kwargs):
         super(AutoEquipView, self)._onLoading()
         try:
-            import auto_equip_i18n
-            self.viewModel.setUiJson(json.dumps(auto_equip_i18n.ui_strings()))
+            self.viewModel.setUiJson(json.dumps(i18n.ui_strings()))
             self.viewModel.setDataJson(json.dumps(_build_data()))
         except Exception:
             LOG.exc('AutoEquipView._onLoading failed')
@@ -377,8 +373,6 @@ def _shut_down_without_subscription():
     _has_wot_plus = False
     LOG.warning('no WoT Plus subscription - shutting the mod down')
     try:
-        import auto_equip_messages as messages
-        from auto_equip_i18n import t
         messages.push_warning(t('noSubscription'))
     except Exception:
         LOG.exc('could not push no-subscription message')
