@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-"""The hangar popover: a Gameface view injected into the hangar's main layout.
+"""The hangar popover: a Gameface view injected into the hangar's main layout,
+and into the game modes that bring a hangar of their own (see
+_MODE_HANGAR_PACKAGES).
 
 The mod stays inert without a WoT Plus subscription (a hard gate the player
 asked for), so the flow is: hook the hangar load -> check for the subscription
@@ -47,23 +49,37 @@ _initialized = False
 _subscribed_to_vehicle = False
 _has_wot_plus = None            # None = not checked yet
 
-# The Comp7 hangar layout is registered by that extension at runtime, so it is
-# resolved lazily - it may not exist at import time, or at all.
-_comp7_layout_id = None
+# Game modes bring their own hangar, each registered by its own script package
+# as R.views.<package>.mono.lobby.hangar. Those packages come up at runtime, so
+# the ids are resolved lazily - and every one that is still missing is retried
+# on the next view load rather than written off, because the first hangar can
+# load before the mode's package is registered. A mode the client doesn't ship
+# simply never resolves.
+_MODE_HANGAR_PACKAGES = (
+    'comp7',            # Onslaught
+    'comp7_light',      # Onslaught light
+    'frontline',        # Frontline
+    'last_stand',       # Last Stand
+    'fun_random',       # Arcade Cabinet
+)
+
+_mode_layout_ids = {}
 
 
-def _comp7_hangar_layout_id():
-    global _comp7_layout_id
-    if _comp7_layout_id is None:
+def _mode_hangar_layout_ids():
+    for package in _MODE_HANGAR_PACKAGES:
+        if package in _mode_layout_ids:
+            continue
         try:
-            _comp7_layout_id = R.views.comp7.mono.lobby.hangar()
+            _mode_layout_ids[package] = getattr(R.views, package).mono.lobby.hangar()
+            LOG.info('resolved the %s hangar layout' % package)
         except Exception:
-            pass
-    return _comp7_layout_id
+            pass        # not registered (yet), or not part of this client
+    return _mode_layout_ids.values()
 
 
 def _is_hangar(layout_id):
-    return layout_id == _HANGAR_LAYOUT_ID or layout_id == _comp7_hangar_layout_id()
+    return layout_id == _HANGAR_LAYOUT_ID or layout_id in _mode_hangar_layout_ids()
 
 
 # ---------------------------------------------------------------------------
