@@ -20,8 +20,8 @@ _LANG_PATH = u'gui/maps/icons/z4imon/lang_%s.json'
 _SUPPORTED = ('de', 'en')
 _FALLBACK = 'en'
 
-_g_strings = {}
-_g_lang = _FALLBACK
+_strings = {}
+_language = _FALLBACK
 
 
 def _read_lang_file(code):
@@ -49,28 +49,29 @@ def _detect_language():
 def init():
     """Loads the strings for the current client language. Call once, early in
     mod init — the client language cannot change without a game restart."""
-    global _g_strings, _g_lang
-    _g_lang = _detect_language()
-    data = _read_lang_file(_g_lang)
-    if data is None and _g_lang != _FALLBACK:
-        LOG.warning('language file for "%s" missing/unreadable, falling back to "%s"' % (_g_lang, _FALLBACK))
-        _g_lang = _FALLBACK
-        data = _read_lang_file(_g_lang)
-    _g_strings = data or {}
-    LOG.info('auto_equip_i18n: loaded %d string(s) for language=%s' % (len(_g_strings), _g_lang))
+    global _strings, _language
+    _language = _detect_language()
+    data = _read_lang_file(_language)
+    if data is None and _language != _FALLBACK:
+        LOG.warning('language file for "%s" missing/unreadable, falling back to "%s"'
+                    % (_language, _FALLBACK))
+        _language = _FALLBACK
+        data = _read_lang_file(_language)
+    _strings = data or {}
+    LOG.info('loaded %d string(s) for language=%s' % (len(_strings), _language))
 
 
 def ui_strings():
     """Flat dict pushed to the popover JS as uiJson (same shape the JS side
     already expects — only where the data now comes from changed)."""
-    return dict(_g_strings)
+    return dict(_strings)
 
 
 def t(key, **kwargs):
     """One localized, formatted string. Missing key/file -> the raw key
     wrapped in !!...!! (loud on purpose: a silent fallback would hide a typo
     or missing key behind mixed-language text during testing)."""
-    template = _g_strings.get(key)
+    template = _strings.get(key)
     if template is None:
         LOG.warning('missing translation key: %s' % key)
         return u'!!%s!!' % key

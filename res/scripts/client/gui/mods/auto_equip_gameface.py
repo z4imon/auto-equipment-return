@@ -1,81 +1,96 @@
 # -*- coding: utf-8 -*-
+"""The hangar popover: a Gameface view injected into the hangar's main layout.
+
+The mod stays inert without a WoT Plus subscription (a hard gate the player
+asked for), so the flow is: hook the hangar load -> check for the subscription
+-> inject the view -> keep it fed with data.
+"""
+
 import json
 
 import BigWorld
 
+import auto_equip_config as config
+import auto_equip_apply as apply_engine
+import auto_equip_inventory as inventory
+import auto_equip_save as save
 from auto_equip_log import LOG
 
 try:
     from frameworks.wulf import ViewModel
+    from gui.impl.gen import R
     from gui.impl.pub.view_component import ViewComponent
     from gui.impl.pub.view_impl import ViewImpl
-    from gui.impl.gen import R
     from openwg_gameface import ModDynAccessor, gf_mod_inject, manager as resmap
 except Exception:
-    LOG.exc('core gameface imports FAILED — module unusable')
+    LOG.exc('core gameface imports FAILED - module unusable')
     raise
 
 _VIEW_ALIAS = 'AutoEquipView'
+_VIEW_DIR = 'coui://gui/gameface/mods/z4imon/AutoEquipView'
 
-_HANGAR_MAIN_LAYOUT_ID = R.views.mono.hangar.main()
+_HANGAR_LAYOUT_ID = R.views.mono.hangar.main()
 
-# Comp7 hangar layout id is registered by the comp7 extension at runtime —
-# resolve lazily (may not exist at import time, or at all).
-_g_comp7_layout_id = None
+_PLUS_CHECK_MAX_ATTEMPTS = 10
+_PLUS_CHECK_INTERVAL = 1.0
+
+
+# ---------------------------------------------------------------------------
+# Module state
+# ---------------------------------------------------------------------------
+
+_view = None                # our injected AutoEquipView
+_injected_into_view_id = None
+_hangar_view = None
+_pending_hangar_view = None     # hangar loaded before init() ran
+_initialized = False
+_subscribed_to_vehicle = False
+_has_wot_plus = None            # None = not checked yet
+
+# The Comp7 hangar layout is registered by that extension at runtime, so it is
+# resolved lazily - it may not exist at import time, or at all.
+_comp7_layout_id = None
 
 
 def _comp7_hangar_layout_id():
-    global _g_comp7_layout_id
-    if _g_comp7_layout_id is None:
+    global _comp7_layout_id
+    if _comp7_layout_id is None:
         try:
-            _g_comp7_layout_id = R.views.comp7.mono.lobby.hangar()
+            _comp7_layout_id = R.views.comp7.mono.lobby.hangar()
         except Exception:
             pass
-    return _g_comp7_layout_id
+    return _comp7_layout_id
 
 
-# --- module state ---------------------------------------------------------
-_g_view = None               # our injected AutoEquipView
-_g_injected_view_id = None
-_g_hangar_view = None
-_g_initialized = False
-_pending_hangar_view = None
-_g_vehicle_sub = False
-_g_plus_state = None         # None = not checked yet, True = has WoT Plus, False = no sub
-_PLUS_CHECK_MAX_ATTEMPTS = 10
-
-def _ui_strings():
-    """Popover UI text for the current client language (uiJson payload).
-    Fetched fresh — not cached at import time — so it always reflects
-    whatever auto_equip_i18n.init() loaded during mod init."""
-    import auto_equip_i18n
-    return auto_equip_i18n.ui_strings()
+def _is_hangar(layout_id):
+    return layout_id == _HANGAR_LAYOUT_ID or layout_id == _comp7_hangar_layout_id()
 
 
-# ==========================================================================
-# ViewImpl._onLoaded hook — catch the hangar as it loads
-# ==========================================================================
-_orig_onLoaded = ViewImpl._onLoaded
+# ---------------------------------------------------------------------------
+# Hook: catch the hangar as it loads
+# ---------------------------------------------------------------------------
+
+_original_on_loaded = ViewImpl._onLoaded
 
 
-def _hooked_onLoaded(self, *args, **kwargs):
-    _orig_onLoaded(self, *args, **kwargs)
+def _hooked_on_loaded(self, *args, **kwargs):
+    _original_on_loaded(self, *args, **kwargs)
     try:
-        if self.layoutID == _HANGAR_MAIN_LAYOUT_ID or self.layoutID == _comp7_hangar_layout_id():
-            _on_hangar_main_loaded(self)
+        if _is_hangar(self.layoutID):
+            _on_hangar_loaded(self)
     except Exception:
-        LOG.exc('error in _hooked_onLoaded')
+        LOG.exc('error in _hooked_on_loaded')
 
 
-ViewImpl._onLoaded = _hooked_onLoaded
+ViewImpl._onLoaded = _hooked_on_loaded
 
 
-# ==========================================================================
-# Popover data -> view model
-# ==========================================================================
+# ---------------------------------------------------------------------------
+# Data pushed to the popover
+# ---------------------------------------------------------------------------
 
 def _icon_name(item):
-    """artefact icon filename (without extension) of a gui item."""
+    """The artefact icon filename of a gui item, without path or extension."""
     try:
         return item.icon.split('/')[-1].rsplit('.', 1)[0]
     except Exception:
@@ -83,12 +98,11 @@ def _icon_name(item):
 
 
 def _overlay_name(item):
-    """Overlay art name for trophy/deluxe devices ('' = none).
+    """Overlay art for trophy/deluxe devices ('' = none).
 
-    Same art set the native hangar loadout panel uses
-    (gui/maps/icons/components/loadout_item/overlays/<size>/<name>.png); it is
-    drawn at 100% of the icon, so it scales with it.
-    """
+    The same art set the native hangar loadout panel uses
+    (gui/maps/icons/components/loadout_item/overlays/<size>/<name>.png). It is
+    drawn at 100% of the icon, so it scales along with it."""
     try:
         if item.isDeluxe:
             return 'improved'
@@ -103,106 +117,106 @@ def _overlay_name(item):
     return ''
 
 
-def _set_payload(cds):
-    """One saved set list -> JS payload (None stays None = not saved)."""
-    if cds is None:
+def _slot_payload(device_cd):
+    if not device_cd:
         return None
-    from helpers import dependency
-    from skeletons.gui.shared import IItemsCache
-    items = dependency.instance(IItemsCache).items
-    out = []
-    for cd in cds:
-        if not cd:
-            out.append(None)
-            continue
-        try:
-            item = items.getItemByCD(int(cd))
-            out.append({'cd': int(cd), 'icon': _icon_name(item),
-                        'overlay': _overlay_name(item), 'name': item.userName})
-        except Exception:
-            out.append({'cd': int(cd), 'icon': '', 'overlay': '', 'name': '?'})
-    return out
+    item = inventory.device_by_cd(int(device_cd))
+    if item is None:
+        return {'cd': int(device_cd), 'icon': '', 'overlay': '', 'name': '?'}
+    return {'cd': int(device_cd), 'icon': _icon_name(item),
+            'overlay': _overlay_name(item), 'name': item.userName}
+
+
+def _set_payload(device_cds):
+    """One saved set -> JS payload. None stays None, meaning "not saved"."""
+    if device_cds is None:
+        return None
+    return [_slot_payload(cd) for cd in device_cds]
 
 
 def _build_data():
-    import mod_auto_equip
-    import auto_equip_core
     data = {
         'vehicleName': u'',
         'vehicleInvID': 0,
-        'enabled': mod_auto_equip.is_auto_enabled(),
-        'downgrade': mod_auto_equip.is_downgrade_enabled(),
+        'enabled': config.is_auto_enabled(),
+        'downgrade': config.is_downgrade_enabled(),
         'hasSetup2': False,
         'saved1': None,
         'saved2': None,
-        'busy': auto_equip_core.is_busy(),
+        'busy': apply_engine.is_busy(),
     }
     try:
         from CurrentVehicle import g_currentVehicle
         vehicle = g_currentVehicle.item
-        if vehicle is not None:
-            data['vehicleName'] = vehicle.userName
-            data['vehicleInvID'] = vehicle.invID
-            data['hasSetup2'] = auto_equip_core.has_second_setup(vehicle)
-            saved = mod_auto_equip.get_sets(vehicle.invID)
-            if saved:
-                data['saved1'] = _set_payload(saved.get('set1'))
-                data['saved2'] = _set_payload(saved.get('set2'))
+        if vehicle is None:
+            return data
+        data['vehicleName'] = vehicle.userName
+        data['vehicleInvID'] = vehicle.invID
+        data['hasSetup2'] = inventory.has_second_setup(vehicle)
+        saved = config.saved_sets(vehicle.invID)
+        if saved:
+            data['saved1'] = _set_payload(saved.get('set1'))
+            data['saved2'] = _set_payload(saved.get('set2'))
     except Exception:
         LOG.exc('_build_data failed')
     return data
 
 
-def _push_data():
-    global _g_view, _g_injected_view_id
-    if _g_view is None:
+def push_data():
+    """Sends the current state to the popover. Also the refresh callback the
+    apply engine calls after anything changed."""
+    global _view, _injected_into_view_id
+    if _view is None:
         return
     try:
-        view_model = _g_view.viewModel
+        view_model = _view.viewModel
         if view_model is None:
-            # Underlying native view was already torn down (e.g. hangar/subhangar
-            # transition) — drop the stale reference so the next hangar load
-            # re-injects instead of hitting this every refresh.
-            _g_view = None
-            _g_injected_view_id = None
+            # The native view was already torn down (hangar/subhangar
+            # transition). Drop the stale reference so the next hangar load
+            # re-injects, instead of failing on every refresh from here on.
+            _view = None
+            _injected_into_view_id = None
             return
         view_model.setDataJson(json.dumps(_build_data()))
     except Exception:
-        LOG.exc('_push_data failed')
+        LOG.exc('push_data failed')
 
 
-# ==========================================================================
-# Vehicle subscription (battle wipes it — re-subscribe on every hangar load)
-# ==========================================================================
+# ---------------------------------------------------------------------------
+# Vehicle subscription
+#
+# Entering a battle calls g_currentVehicle.destroy(), which clears ALL event
+# subscriptions - so this has to be redone on every hangar load. Removing
+# before adding keeps it idempotent.
+# ---------------------------------------------------------------------------
 
 def _on_vehicle_changed(*args, **kwargs):
     try:
-        import auto_equip_core
-        auto_equip_core.on_vehicle_changed()
-        _push_data()
+        apply_engine.on_vehicle_changed()
+        push_data()
     except Exception:
         LOG.exc('_on_vehicle_changed failed')
 
 
-def _subscribe_vehicle():
-    global _g_vehicle_sub
+def _subscribe_to_vehicle():
+    global _subscribed_to_vehicle
     try:
         from CurrentVehicle import g_currentVehicle
         try:
             g_currentVehicle.onChanged -= _on_vehicle_changed
         except Exception:
-            pass   # not currently subscribed
+            pass    # not currently subscribed
         g_currentVehicle.onChanged += _on_vehicle_changed
-        if not _g_vehicle_sub:
+        if not _subscribed_to_vehicle:
             LOG.info('subscribed to g_currentVehicle.onChanged')
-        _g_vehicle_sub = True
+        _subscribed_to_vehicle = True
     except Exception:
         LOG.exc('failed to subscribe to g_currentVehicle.onChanged')
 
 
-def _unsubscribe_vehicle():
-    global _g_vehicle_sub
-    if not _g_vehicle_sub:
+def _unsubscribe_from_vehicle():
+    global _subscribed_to_vehicle
+    if not _subscribed_to_vehicle:
         return
     try:
         from CurrentVehicle import g_currentVehicle
@@ -210,15 +224,16 @@ def _unsubscribe_vehicle():
     except Exception:
         LOG.exc('failed to unsubscribe from g_currentVehicle.onChanged')
     finally:
-        _g_vehicle_sub = False
+        _subscribed_to_vehicle = False
 
 
-# ==========================================================================
-# ViewModel + ViewComponent
-# ==========================================================================
+# ---------------------------------------------------------------------------
+# View model and view
+# ---------------------------------------------------------------------------
 
 class AutoEquipViewModel(ViewModel):
-    __slots__ = ('onJsLog', 'onToggleEnabled', 'onToggleDowngrade', 'onSaveSet', 'onEquipPrimary')
+    __slots__ = ('onJsLog', 'onToggleEnabled', 'onToggleDowngrade',
+                 'onSaveSet', 'onEquipPrimary')
 
     def __init__(self):
         super(AutoEquipViewModel, self).__init__(properties=2, commands=5)
@@ -226,14 +241,14 @@ class AutoEquipViewModel(ViewModel):
     def getDataJson(self):
         return self._getString(0)
 
-    def setDataJson(self, v):
-        self._setString(0, v)
+    def setDataJson(self, value):
+        self._setString(0, value)
 
     def getUiJson(self):
         return self._getString(1)
 
-    def setUiJson(self, v):
-        self._setString(1, v)
+    def setUiJson(self, value):
+        self._setString(1, value)
 
     def _initialize(self):
         super(AutoEquipViewModel, self)._initialize()
@@ -244,11 +259,9 @@ class AutoEquipViewModel(ViewModel):
         self.onToggleDowngrade = self._addCommand('onToggleDowngrade')
         self.onSaveSet = self._addCommand('onSaveSet')
         self.onEquipPrimary = self._addCommand('onEquipPrimary')
-        gf_mod_inject(self, _VIEW_ALIAS, styles=[
-            'coui://gui/gameface/mods/z4imon/AutoEquipView/AutoEquipView.css'
-        ], modules=[
-            'coui://gui/gameface/mods/z4imon/AutoEquipView/AutoEquipView.js'
-        ])
+        gf_mod_inject(self, _VIEW_ALIAS,
+                      styles=['%s/AutoEquipView.css' % _VIEW_DIR],
+                      modules=['%s/AutoEquipView.js' % _VIEW_DIR])
 
 
 class AutoEquipView(ViewComponent):
@@ -267,166 +280,162 @@ class AutoEquipView(ViewComponent):
     def _onLoading(self, *args, **kwargs):
         super(AutoEquipView, self)._onLoading()
         try:
-            self.viewModel.setUiJson(json.dumps(_ui_strings()))
+            import auto_equip_i18n
+            self.viewModel.setUiJson(json.dumps(auto_equip_i18n.ui_strings()))
             self.viewModel.setDataJson(json.dumps(_build_data()))
         except Exception:
             LOG.exc('AutoEquipView._onLoading failed')
 
     def _getEvents(self):
         return (
-            (self.viewModel.onJsLog, self._onJsLog),
-            (self.viewModel.onToggleEnabled, self._onToggleEnabled),
-            (self.viewModel.onToggleDowngrade, self._onToggleDowngrade),
-            (self.viewModel.onSaveSet, self._onSaveSet),
-            (self.viewModel.onEquipPrimary, self._onEquipPrimary),
+            (self.viewModel.onJsLog, self._on_js_log),
+            (self.viewModel.onToggleEnabled, self._on_toggle_enabled),
+            (self.viewModel.onToggleDowngrade, self._on_toggle_downgrade),
+            (self.viewModel.onSaveSet, self._on_save_set),
+            (self.viewModel.onEquipPrimary, self._on_equip_primary),
         )
 
-    def _onJsLog(self, data=None):
+    def _on_js_log(self, data=None):
         try:
             if not data:
                 return
             level = str(data.get('level', 'info')).lower()
-            msg = '[JS] ' + str(data.get('msg', ''))
+            message = '[JS] ' + str(data.get('msg', ''))
             if level == 'error':
-                LOG.error(msg)
+                LOG.error(message)
             elif level == 'warning':
-                LOG.warning(msg)
+                LOG.warning(message)
             else:
-                LOG.info(msg)
+                LOG.info(message)
         except Exception:
-            LOG.exc('_onJsLog failed')
+            LOG.exc('_on_js_log failed')
 
-    def _onToggleEnabled(self, data=None):
+    def _on_toggle_enabled(self, data=None):
         try:
-            import mod_auto_equip
-            mod_auto_equip.set_auto_enabled(not mod_auto_equip.is_auto_enabled())
-            _push_data()
+            config.set_auto_enabled(not config.is_auto_enabled())
+            push_data()
         except Exception:
-            LOG.exc('_onToggleEnabled failed')
+            LOG.exc('_on_toggle_enabled failed')
 
-    def _onToggleDowngrade(self, data=None):
+    def _on_toggle_downgrade(self, data=None):
         try:
-            import mod_auto_equip
-            mod_auto_equip.set_downgrade_enabled(not mod_auto_equip.is_downgrade_enabled())
-            _push_data()
+            config.set_downgrade_enabled(not config.is_downgrade_enabled())
+            push_data()
         except Exception:
-            LOG.exc('_onToggleDowngrade failed')
+            LOG.exc('_on_toggle_downgrade failed')
 
-    def _onSaveSet(self, data=None):
+    def _on_save_set(self, data=None):
         try:
-            import auto_equip_core
-            which = int(data.get('which', 3)) if data else 3
-            status = auto_equip_core.save_sets(which)
-            LOG.info('_onSaveSet(%s): %s' % (which, status))
-            _push_data()
+            which = int(data.get('which', save.BOTH_SETS)) if data else save.BOTH_SETS
+            status = save.save_current_vehicle_sets(which)
+            LOG.info('_on_save_set(%s): %s' % (which, status))
+            push_data()
         except Exception:
-            LOG.exc('_onSaveSet failed')
+            LOG.exc('_on_save_set failed')
 
-    def _onEquipPrimary(self, data=None):
+    def _on_equip_primary(self, data=None):
         try:
-            import auto_equip_core
-            auto_equip_core.equip_primary_vehicles()
-            _push_data()
+            apply_engine.equip_primary_vehicles()
+            push_data()
         except Exception:
-            LOG.exc('_onEquipPrimary failed')
+            LOG.exc('_on_equip_primary failed')
 
 
-# ==========================================================================
-# Hangar hook plumbing + WoT Plus gate
-# ==========================================================================
+# ---------------------------------------------------------------------------
+# Injection and the WoT Plus gate
+# ---------------------------------------------------------------------------
 
-def _on_hangar_main_loaded(view):
-    global _pending_hangar_view, _g_hangar_view
-    _g_hangar_view = view
-    if _g_plus_state is False:
+def _on_hangar_loaded(view):
+    global _hangar_view, _pending_hangar_view
+    _hangar_view = view
+    if _has_wot_plus is False:
         return
-    if not _g_initialized:
+    if not _initialized:
         _pending_hangar_view = view
         return
-    if _g_plus_state is True:
-        _subscribe_vehicle()
-        _do_inject(view)
-        _push_data()
+    if _has_wot_plus is True:
+        _activate(view)
     else:
-        _check_wot_plus(0)
+        _check_wot_plus(attempt=0)
+
+
+def _activate(view):
+    _subscribe_to_vehicle()
+    _inject_into(view)
+    push_data()
 
 
 def _check_wot_plus(attempt):
-    """The subscription data may not be synced when the hangar first loads —
-    poll a few times before declaring the account Plus-less. The user asked for
-    a hard gate: without WoT Plus the mod shuts itself down."""
-    global _g_plus_state
-    if _g_plus_state is not None:
+    """Subscription data may not be synced when the hangar first loads, so poll
+    a few times before declaring the account Plus-less. Without the
+    subscription the mod shuts itself down."""
+    global _has_wot_plus
+    if _has_wot_plus is not None:
         return
     try:
-        import auto_equip_core
-        if auto_equip_core.has_wot_plus():
-            _g_plus_state = True
-            LOG.info('WoT Plus subscription found — mod active')
-            auto_equip_core.log_equipment_overview()
-            if _g_hangar_view is not None:
-                _subscribe_vehicle()
-                _do_inject(_g_hangar_view)
-                _push_data()
+        if inventory.has_wot_plus():
+            _has_wot_plus = True
+            LOG.info('WoT Plus subscription found - mod active')
+            inventory.log_equipment_overview()
+            if _hangar_view is not None:
+                _activate(_hangar_view)
             return
         if attempt >= _PLUS_CHECK_MAX_ATTEMPTS:
-            _g_plus_state = False
-            LOG.warning('no WoT Plus subscription — shutting the mod down')
-            try:
-                import auto_equip_i18n
-                from gui import SystemMessages
-                SystemMessages.pushMessage(
-                    auto_equip_i18n.t('noSubscription'),
-                    type=SystemMessages.SM_TYPE.Warning)
-            except Exception:
-                LOG.exc('could not push no-subscription message')
-            import mod_auto_equip
-            mod_auto_equip.set_disabled()
-            fini()
+            _shut_down_without_subscription()
             return
-        BigWorld.callback(1.0, lambda: _check_wot_plus(attempt + 1))
+        BigWorld.callback(_PLUS_CHECK_INTERVAL, lambda: _check_wot_plus(attempt + 1))
     except Exception:
         LOG.exc('_check_wot_plus failed')
 
 
-def _do_inject(view):
-    global _g_view, _g_injected_view_id
+def _shut_down_without_subscription():
+    global _has_wot_plus
+    _has_wot_plus = False
+    LOG.warning('no WoT Plus subscription - shutting the mod down')
+    try:
+        import auto_equip_messages as messages
+        from auto_equip_i18n import t
+        messages.push_warning(t('noSubscription'))
+    except Exception:
+        LOG.exc('could not push no-subscription message')
+    config.disable_mod()
+    fini()
+
+
+def _inject_into(view):
+    global _view, _injected_into_view_id
     view_id = id(view)
-    if _g_injected_view_id == view_id:
+    if _injected_into_view_id == view_id:
         return
     if not resmap.isResMapValidated:
-        LOG.error('_do_inject: ResMap NOT validated — cannot inject')
+        LOG.error('_inject_into: ResMap NOT validated - cannot inject')
         return
     try:
-        _g_view = AutoEquipView()
-        view.setChildView(AutoEquipView.viewLayoutID(), _g_view)
-        _g_injected_view_id = view_id
-        LOG.info('_do_inject: AutoEquipView injected OK')
+        _view = AutoEquipView()
+        view.setChildView(AutoEquipView.viewLayoutID(), _view)
+        _injected_into_view_id = view_id
+        LOG.info('_inject_into: AutoEquipView injected OK')
     except Exception:
-        LOG.exc('_do_inject: failed to inject AutoEquipView')
+        LOG.exc('_inject_into: failed to inject AutoEquipView')
 
 
-# ==========================================================================
-# Public API
-# ==========================================================================
+# ---------------------------------------------------------------------------
+# Lifecycle
+# ---------------------------------------------------------------------------
 
 def init():
-    global _g_initialized, _pending_hangar_view
-    _g_initialized = True
-    try:
-        import auto_equip_core
-        auto_equip_core.set_refresh_cb(_push_data)
-    except Exception:
-        LOG.exc('init: set_refresh_cb failed')
+    global _initialized, _pending_hangar_view
+    _initialized = True
+    apply_engine.set_refresh_callback(push_data)
     if _pending_hangar_view is not None:
         view = _pending_hangar_view
         _pending_hangar_view = None
-        _on_hangar_main_loaded(view)
+        _on_hangar_loaded(view)
 
 
 def fini():
-    global _g_view, _g_injected_view_id, _g_hangar_view
-    _unsubscribe_vehicle()
-    _g_view = None
-    _g_injected_view_id = None
-    _g_hangar_view = None
+    global _view, _injected_into_view_id, _hangar_view
+    _unsubscribe_from_vehicle()
+    _view = None
+    _injected_into_view_id = None
+    _hangar_view = None
