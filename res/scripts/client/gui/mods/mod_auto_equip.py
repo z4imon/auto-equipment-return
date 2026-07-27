@@ -18,13 +18,16 @@ next to it, one module per job:
 
 import os
 
-from .auto_equip import config
+from gui.shared.utils import getPlayerDatabaseID
+from PlayerEvents import g_playerEvents
+
+from .auto_equip import config, i18n, importer
 from .auto_equip.log import LOG
 
 
 def init():
     try:
-        from .auto_equip import i18n, gameface
+        from .auto_equip import gameface
         i18n.init()
         gameface.init()
         if os.name == 'nt':
@@ -52,7 +55,6 @@ def fini():
 def _current_account_id():
     """The WoT account databaseID, or 0 if it isn't known yet."""
     try:
-        from gui.shared.utils import getPlayerDatabaseID
         return getPlayerDatabaseID() or 0
     except Exception:
         LOG.exc('could not read the account id')
@@ -65,12 +67,10 @@ def _start_account_load():
         _finish_account_load(account_id)
         return
     LOG.info('account id not ready yet, waiting for onAccountShowGUI')
-    from PlayerEvents import g_playerEvents
     g_playerEvents.onAccountShowGUI += _on_account_show_gui
 
 
 def _on_account_show_gui(ctx=None):
-    from PlayerEvents import g_playerEvents
     g_playerEvents.onAccountShowGUI -= _on_account_show_gui
     _finish_account_load(_current_account_id())
 
@@ -78,7 +78,6 @@ def _on_account_show_gui(ctx=None):
 def _finish_account_load(account_id):
     config.load_for_account(account_id)
     try:
-        from .auto_equip import importer
         importer.register(account_id)
     except Exception:
         LOG.exc('auto_equip.importer.register failed')

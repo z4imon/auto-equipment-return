@@ -21,6 +21,8 @@ run reads top-down; everything else is plain, synchronous and testable by eye.
 import BigWorld
 
 from adisp import adisp_async, adisp_process
+from CurrentVehicle import g_currentVehicle
+from gui.shared.notifications import NotificationPriorityLevel
 
 from . import config, inventory, messages, rpc
 from .i18n import t
@@ -208,7 +210,6 @@ def _is_free_to_obtain(vehicle, veh_inv_id, item, options):
 
 def _selection_moved_away(veh_inv_id):
     try:
-        from CurrentVehicle import g_currentVehicle
         item = g_currentVehicle.item
         return item is None or item.invID != veh_inv_id
     except Exception:
@@ -580,7 +581,6 @@ def on_vehicle_changed():
     the selection moves to a different vehicle."""
     global _last_inv_id
     try:
-        from CurrentVehicle import g_currentVehicle
         vehicle = g_currentVehicle.item
         if vehicle is None or vehicle.invID == _last_inv_id:
             return
@@ -719,6 +719,5 @@ def _disable_auto_install_after_batch():
     if not config.is_auto_enabled():
         return
     config.set_auto_enabled(False)
-    from gui.shared.notifications import NotificationPriorityLevel
     messages.push_warning(t('autoDisabledAfterBatch'),
                           priority=NotificationPriorityLevel.HIGH)
