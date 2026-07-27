@@ -1,32 +1,32 @@
 # -*- coding: utf-8 -*-
 """Mod entry point: the client calls init() and fini() here.
 
-Its only job is bringing the pieces up in the right order. Everything else
-lives in its own module:
+This module has to sit directly in gui.mods under a mod_ name - that is how
+the client finds a mod at all. Everything else lives in the auto_equip package
+next to it, one module per job:
 
-    auto_equip_config      persisted settings and saved sets
-    auto_equip_inventory   reads against the items cache
-    auto_equip_rpc         raw inventory calls to the server
-    auto_equip_apply       restoring saved sets onto vehicles
-    auto_equip_save        snapshotting the current setups
-    auto_equip_gameface    the hangar popover
-    auto_equip_import      the ModsSettingsAPI import panel
-    auto_equip_i18n        player-visible strings
-    auto_equip_messages    system messages and the hangar veil
+    auto_equip.config      persisted settings and saved sets
+    auto_equip.inventory   reads against the items cache
+    auto_equip.rpc         raw inventory calls to the server
+    auto_equip.apply       restoring saved sets onto vehicles
+    auto_equip.save        snapshotting the current setups
+    auto_equip.gameface    the hangar popover
+    auto_equip.importer    the ModsSettingsAPI import panel
+    auto_equip.i18n        player-visible strings
+    auto_equip.messages    system messages and the hangar veil
 """
 
 import os
 
-import auto_equip_config as config
-from auto_equip_log import LOG
+from .auto_equip import config
+from .auto_equip.log import LOG
 
 
 def init():
     try:
-        import auto_equip_i18n
-        import auto_equip_gameface
-        auto_equip_i18n.init()
-        auto_equip_gameface.init()
+        from .auto_equip import i18n, gameface
+        i18n.init()
+        gameface.init()
         if os.name == 'nt':
             _start_account_load()
         LOG.info('mod_auto_equip.init() finished OK')
@@ -36,8 +36,8 @@ def init():
 
 def fini():
     try:
-        import auto_equip_gameface
-        auto_equip_gameface.fini()
+        from .auto_equip import gameface
+        gameface.fini()
     except Exception:
         LOG.exc('mod_auto_equip.fini() failed')
 
@@ -78,7 +78,7 @@ def _on_account_show_gui(ctx=None):
 def _finish_account_load(account_id):
     config.load_for_account(account_id)
     try:
-        import auto_equip_import
-        auto_equip_import.register(account_id)
+        from .auto_equip import importer
+        importer.register(account_id)
     except Exception:
-        LOG.exc('auto_equip_import.register failed')
+        LOG.exc('auto_equip.importer.register failed')

@@ -5,7 +5,7 @@ saved sets instead of saving everything by hand again:
 1. Import from kurzdor's "Auto Equipment Return" mod - a separate, more
    popular mod many players already have data for. This also runs silently,
    without any panel, the first time our mod sees a brand-new account (see
-   auto_import_for_account, called from auto_equip_config).
+   auto_import_for_account, called from config.py).
 2. Import from one of OUR OWN mod's other per-account save files, for players
    with several WoT accounts on this PC.
 
@@ -46,11 +46,9 @@ import os
 import pickle
 import zlib
 
-import auto_equip_config as config
-import auto_equip_inventory as inventory
-import auto_equip_messages as messages
-from auto_equip_i18n import t
-from auto_equip_log import LOG
+from . import config, inventory, messages
+from .i18n import t
+from .log import LOG
 
 _MOD_LINKAGE = 'z4imon.auto_equipment_return.kurzdor_import'
 _VAR_KURZDOR_FILE = 'kurzdorFile'
@@ -75,9 +73,7 @@ _account_id = None
 # ---------------------------------------------------------------------------
 
 def _kurzdor_dir():
-    appdata = os.getenv('APPDATA', '')
-    return os.path.join(appdata, 'Wargaming.net', 'WorldOfTanks', 'mods',
-                        'kurzdor', 'autoequipmentreturn')
+    return os.path.join(config.mods_dir(), 'kurzdor', 'autoequipmentreturn')
 
 
 def _file_label(path):
@@ -202,7 +198,7 @@ def _import_own_account_file(path):
 
 
 def auto_import_for_account(account_id):
-    """Called once by auto_equip_config right after a fresh, empty config was
+    """Called once by config.py right after a fresh, empty config was
     created for this account: silently pulls in kurzdor's save for the same
     account id, if he has one, so returning players don't start from scratch.
     No panel and no messages - this runs before the popover even exists."""

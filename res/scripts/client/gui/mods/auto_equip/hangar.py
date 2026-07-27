@@ -7,9 +7,9 @@ them, and "equip all Primary vehicles" has to work on the vehicles THAT hangar
 shows - a mode carousel lists a different set, filtered by a different saved
 filter, than the random one.
 
-Both users of that knowledge (auto_equip_gameface for the injection,
-auto_equip_inventory for the vehicle query) would otherwise have to import each
-other, so the mapping lives here on its own.
+Both users of that knowledge (gameface.py for the injection, inventory.py for
+the vehicle query) would otherwise have to import each other, so the mapping
+lives here on its own.
 
 A mode is identified by its script package name, which is also the prefix of
 its layout resource (R.views.<package>.mono.lobby.hangar). The standard hangar
@@ -18,7 +18,7 @@ is represented by None.
 
 from gui.impl.gen import R
 
-from auto_equip_log import LOG
+from .log import LOG
 
 STANDARD = None
 
