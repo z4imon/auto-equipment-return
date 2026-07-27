@@ -58,6 +58,13 @@ _VAR_OWN_FILE = 'ownAccountFile'
 
 _SETS_PER_KURZDOR_ENTRY = 3
 
+# The note shown under the kurzdor dropdown, one panel Label per key. See
+# _other_account_notes for why it has to be split up like this, and why no
+# single one of these strings may exceed _LABEL_MAX_CHARS.
+_NOTE_KEYS = ('importOtherAccountWhy', 'importOtherAccountWhy2',
+              'importOtherAccountStep1', 'importOtherAccountStep2')
+_LABEL_MAX_CHARS = 130
+
 # Dropdown option index -> full path, and the account we're logged in as.
 # All three are filled in by register().
 _kurzdor_files = []
@@ -313,15 +320,18 @@ def _kurzdor_options():
 
 
 def _other_account_notes(account_id, templates):
-    """Why the foreign files can't be imported, and the detour that works -
-    one Label component per line, because the panel lays each component out by
-    its own measured height and a single multi-line label would overlap the
-    dropdown below it. Skipped entirely when every file is this account's."""
+    """Why the foreign files can't be imported, and the detour that works.
+
+    One Label component per line, and each line must FIT ON ONE LINE: the
+    panel's labels are a fixed 800px wide, don't wrap, and silently clip what
+    doesn't fit - and they render "\\n" as a space rather than a line break.
+    So keep every one of these strings under ~130 characters; the check
+    harness enforces it. (Tooltips are a different renderer and do break, on
+    <br/> - see importOtherAccountTooltip.)"""
     if not _has_other_account_files():
         return []
-    return [templates.createLabel(t('importOtherAccountWhy', accountId=account_id)),
-            templates.createLabel(t('importOtherAccountStep1')),
-            templates.createLabel(t('importOtherAccountStep2'))]
+    return [templates.createLabel(t(key, accountId=account_id))
+            for key in _NOTE_KEYS]
 
 
 def _import_button(templates):
