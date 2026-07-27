@@ -20,6 +20,7 @@
 - **Wot Plus** or **Wot Plus Pro** subscription
 - **Gameface** (https://gitlab.com/openwg/wot.gameface)
 - **ModsSettingsAPI** (https://github.com/izeberg/modssettingsapi)
+- **ModsListAPI** (https://github.com/wot-public-mods/mods-list)
 
 ## Ingame
 The mod menu opens with the button in the vehicle menu row of the hangar, right
