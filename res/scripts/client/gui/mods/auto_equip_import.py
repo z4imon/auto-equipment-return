@@ -27,13 +27,17 @@ save uses the same key for the same vehicle we save under.)
 Our config keys by invID too, so kurzdor's keys can be reused directly - but
 ONLY within the same account, since an invID is an inventory-instance id
 assigned per account. His key only lines up with ours when both files belong
-to the same WoT account, which is matched by filename == account id.
+to the same WoT account, which is matched by filename == account id. Importing
+one of his files from a DIFFERENT account would silently put equipment on the
+wrong tanks, so the panel marks those files and refuses the click, pointing at
+the detour that does work (import them on their own account, then import THAT
+account's file of ours here).
 
-The same applies to our own save files, which is why importing into a
-DIFFERENT account remaps every entry through its stored vehicleCD (the
-account-independent type compactDescr) to whatever invID that vehicle type has
-in the current account. Entries saved before vehicleCD was recorded, or for
-vehicle types this account doesn't own, are reported as unmatched.
+Our own save files have no such limit, because we also record the vehicleCD
+(the account-independent type compactDescr). Importing one into a different
+account remaps every entry through that vehicleCD to whatever invID the vehicle
+type has here. Entries saved before vehicleCD was recorded, or for vehicle
+types this account doesn't own, are reported as unmatched.
 """
 
 import glob
@@ -54,9 +58,11 @@ _VAR_OWN_FILE = 'ownAccountFile'
 
 _SETS_PER_KURZDOR_ENTRY = 3
 
-# Dropdown option index -> full path, filled in by register().
+# Dropdown option index -> full path, and the account we're logged in as.
+# All three are filled in by register().
 _kurzdor_files = []
 _own_files = []
+_account_id = None
 
 
 # ---------------------------------------------------------------------------
@@ -69,24 +75,32 @@ def _kurzdor_dir():
                         'kurzdor', 'autoequipmentreturn')
 
 
+def _file_label(path):
+    """Both kurzdor's .dat files and our own .json files are named after the
+    account they belong to, so the bare filename IS the account id."""
+    return os.path.splitext(os.path.basename(path))[0]
+
+
+def _belongs_to_this_account(path):
+    return _account_id is not None and _file_label(path) == str(_account_id)
+
+
 def _list_kurzdor_files():
+    """Own-account file first, so the dropdown's default selection is the one
+    that can actually be imported."""
     directory = _kurzdor_dir()
     if not os.path.isdir(directory):
         return []
-    return sorted(glob.glob(os.path.join(directory, '*.dat')))
+    paths = glob.glob(os.path.join(directory, '*.dat'))
+    return sorted(paths, key=lambda path: (not _belongs_to_this_account(path), path))
 
 
-def _list_own_account_files(exclude_account_id):
+def _list_own_account_files():
     directory = config.account_files_dir()
     if not os.path.isdir(directory):
         return []
-    exclude_name = '%s.json' % exclude_account_id
     return [path for path in sorted(glob.glob(os.path.join(directory, '*.json')))
-            if os.path.basename(path) != exclude_name]
-
-
-def _file_label(path):
-    return os.path.splitext(os.path.basename(path))[0]
+            if not _belongs_to_this_account(path)]
 
 
 # ---------------------------------------------------------------------------
@@ -202,10 +216,27 @@ def auto_import_for_account(account_id):
 # Panel callbacks
 # ---------------------------------------------------------------------------
 
+def _refuse_other_account(path):
+    """kurzdor's vehicle keys are inventory ids, which only mean anything
+    inside the account they were written for (see the module docstring), so
+    importing his file from another account is refused rather than silently
+    equipping the wrong tanks. Says why, and how to get the data across
+    anyway."""
+    LOG.info('refused kurzdor import from %s: belongs to account %s, we are %s'
+             % (path, _file_label(path), _account_id))
+    messages.push_lines([t('importOtherAccountMsg', file=os.path.basename(path),
+                           fileAccount=_file_label(path), accountId=_account_id),
+                         t('importOtherAccountStep1'),
+                         t('importOtherAccountStep2')], warning=True)
+
+
 def _handle_kurzdor_import(index):
     if not 0 <= index < len(_kurzdor_files):
         return
     path = _kurzdor_files[index]
+    if not _belongs_to_this_account(path):
+        _refuse_other_account(path)
+        return
     try:
         imported, skipped = _import_kurzdor_file(path)
         filename = os.path.basename(path)
@@ -261,16 +292,55 @@ def onModSettingsChanged(linkage, newSettings):
 # Panel registration
 # ---------------------------------------------------------------------------
 
+def _has_other_account_files():
+    return any(not _belongs_to_this_account(path) for path in _kurzdor_files)
+
+
+def _kurzdor_options():
+    """One dropdown entry per kurzdor file, each labelled with the account it
+    belongs to. ModsSettingsAPI can only grey out a whole mod panel, never a
+    single button, so the entries that _handle_kurzdor_import will refuse say
+    so in their own label and carry the explanation as a per-entry tooltip."""
+    options = []
+    for path in _kurzdor_files:
+        account = _file_label(path)
+        if _belongs_to_this_account(path):
+            options.append(t('importOptionOwnAccount', account=account))
+        else:
+            options.append((t('importOptionOtherAccount', account=account),
+                            t('importOtherAccountTooltip')))
+    return options
+
+
+def _other_account_notes(account_id, templates):
+    """Why the foreign files can't be imported, and the detour that works -
+    one Label component per line, because the panel lays each component out by
+    its own measured height and a single multi-line label would overlap the
+    dropdown below it. Skipped entirely when every file is this account's."""
+    if not _has_other_account_files():
+        return []
+    return [templates.createLabel(t('importOtherAccountWhy', accountId=account_id)),
+            templates.createLabel(t('importOtherAccountStep1')),
+            templates.createLabel(t('importOtherAccountStep2'))]
+
+
+def _import_button(templates):
+    return templates.createButton(text=t('importButtonText'), width=70, height=23)
+
+
 def _build_column(account_id, templates):
     column = [templates.createLabel(t('importAccountLabel', accountId=account_id))]
-    dropdowns = ((_kurzdor_files, _VAR_KURZDOR_FILE, 'importDropdownLabel'),
-                 (_own_files, _VAR_OWN_FILE, 'importOwnDropdownLabel'))
-    for files, var_name, label_key in dropdowns:
-        if not files:
-            continue
+    if _kurzdor_files:
         column.append(templates.createDropdown(
-            t(label_key), var_name, [_file_label(path) for path in files], 0,
-            button=templates.createButton(text=t('importButtonText'), width=70, height=23)))
+            t('importDropdownLabel'), _VAR_KURZDOR_FILE, _kurzdor_options(), 0,
+            tooltip=t('importOtherAccountTooltip') if _has_other_account_files() else None,
+            button=_import_button(templates)))
+        column.extend(_other_account_notes(account_id, templates))
+    if _own_files:
+        column.append(templates.createDropdown(
+            t('importOwnDropdownLabel'), _VAR_OWN_FILE,
+            [_file_label(path) for path in _own_files], 0,
+            button=_import_button(templates)))
     return column
 
 
@@ -278,15 +348,16 @@ def register(account_id):
     """Adds the ModsSettingsAPI panel. No-op when the API isn't installed, or
     when neither data source has anything to offer. Called by mod_auto_equip
     once the account id is known - never before."""
-    global _kurzdor_files, _own_files
+    global _kurzdor_files, _own_files, _account_id
     try:
         from gui.modsSettingsApi import g_modsSettingsApi, templates
     except Exception:
         LOG.info('ModsSettingsAPI not installed - import panel disabled')
         return
 
+    _account_id = account_id
     _kurzdor_files = _list_kurzdor_files()
-    _own_files = _list_own_account_files(account_id)
+    _own_files = _list_own_account_files()
     if not _kurzdor_files and not _own_files:
         LOG.info('no kurzdor data and no other account files - import panel disabled')
         return
