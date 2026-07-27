@@ -14,6 +14,8 @@ import json
 
 import ResMgr
 
+from helpers import getClientLanguage
+
 from .log import LOG
 
 _LANG_PATH = u'gui/maps/icons/z4imon/lang_%s.json'
@@ -38,7 +40,6 @@ def _read_lang_file(code):
 
 def _detect_language():
     try:
-        from helpers import getClientLanguage
         code = getClientLanguage()
     except Exception:
         LOG.exc('getClientLanguage failed')
