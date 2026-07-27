@@ -16,6 +16,7 @@ from skeletons.gui.game_control import IWotPlusController
 from skeletons.gui.shared import IItemsCache
 
 import auto_equip_config as config
+import auto_equip_hangar as hangar
 from auto_equip_log import LOG
 
 OPT_DEVICE_GROUP = TankSetupGroupsId.OPTIONAL_DEVICES_AND_BOOSTERS
@@ -282,44 +283,134 @@ def _credit_price(item):
 
 # ---------------------------------------------------------------------------
 # Primary ("favourite") vehicles for the batch run
+#
+# Every mode hangar lists a different set than the random one and remembers the
+# player's carousel filter separately, so both halves of the query depend on
+# WHICH hangar is open (auto_equip_hangar tracks that):
+#
+#   * the eligibility gate - who may be taken into this mode at all. Each mode
+#     answers that itself, so we ask its own controller instead of rebuilding
+#     the rules, which would drift with every balance patch.
+#   * the carousel filter - the tier/nation/class boxes the player ticked. All
+#     mode filters derive from the random one and differ only in which saved
+#     sections they read, so picking the right class is the whole job.
+#
+# Anything unavailable degrades to "no extra restriction" rather than failing:
+# too many vehicles is recoverable, none at all is just broken.
 # ---------------------------------------------------------------------------
 
+_CAROUSEL_FILTERS = {
+    hangar.STANDARD: ('gui.filters.battle_pass_carousel_filter',
+                      'BattlePassCarouselFilter'),
+    'comp7': ('comp7.gui.Scaleform.daapi.view.lobby.hangar.carousels.carousel_filter',
+              'Comp7CarouselFilter'),
+    'comp7_light': ('comp7_light.gui.Scaleform.daapi.view.lobby.hangar.carousels'
+                    '.carousel_filter', 'Comp7LightCarouselFilter'),
+    'frontline': ('gui.filters.epic_battle_carousel_filter',
+                  'EpicBattleCarouselFilter'),
+    'last_stand': ('last_stand.gui.impl.lobby.vehicles_data_providers.ls_vehicle_filter',
+                   'LSBattleCarouselFilter'),
+    'fun_random': ('fun_random.gui.filters.fun_random_carousel_filter',
+                   'FunRandomCarouselFilter'),
+}
+
+
 def filtered_primary_vehicles():
-    """Favourite vehicles that pass the player's current carousel filters,
-    best tier first. The filter state is read exactly the way the hangar reads
-    it. Falls back to all Primary vehicles if the filter can't be built."""
+    """Favourite vehicles of the hangar the player is currently in that pass
+    that hangar's carousel filter, best tier first."""
+    mode = hangar.active_mode()
     criteria = _criteria()
     query = criteria.INVENTORY | criteria.VEHICLE.FAVORITE
-    query |= _random_battle_criteria(criteria)
-    query |= _carousel_filter_criteria()
+    query |= _eligibility_criteria(criteria, mode)
+    query |= _carousel_filter_criteria(mode)
     try:
         vehicles = _items_cache().items.getVehicles(query)
-        return sorted(vehicles.itervalues(), key=lambda v: (-v.level, v.userName))
+        targets = sorted(vehicles.itervalues(), key=lambda v: (-v.level, v.userName))
+        LOG.info('%d primary vehicle(s) in the %s hangar'
+                 % (len(targets), mode or 'standard'))
+        return targets
     except Exception:
         LOG.exc('filtered_primary_vehicles failed')
         return []
 
 
 def _random_battle_criteria(criteria):
-    """The same mode gate the random-battle hangar carousel applies."""
+    """The gate the random-battle carousel applies: everything except vehicles
+    that exist only for some other mode."""
+    return (~criteria.VEHICLE.MODE_HIDDEN
+            | ~criteria.VEHICLE.BATTLE_ROYALE
+            | ~criteria.VEHICLE.EVENT_BATTLE
+            | criteria.VEHICLE.ACTIVE_IN_NATION_GROUP)
+
+
+def _suitable_vehicle_criteria(criteria, interface):
+    """Onslaught and its light variant both answer per vehicle, returning None
+    when nothing speaks against taking it in."""
+    controller = dependency.instance(interface)
+    return criteria.CUSTOM(lambda vehicle: controller.isSuitableVehicle(vehicle) is None)
+
+
+def _comp7_gate(criteria):
+    from skeletons.gui.game_control import IComp7Controller
+    return _suitable_vehicle_criteria(criteria, IComp7Controller)
+
+
+def _comp7_light_gate(criteria):
+    from skeletons.gui.game_control import IComp7LightController
+    return _suitable_vehicle_criteria(criteria, IComp7LightController)
+
+
+def _frontline_gate(criteria):
+    from skeletons.gui.game_control import IEpicBattleMetaGameController
+    return dependency.instance(IEpicBattleMetaGameController).getBaseEpicCriteria()
+
+
+def _last_stand_gate(criteria):
+    from last_stand.skeletons.ls_controller import ILSController
+    return dependency.instance(ILSController).getVehiclesCriteria()
+
+
+def _fun_random_gate(criteria):
+    """Arcade Cabinet changes its rules per sub-mode, so the criteria come from
+    whichever one is selected. With none selected the client itself falls back
+    to the random-battle gate."""
+    from skeletons.gui.game_control import IFunRandomController
+    holder = dependency.instance(IFunRandomController).subModesHolder
+    sub_mode = holder.getDesiredSubMode()
+    if sub_mode is None:
+        return _random_battle_criteria(criteria)
+    return sub_mode.getCarouselBaseCriteria()
+
+
+_MODE_GATES = {
+    'comp7': _comp7_gate,
+    'comp7_light': _comp7_light_gate,
+    'frontline': _frontline_gate,
+    'last_stand': _last_stand_gate,
+    'fun_random': _fun_random_gate,
+}
+
+
+def _eligibility_criteria(criteria, mode):
     try:
-        return (~criteria.VEHICLE.MODE_HIDDEN
-                | ~criteria.VEHICLE.BATTLE_ROYALE
-                | ~criteria.VEHICLE.EVENT_BATTLE
-                | criteria.VEHICLE.ACTIVE_IN_NATION_GROUP)
+        gate = _MODE_GATES.get(mode)
+        return gate(criteria) if gate is not None else _random_battle_criteria(criteria)
     except Exception:
-        LOG.exc('mode criteria unavailable - ignoring')
+        LOG.exc('eligibility rules for "%s" unavailable - not restricting' % mode)
         return criteria.EMPTY
 
 
-def _carousel_filter_criteria():
+def _carousel_filter_criteria(mode):
+    module_name, class_name = _CAROUSEL_FILTERS.get(
+        mode, _CAROUSEL_FILTERS[hangar.STANDARD])
     try:
-        from gui.filters.battle_pass_carousel_filter import BattlePassCarouselFilter
-        carousel_filter = BattlePassCarouselFilter()
+        module = __import__(module_name, {}, {}, [class_name])
+        carousel_filter = getattr(module, class_name)()
         carousel_filter.load()
         return carousel_filter.criteria
     except Exception:
-        LOG.exc('carousel filter unavailable - using all Primary vehicles')
+        LOG.exc('carousel filter %s unavailable - using all Primary vehicles'
+                % class_name)
         return _criteria().EMPTY
 
 

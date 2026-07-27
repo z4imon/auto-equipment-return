@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """The hangar popover: a Gameface view injected into the hangar's main layout,
-and into the game modes that bring a hangar of their own (see
-_MODE_HANGAR_PACKAGES).
+and into every game mode that brings a hangar of its own (auto_equip_hangar
+owns that list).
 
 The mod stays inert without a WoT Plus subscription (a hard gate the player
 asked for), so the flow is: hook the hangar load -> check for the subscription
@@ -14,13 +14,13 @@ import BigWorld
 
 import auto_equip_config as config
 import auto_equip_apply as apply_engine
+import auto_equip_hangar as hangar
 import auto_equip_inventory as inventory
 import auto_equip_save as save
 from auto_equip_log import LOG
 
 try:
     from frameworks.wulf import ViewModel
-    from gui.impl.gen import R
     from gui.impl.pub.view_component import ViewComponent
     from gui.impl.pub.view_impl import ViewImpl
     from openwg_gameface import ModDynAccessor, gf_mod_inject, manager as resmap
@@ -30,8 +30,6 @@ except Exception:
 
 _VIEW_ALIAS = 'AutoEquipView'
 _VIEW_DIR = 'coui://gui/gameface/mods/z4imon/AutoEquipView'
-
-_HANGAR_LAYOUT_ID = R.views.mono.hangar.main()
 
 _PLUS_CHECK_MAX_ATTEMPTS = 10
 _PLUS_CHECK_INTERVAL = 1.0
@@ -49,39 +47,6 @@ _initialized = False
 _subscribed_to_vehicle = False
 _has_wot_plus = None            # None = not checked yet
 
-# Game modes bring their own hangar, each registered by its own script package
-# as R.views.<package>.mono.lobby.hangar. Those packages come up at runtime, so
-# the ids are resolved lazily - and every one that is still missing is retried
-# on the next view load rather than written off, because the first hangar can
-# load before the mode's package is registered. A mode the client doesn't ship
-# simply never resolves.
-_MODE_HANGAR_PACKAGES = (
-    'comp7',            # Onslaught
-    'comp7_light',      # Onslaught light
-    'frontline',        # Frontline
-    'last_stand',       # Last Stand
-    'fun_random',       # Arcade Cabinet
-)
-
-_mode_layout_ids = {}
-
-
-def _mode_hangar_layout_ids():
-    for package in _MODE_HANGAR_PACKAGES:
-        if package in _mode_layout_ids:
-            continue
-        try:
-            _mode_layout_ids[package] = getattr(R.views, package).mono.lobby.hangar()
-            LOG.info('resolved the %s hangar layout' % package)
-        except Exception:
-            pass        # not registered (yet), or not part of this client
-    return _mode_layout_ids.values()
-
-
-def _is_hangar(layout_id):
-    return layout_id == _HANGAR_LAYOUT_ID or layout_id in _mode_hangar_layout_ids()
-
-
 # ---------------------------------------------------------------------------
 # Hook: catch the hangar as it loads
 # ---------------------------------------------------------------------------
@@ -92,7 +57,10 @@ _original_on_loaded = ViewImpl._onLoaded
 def _hooked_on_loaded(self, *args, **kwargs):
     _original_on_loaded(self, *args, **kwargs)
     try:
-        if _is_hangar(self.layoutID):
+        if hangar.is_hangar(self.layoutID):
+            # Remember WHICH hangar before anything reads it: the batch run
+            # queries the vehicles of the mode this one belongs to.
+            hangar.set_active(self.layoutID)
             _on_hangar_loaded(self)
     except Exception:
         LOG.exc('error in _hooked_on_loaded')
