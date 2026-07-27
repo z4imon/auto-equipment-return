@@ -61,7 +61,7 @@
     "importOptionOwnAccount": "%(account)s – your account",
     "importOptionOtherAccount": "%(account)s – other account (cannot be imported)",
     "importOtherAccountTooltip": "{HEADER}Import only from your own account{/HEADER}{BODY}kurzdor stores his vehicles by inventory id. Those ids only mean something inside one account.\nOn a different account the same ids belong to different vehicles, so an import would put the equipment on the wrong tanks.\n\nHow to get the saved equipments anyway:\n1. Run this mod on the original account and import the saved equipment there.\n2. Then, from this account, import that account's file – via \"Import saved configs from another of your accounts\".{/BODY}",
-    "importOtherAccountWhy": "Only the file matching your account ID (%(accountId)s) can be imported here: kurzdor stores vehicles by inventory id, and those ids point at different tanks on another account.",
+    "importOtherAccountWhy": "Only the file matching your account ID (%(accountId)s) can be imported here:\n kurzdor stores vehicles by inventory id, and those ids point at different tanks on another account.",
     "importOtherAccountStep1": "How to get the data across anyway: 1. Run this mod on the original account and import the saved equipment there.",
     "importOtherAccountStep2": "2. Then, from this account, import that account's file – via \"Import saved configs from another of your accounts\".",
     "importOtherAccountMsg": "Cannot import %(file)s: the file belongs to account %(fileAccount)s, you are playing on %(accountId)s. kurzdor files can only be imported on the account they were written for.",
