@@ -1,0 +1,431 @@
+# -*- coding: utf-8 -*-
+"""Every read against the client's items cache lives here: vehicles, optional
+devices, setup layouts, donor lookups. Nothing in this module talks to the
+server - it only observes. The one exception is fill_in_missing_vehicle_cds(),
+which writes the ids it reads straight back into the config.
+
+Gui items are recreated on every cache sync, so nothing here is ever cached:
+each helper re-fetches what it needs.
+"""
+
+import time
+
+from helpers import dependency
+from post_progression_common import TankSetupGroupsId
+from skeletons.gui.game_control import IWotPlusController
+from skeletons.gui.shared import IItemsCache
+
+import auto_equip_config as config
+from auto_equip_log import LOG
+
+OPT_DEVICE_GROUP = TankSetupGroupsId.OPTIONAL_DEVICES_AND_BOOSTERS
+
+
+def _items_cache():
+    return dependency.instance(IItemsCache)
+
+
+def _wot_plus():
+    return dependency.instance(IWotPlusController)
+
+
+def _criteria():
+    from gui.shared.utils.requesters import REQ_CRITERIA
+    return REQ_CRITERIA
+
+
+# ---------------------------------------------------------------------------
+# Subscription
+# ---------------------------------------------------------------------------
+
+def has_wot_plus():
+    try:
+        return _wot_plus().hasSubscription()
+    except Exception:
+        LOG.exc('has_wot_plus check failed')
+        return False
+
+
+def is_free_to_demount(item):
+    """True only if demounting this device is guaranteed to cost nothing.
+    Removable devices (binoculars & co.) always demount for free; everything
+    else only under the WoT Plus free-demount rules (regular, trophy and
+    experimental level 1 - but NOT improved, NOT experimental level 2/3)."""
+    try:
+        if item.isRemovable:
+            return True
+        return _wot_plus().isFreeToDemount(item)
+    except Exception:
+        LOG.exc('is_free_to_demount failed for %s' % getattr(item, 'name', '?'))
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Vehicles and devices
+# ---------------------------------------------------------------------------
+
+def owned_vehicles():
+    """Every vehicle in the player's inventory, as a list."""
+    try:
+        return list(_items_cache().items.getVehicles(_criteria().INVENTORY).itervalues())
+    except Exception:
+        LOG.exc('owned_vehicles failed')
+        return []
+
+
+def vehicle_by_inv_id(veh_inv_id):
+    """Fresh gui item for one owned vehicle, looked up by inventory id (which
+    is what the config keys sets by), or None."""
+    try:
+        criteria = _criteria()
+        vehicles = _items_cache().items.getVehicles(
+            criteria.INVENTORY | criteria.VEHICLE.SPECIFIC_BY_INV_ID([veh_inv_id]))
+        for vehicle in vehicles.itervalues():
+            return vehicle
+        return None
+    except Exception:
+        LOG.exc('vehicle_by_inv_id(%s) failed' % veh_inv_id)
+        return None
+
+
+def inv_id_for_vehicle_type(veh_cd):
+    """This account's own invID for a vehicle TYPE (intCD/compactDescr), or
+    None if the account doesn't own that vehicle. An invID only means anything
+    within the account that assigned it, so this is how a set saved on a
+    DIFFERENT account gets remapped onto this one (see auto_equip_import.py)."""
+    try:
+        criteria = _criteria()
+        vehicles = _items_cache().items.getVehicles(
+            criteria.INVENTORY | criteria.VEHICLE.SPECIFIC_BY_CD([veh_cd]))
+        for vehicle in vehicles.itervalues():
+            return vehicle.invID
+        return None
+    except Exception:
+        LOG.exc('inv_id_for_vehicle_type(%s) failed' % veh_cd)
+        return None
+
+
+def device_by_cd(int_cd):
+    try:
+        return _items_cache().items.getItemByCD(int_cd)
+    except Exception:
+        return None
+
+
+def all_optional_devices():
+    from gui.shared.gui_items import GUI_ITEM_TYPE
+    return _items_cache().items.getItems(GUI_ITEM_TYPE.OPTIONALDEVICE, _criteria().EMPTY)
+
+
+# ---------------------------------------------------------------------------
+# Setup layouts
+# ---------------------------------------------------------------------------
+
+def setup_indices(vehicle):
+    try:
+        return sorted(vehicle.optDevices.setupLayouts.setups.keys())
+    except Exception:
+        LOG.exc('setup_indices failed')
+        return [0]
+
+
+def has_second_setup(vehicle):
+    return 1 in setup_indices(vehicle)
+
+
+def slot_capacity(vehicle):
+    return vehicle.optDevices.installed.getCapacity()
+
+
+def setup_device_cds(vehicle, setup_idx):
+    """Per-slot intCD list of one setup (0 = empty), padded/trimmed to exactly
+    the vehicle's slot capacity."""
+    capacity = slot_capacity(vehicle)
+    cds = list(vehicle.optDevices.setupLayouts.getIntCDs(setupIdx=setup_idx))[:capacity]
+    cds += [0] * (capacity - len(cds))
+    return [int(cd) if cd else 0 for cd in cds]
+
+
+def snapshot_setups(vehicle):
+    """The vehicle's current setups as {'set1': [...], 'set2': [...] or None}."""
+    return {
+        'set1': setup_device_cds(vehicle, 0),
+        'set2': setup_device_cds(vehicle, 1) if has_second_setup(vehicle) else None,
+    }
+
+
+def active_setup_index(vehicle):
+    return vehicle.optDevices.setupLayouts.layoutIndex
+
+
+def vehicle_has_device(vehicle, device_cd, setup_idx=None):
+    layouts = vehicle.optDevices.setupLayouts
+    if setup_idx is None:
+        return layouts.containsIntCD(device_cd)
+    return layouts.containsIntCD(device_cd, setupIdx=setup_idx)
+
+
+def locate_device_on_vehicle(vehicle, device_cd):
+    """(setup index, slot index) of a device on a vehicle, preferring the
+    active setup; (None, None) when it isn't mounted at all."""
+    active = active_setup_index(vehicle)
+    ordered = [active] + [idx for idx in setup_indices(vehicle) if idx != active]
+    for setup_idx in ordered:
+        cds = setup_device_cds(vehicle, setup_idx)
+        if device_cd in cds:
+            return setup_idx, cds.index(device_cd)
+    return None, None
+
+
+# ---------------------------------------------------------------------------
+# Donor search
+#
+# Every lookup walks the player's whole vehicle list, so this is where a slow
+# run actually spends its time. The counters let one aggregate line be logged
+# per run instead of per-vehicle spam.
+# ---------------------------------------------------------------------------
+
+_donor_search_seconds = 0.0
+_donor_search_count = 0
+
+
+def reset_donor_search_stats():
+    global _donor_search_seconds, _donor_search_count
+    _donor_search_seconds = 0.0
+    _donor_search_count = 0
+
+
+def log_donor_search_stats(context):
+    LOG.info('%s: spent %.3fs scanning other vehicles for donors (%d lookup%s)'
+             % (context, _donor_search_seconds, _donor_search_count,
+                '' if _donor_search_count == 1 else 's'))
+
+
+def find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids=None):
+    """First unlocked vehicle (not in battle, queue or a prebattle) carrying
+    the device in any of its setups. excluded_inv_ids rules out further
+    vehicles - the batch run uses it so Primary vehicles never cannibalise
+    each other's freshly installed equipment."""
+    global _donor_search_seconds, _donor_search_count
+    started = time.time()
+    try:
+        return _find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids)
+    finally:
+        _donor_search_seconds += time.time() - started
+        _donor_search_count += 1
+
+
+def _find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids):
+    for vehicle in owned_vehicles():
+        if vehicle.invID == exclude_inv_id:
+            continue
+        if excluded_inv_ids and vehicle.invID in excluded_inv_ids:
+            continue
+        try:
+            if vehicle_has_device(vehicle, device_cd) and not vehicle.isLocked:
+                return vehicle
+        except Exception:
+            continue
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Downgrading special devices
+# ---------------------------------------------------------------------------
+
+def standard_variant_of(vehicle, special_item):
+    """The plain standard counterpart of a special device that fits this
+    vehicle, or None.
+
+    Special and standard variants share the descriptor ARCHETYPE (e.g. both
+    'coatedOptics'). groupName looked like the right key at first - trophy
+    devices do declare a matching one - but most items leave it unset, where it
+    defaults to the item's own unique internal name and never matches anything.
+    That is why 'Bounty Rotation Mechanism' never found its standard sibling
+    despite plenty being in stock. archetype has no such gap: it is filled in
+    for every tier/trophy/deluxe/modernized variant. Should several compatible
+    classes pass, the most expensive (best) one wins."""
+    try:
+        archetype = special_item.descriptor.archetype
+        if not archetype:
+            return None
+        best = None
+        best_price = -1
+        for item in all_optional_devices().itervalues():
+            if not _is_standard_variant(item, archetype, vehicle):
+                continue
+            price = _credit_price(item)
+            if price > best_price:
+                best, best_price = item, price
+        return best
+    except Exception:
+        LOG.exc('standard_variant_of failed')
+        return None
+
+
+def _is_standard_variant(item, archetype, vehicle):
+    try:
+        if not item.isRegular or item.descriptor.archetype != archetype:
+            return False
+        fits, _ = item.descriptor.checkCompatibilityWithVehicle(vehicle.descriptor)
+        return fits
+    except Exception:
+        return False
+
+
+def _credit_price(item):
+    try:
+        return int(item.buyPrices.itemPrice.price.credits or 0)
+    except Exception:
+        return 0
+
+
+# ---------------------------------------------------------------------------
+# Primary ("favourite") vehicles for the batch run
+# ---------------------------------------------------------------------------
+
+def filtered_primary_vehicles():
+    """Favourite vehicles that pass the player's current carousel filters,
+    best tier first. The filter state is read exactly the way the hangar reads
+    it. Falls back to all Primary vehicles if the filter can't be built."""
+    criteria = _criteria()
+    query = criteria.INVENTORY | criteria.VEHICLE.FAVORITE
+    query |= _random_battle_criteria(criteria)
+    query |= _carousel_filter_criteria()
+    try:
+        vehicles = _items_cache().items.getVehicles(query)
+        return sorted(vehicles.itervalues(), key=lambda v: (-v.level, v.userName))
+    except Exception:
+        LOG.exc('filtered_primary_vehicles failed')
+        return []
+
+
+def _random_battle_criteria(criteria):
+    """The same mode gate the random-battle hangar carousel applies."""
+    try:
+        return (~criteria.VEHICLE.MODE_HIDDEN
+                | ~criteria.VEHICLE.BATTLE_ROYALE
+                | ~criteria.VEHICLE.EVENT_BATTLE
+                | criteria.VEHICLE.ACTIVE_IN_NATION_GROUP)
+    except Exception:
+        LOG.exc('mode criteria unavailable - ignoring')
+        return criteria.EMPTY
+
+
+def _carousel_filter_criteria():
+    try:
+        from gui.filters.battle_pass_carousel_filter import BattlePassCarouselFilter
+        carousel_filter = BattlePassCarouselFilter()
+        carousel_filter.load()
+        return carousel_filter.criteria
+    except Exception:
+        LOG.exc('carousel filter unavailable - using all Primary vehicles')
+        return _criteria().EMPTY
+
+
+# ---------------------------------------------------------------------------
+# Backfilling vehicleCD into older saved entries
+# ---------------------------------------------------------------------------
+
+def fill_in_missing_vehicle_cds():
+    """kurzdor's save format carries no vehicle type id at all - only his own
+    account-scoped vehicle key, which we trust as this account's invID. That
+    is fine for the import itself (same account, so his key IS our key), but it
+    leaves every imported entry without a vehicleCD - and vehicleCD is exactly
+    what a LATER cross-account import needs to remap a set onto a DIFFERENT
+    account. Left unfixed, anything imported from kurzdor stays stuck as "not
+    owned on this account" the moment it is moved elsewhere.
+
+    So: walk every vehicle the account owns and read invID AND intCD off that
+    same live object, then backfill whichever saved entry has that invID.
+    Resolving ids one at a time right after each import proved unreliable;
+    reading both off the object already in hand, in one pass, is what works.
+
+    The scan is deferred until the items cache has synced. The silent first-run
+    import happens the moment the account id becomes known, which is BEFORE the
+    inventory is there - getVehicles() then simply returns nothing rather than
+    failing, which is how this first went unnoticed ("scanned 0 owned
+    vehicles"). onSyncCompleted is the same event CurrentVehicle waits on."""
+    try:
+        cache = _items_cache()
+        if cache.isSynced():
+            _backfill_now()
+            return
+        LOG.info('vehicleCD backfill: items cache not synced yet, waiting for onSyncCompleted')
+        _subscribe_once(cache)
+    except Exception:
+        LOG.exc('fill_in_missing_vehicle_cds failed')
+
+
+def _subscribe_once(cache):
+    try:
+        cache.onSyncCompleted -= _on_items_synced
+    except Exception:
+        pass    # not currently subscribed
+    cache.onSyncCompleted += _on_items_synced
+
+
+def _on_items_synced(*_args):
+    try:
+        _items_cache().onSyncCompleted -= _on_items_synced
+    except Exception:
+        pass
+    _backfill_now()
+
+
+def _backfill_now():
+    try:
+        vehicles = owned_vehicles()
+        filled = sum(1 for vehicle in vehicles
+                     if config.fill_in_vehicle_cd(vehicle.invID, vehicle.intCD))
+        LOG.info('vehicleCD backfill: scanned %d owned vehicle(s), filled in %d'
+                 % (len(vehicles), filled))
+    except Exception:
+        LOG.exc('vehicleCD backfill failed')
+
+
+# ---------------------------------------------------------------------------
+# Diagnostics
+# ---------------------------------------------------------------------------
+
+_overview_logged = False
+
+
+def log_equipment_overview():
+    """Logs every owned optional device once per session: name, intCD, depot
+    count and how many vehicles carry it. A device sitting in both setups of
+    one vehicle is one physical item, so it counts once per vehicle."""
+    global _overview_logged
+    if _overview_logged:
+        return
+    try:
+        mounted = _count_mounted_devices()
+        rows = []
+        for cd, item in all_optional_devices().iteritems():
+            in_depot = item.inventoryCount
+            on_vehicles = mounted.get(int(cd), 0)
+            if in_depot > 0 or on_vehicles > 0:
+                rows.append((item.userName, int(cd), in_depot, on_vehicles))
+        rows.sort()
+        _overview_logged = True
+        LOG.info('equipment overview: %d owned optional devices' % len(rows))
+        for name, cd, in_depot, on_vehicles in rows:
+            LOG.info((u'  %s | cd=%d | Lager=%d | montiert auf %d Fahrzeug(en)'
+                      % (name, cd, in_depot, on_vehicles)).encode('utf-8'))
+    except Exception:
+        LOG.exc('log_equipment_overview failed')
+
+
+def _count_mounted_devices():
+    """device intCD -> number of vehicles carrying it."""
+    mounted = {}
+    for vehicle in owned_vehicles():
+        try:
+            cds = set()
+            for setup_idx in setup_indices(vehicle):
+                cds.update(cd for cd in setup_device_cds(vehicle, setup_idx) if cd)
+        except Exception:
+            continue
+        for cd in cds:
+            mounted[cd] = mounted.get(cd, 0) + 1
+    return mounted
