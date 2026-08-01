@@ -140,6 +140,8 @@ def demount_free_equipment(veh_inv_id):
     _busy = True
     original_setup_idx = inventory.active_setup_index(vehicle)
     removed = 0
+    veil_shown = messages.show_waiting(messages.WAITING_KEY_SERVICE,
+                                       t('cmDemountWaiting'))
     try:
         LOG.info('carousel demount: start for %s' % vehicle.userName)
         for setup_idx in inventory.setup_indices(vehicle):
@@ -151,6 +153,8 @@ def demount_free_equipment(veh_inv_id):
         LOG.exc('demount_free_equipment failed')
     finally:
         _busy = False
+        if veil_shown:
+            messages.hide_waiting(messages.WAITING_KEY_SERVICE)
         # Always reported, even at 0: the entry is only clickable when there IS
         # something free to remove, so a zero means something went wrong and
         # silence would just leave the player wondering whether the click took.

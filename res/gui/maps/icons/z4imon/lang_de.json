@@ -21,6 +21,7 @@
     "alreadyRunning": "AutoEquip: Einbau läuft bereits",
 
     "cmDemountFree": "Equipment ausbauen",
+    "cmDemountWaiting": "Baue Equipment aus…",
     "cmDemountDone": "AutoEquip: %(count)d Teil(e) von %(veh)s ausgebaut",
 
     "errSetupSwitchFailed": "Setup %(setup)d nicht umschaltbar (Code %(code)s)",
