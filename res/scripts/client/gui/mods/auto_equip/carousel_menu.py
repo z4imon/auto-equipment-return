@@ -15,8 +15,9 @@ inventory.is_free_to_demount() first, and anything that would cost credits,
 gold or a demount kit stays mounted. The raw RPCs show no confirm dialog, so
 that check is the only thing standing between the player and a silent charge.
 
-The run is deliberately silent - no confirm dialog, no summary message. The
-carousel redraws itself once the inventory comes back from the server.
+There is no confirm dialog: nothing here can cost anything, so a click is not
+worth guarding. The run does show the hangar veil while it works and reports
+the number of removed devices afterwards.
 """
 
 from adisp import adisp_async, adisp_process
@@ -140,7 +141,7 @@ def demount_free_equipment(veh_inv_id):
     _busy = True
     original_setup_idx = inventory.active_setup_index(vehicle)
     removed = 0
-    veil_shown = messages.show_waiting(messages.WAITING_KEY_SERVICE,
+    veil_shown = messages.show_waiting(messages.WAITING_KEY_OPERATION,
                                        t('cmDemountWaiting'))
     try:
         LOG.info('carousel demount: start for %s' % vehicle.userName)
@@ -154,7 +155,7 @@ def demount_free_equipment(veh_inv_id):
     finally:
         _busy = False
         if veil_shown:
-            messages.hide_waiting(messages.WAITING_KEY_SERVICE)
+            messages.hide_waiting(messages.WAITING_KEY_OPERATION)
         # Always reported, even at 0: the entry is only clickable when there IS
         # something free to remove, so a zero means something went wrong and
         # silence would just leave the player wondering whether the click took.

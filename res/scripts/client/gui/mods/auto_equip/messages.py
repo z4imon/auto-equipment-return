@@ -10,8 +10,11 @@ from .log import LOG
 # Native veil text keys. Waiting.show() resolves these through the client's own
 # R.strings.waiting and accepts nothing else, so a mod cannot name its own text
 # here - see show_waiting() for how we get our wording in anyway.
-_WAITING_KEY = 'installEquipment'          # "Mounting equipment..."
-WAITING_KEY_SERVICE = 'techMaintenance'    # "Re-equipping the vehicle..."
+_WAITING_KEY = 'installEquipment'        # "Mounting equipment..."
+# Deliberately direction-neutral ("Completing the operation..."): this is the
+# text a demount falls back to, and a fallback may be vague but must never
+# claim the opposite of what is happening.
+WAITING_KEY_OPERATION = 'applyModule'
 
 
 def _push(text, type_name, priority):
