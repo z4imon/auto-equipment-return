@@ -58,6 +58,8 @@ open a pull request.
 Bug reports and ideas are welcome in my channel of the official WoT discord: [Z4imon's mods](https://discord.com/channels/161053416796323840/1496838335857954887) 
 
 ## License
+Copyright (C) 2026 Z4imon
+
 [GPL-3.0](LICENSE) - you are free to use and modify this mod for yourself. If
 you distribute it, modified or not, it has to stay under GPL-3.0 and you have
 to make the source code available, keep the original copyright notice and mark
