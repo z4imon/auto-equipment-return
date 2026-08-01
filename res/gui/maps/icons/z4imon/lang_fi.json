@@ -57,7 +57,7 @@
 
     "autoDisabledAfterBatch": "AutoEquip: automaattinen asennus kytkettiin pois päältä, jottei muiden ajoneuvojen selaaminen siirtelisi varusteitasi vahingossa. Voit ottaa sen uudelleen käyttöön milloin tahansa valikon kytkimestä.",
 
-    "importModDisplayName": "Auto Equipment Return, tekijä Z4imon – tuonti",
+    "modDisplayName": "Auto Equipment Return, tekijä Z4imon",
     "importAccountLabel": "Tilitunnuksesi: %(accountId)s",
     "importDropdownLabel": "Tuo tallennetut kokoonpanot kurzdorin auto equipment returnista",
     "importOwnDropdownLabel": "Tuo tallennetut kokoonpanot toiselta tililtäsi",

@@ -7,6 +7,12 @@ instead, and no device is installed unless it was verifiably free to obtain.
 The raw RPCs in rpc.py show no confirm dialogs, so a missing check
 here would charge the player silently.
 
+The guarantee covers bonds too, and there it goes one step further: an
+"Improved" device the player took off cost them 200 bonds to remove, so putting
+it back would spend that money in reverse. Installing one is therefore never
+free in any useful sense, and the plan drops it - as it does for Experimental
+devices, for the same reason. See _forget_absent_protected().
+
 One run per vehicle works through three phases per setup:
 
     1. clear the slots whose occupant has to go,
@@ -24,7 +30,7 @@ from adisp import adisp_async, adisp_process
 from CurrentVehicle import g_currentVehicle
 from gui.shared.notifications import NotificationPriorityLevel
 
-from . import config, inventory, messages, rpc
+from . import autosave, config, inventory, messages, rpc
 from .i18n import t
 from .log import LOG
 
@@ -87,9 +93,11 @@ class RunOutcome(object):
         self.donated = []       # (device name, donor vehicle name)
         self.downgraded = []    # (special device name, standard device name)
         self.missing = []       # devices that could not be sourced for free
+        self.forgotten = []     # (category i18n key, device name, what replaced it)
 
     def has_anything_to_report(self):
-        return bool(self.installed or self.skipped or self.errors or self.donated)
+        return bool(self.installed or self.skipped or self.errors
+                    or self.donated or self.forgotten)
 
     def note_skipped(self, device_name, reason, also_missing=True):
         self.skipped.append((device_name, reason))
@@ -100,6 +108,11 @@ class RunOutcome(object):
         note = (special_name, standard_name)
         if note not in self.downgraded:
             self.downgraded.append(note)
+
+    def note_forgotten(self, kind_key, device_name, replacement_name):
+        note = (kind_key, device_name, replacement_name)
+        if note not in self.forgotten:
+            self.forgotten.append(note)
 
 
 class DepotLedger(object):
@@ -151,6 +164,87 @@ def _build_plan(vehicle, saved):
 def _plan_already_applied(vehicle, plan):
     return all(inventory.setup_device_cds(vehicle, setup_idx) == wanted
                for setup_idx, wanted in plan)
+
+
+def _protected_kind(item):
+    """The "never put this back" category an item falls into, as an i18n key for
+    its player-visible name, or None.
+
+    Improved devices cost 200 bonds to remove and Experimental ones from level 2
+    on are not free either, so neither ever leaves a vehicle by accident: the
+    player paid to take it off. Both categories are switchable in the settings
+    panel, for players who would rather have the mod shuffle them around
+    anyway."""
+    if inventory.is_improved(item) and config.never_remount_improved():
+        return 'kindImproved'
+    if inventory.is_experimental(item) and config.never_remount_experimental():
+        return 'kindExperimental'
+    return None
+
+
+def _forget_absent_protected(plan, vehicle, veh_inv_id, outcome):
+    """Drops protected devices (see _protected_kind) that are no longer on this
+    vehicle - out of the plan AND out of the saved sets.
+
+    The player took the device off deliberately and paid for it, most likely to
+    put it on another tank, replacing it here with a bounty or standard device.
+    Right after that the protected device usually sits in the depot, which every
+    other device treats as "free, install it again" - and reinstalling it is
+    exactly what throws that payment away. So the slot keeps whatever it holds
+    now.
+
+    Dropping it from the plan alone would not be enough: the saved set would
+    still ask for it, so the next vehicle selection would try again, and the
+    popover would keep showing a loadout the mod refuses to install. Hence the
+    set is rewritten to what the vehicle actually carries - the replacement the
+    player chose. Saving over the player's own data is a big enough step to
+    report, so every rewrite goes into the run summary.
+
+    A protected device still ON the vehicle stays in the plan: moving it between
+    slots or setups of the same vehicle is free and never puts it back into a
+    slot the player emptied."""
+    resolved = []
+    rewritten = {}
+    for setup_idx, wanted in plan:
+        current = inventory.setup_device_cds(vehicle, setup_idx)
+        kept = list(wanted)
+        for slot_idx, device_cd in enumerate(wanted):
+            if not device_cd:
+                continue
+            item = inventory.device_by_cd(device_cd)
+            if item is None or inventory.vehicle_has_device(vehicle, device_cd):
+                continue
+            kind_key = _protected_kind(item)
+            if kind_key is None:
+                continue
+            kept[slot_idx] = _replacement_cd(current[slot_idx], kept)
+            replacement = inventory.device_by_cd(kept[slot_idx])
+            outcome.note_forgotten(kind_key, item.userName,
+                                   replacement.userName if replacement is not None else u'')
+        if kept != list(wanted):
+            rewritten[setup_idx] = kept
+        resolved.append((setup_idx, kept))
+
+    if rewritten:
+        _rewrite_saved_sets(vehicle, veh_inv_id, rewritten)
+    return resolved
+
+
+def _replacement_cd(current_cd, kept):
+    """What takes the protected device's place in the layout: whatever occupies
+    the slot right now - unless the layout already wants that device in another
+    slot, in which case this one ends up empty (the device moves there instead
+    of being duplicated, which the server would reject)."""
+    if current_cd and current_cd in kept:
+        return 0
+    return current_cd
+
+
+def _rewrite_saved_sets(vehicle, veh_inv_id, rewritten):
+    config.store_sets(veh_inv_id, set1=rewritten.get(0), set2=rewritten.get(1),
+                      veh_cd=vehicle.intCD)
+    LOG.info('saved sets of %s rewritten without absent protected devices: %s'
+             % (vehicle.userName, rewritten))
 
 
 def _downgraded_plan(plan, vehicle, veh_inv_id, options, outcome):
@@ -241,10 +335,17 @@ def apply_to_vehicle(veh_inv_id, options, callback=None):
         plan = _build_plan(vehicle, saved)
         if not plan:
             return
+        # Before anything else: a protected device that is not on the vehicle
+        # any more is out of the picture, and the downgrade below must see the
+        # replacement rather than trying to substitute the protected one.
+        plan = _forget_absent_protected(plan, vehicle, veh_inv_id, outcome)
         if options.force_downgrade or config.is_downgrade_enabled():
             plan = _downgraded_plan(plan, vehicle, veh_inv_id, options, outcome)
         if _plan_already_applied(vehicle, plan):
-            return      # nothing to do - no veil flicker on every selection
+            # Nothing to install - no veil flicker on every selection. A set
+            # rewritten just above still has to be reported, though.
+            _report(options, outcome)
+            return
 
         LOG.info('apply: start for %s, plan=%s' % (vehicle.userName, plan))
         if options.show_veil:
@@ -261,9 +362,7 @@ def apply_to_vehicle(veh_inv_id, options, callback=None):
 
         yield _restore_active_setup(veh_inv_id, original_setup_idx)
 
-        if options.push_summary and outcome.has_anything_to_report():
-            messages.push_lines(_summary_lines(outcome),
-                                warning=bool(outcome.skipped or outcome.errors))
+        _report(options, outcome)
         LOG.info('apply: done for %s - installed=%d skipped=%d errors=%d'
                  % (veh_inv_id, outcome.installed, len(outcome.skipped), len(outcome.errors)))
     except Exception:
@@ -271,8 +370,16 @@ def apply_to_vehicle(veh_inv_id, options, callback=None):
     finally:
         if veil_shown:
             messages.hide_waiting()
+        autosave.recheck(veh_inv_id, 'install run finished')
         if callback is not None:
             callback(outcome)
+
+
+def _report(options, outcome):
+    if not options.push_summary or not outcome.has_anything_to_report():
+        return
+    messages.push_lines(_summary_lines(outcome),
+                        warning=bool(outcome.skipped or outcome.errors))
 
 
 @adisp_async
@@ -542,6 +649,7 @@ def _summary_lines(outcome):
     lines = []
     if outcome.installed:
         lines.append(t('summaryInstalled', count=outcome.installed))
+    lines.extend(_forgotten_lines(outcome.forgotten))
     for special_name, standard_name in outcome.downgraded:
         lines.append(t('summaryDowngrade', special=special_name, standard=standard_name))
     for device_name, donor_name in outcome.donated:
@@ -550,6 +658,19 @@ def _summary_lines(outcome):
         lines.append(t('summarySkipped', name=device_name, reason=reason))
     for error in outcome.errors:
         lines.append(t('summaryError', err=error))
+    return lines
+
+
+def _forgotten_lines(forgotten):
+    """One line per protected device dropped from a saved set - the player is
+    told what the set says now, since the mod just changed it for them."""
+    lines = []
+    for kind_key, device_name, replacement_name in forgotten:
+        if replacement_name:
+            lines.append(t('summaryProtectedReplaced', kind=t(kind_key),
+                           name=device_name, replacement=replacement_name))
+        else:
+            lines.append(t('summaryProtectedCleared', kind=t(kind_key), name=device_name))
     return lines
 
 
@@ -674,6 +795,7 @@ class _BatchTotals(object):
         self.installed = 0
         self.donated = 0
         self.downgraded = []
+        self.forgotten = []
         self.errors = []
         self.missing_counts = {}    # device name -> number of vehicles missing it
 
@@ -684,6 +806,9 @@ class _BatchTotals(object):
         for note in outcome.downgraded:
             if note not in self.downgraded:
                 self.downgraded.append(note)
+        for note in outcome.forgotten:
+            if note not in self.forgotten:
+                self.forgotten.append(note)
         for error in outcome.errors:
             self.errors.append(t('batchVehicleError', veh=vehicle.userName, err=error))
         for name in outcome.missing:
@@ -693,6 +818,7 @@ class _BatchTotals(object):
         lines = [t('batchSummary', processed=self.processed, installed=self.installed)]
         if self.donated:
             lines.append(t('batchDonated', count=self.donated))
+        lines.extend(_forgotten_lines(self.forgotten))
         for special_name, standard_name in self.downgraded:
             lines.append(t('summaryDowngrade', special=special_name, standard=standard_name))
         if without_sets:

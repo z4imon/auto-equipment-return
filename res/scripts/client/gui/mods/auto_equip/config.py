@@ -8,6 +8,9 @@ the same PC never mixes up saved sets. File layout:
 
     {"autoEquipEnabled": true,
      "downgradeEnabled": false,
+     "autoSaveEnabled": true,
+     "neverRemountImproved": true,
+     "neverRemountExperimental": true,
      "sets": {"<vehicle invID>": {"set1": [intCD, intCD, intCD] or null,
                                   "set2": [intCD, intCD, intCD] or null,
                                   "vehicleCD": intCD or null}}}
@@ -30,9 +33,14 @@ from helpers import getPreferencesDirPath
 
 from .log import LOG
 
+# Every setting is a plain on/off flag, which is what lets them be loaded,
+# saved and offered in the settings panel as one list instead of one by one.
 _DEFAULTS = {
     'autoEquipEnabled': True,   # install saved sets automatically on vehicle selection
     'downgradeEnabled': False,  # replace unavailable special devices with their standard variant
+    'autoSaveEnabled': True,    # write the mounted loadout back on battle / when leaving a vehicle
+    'neverRemountImproved': True,        # leave Improved devices the player took off alone
+    'neverRemountExperimental': True,    # same for Experimental devices
 }
 
 _EMPTY_ENTRY = {'set1': None, 'set2': None, 'vehicleCD': None}
@@ -108,10 +116,8 @@ def load_for_account(account_id):
         if os.path.exists(path):
             with open(path, 'r') as handle:
                 data = json.load(handle)
-            _settings = {
-                'autoEquipEnabled': bool(data.get('autoEquipEnabled', True)),
-                'downgradeEnabled': bool(data.get('downgradeEnabled', False)),
-            }
+            _settings = dict((name, bool(data.get(name, default)))
+                             for name, default in _DEFAULTS.iteritems())
             _sets = _clean_sets(data.get('sets', {}))
         else:
             # First time we see this account: start clean, then give kurzdor's
@@ -139,12 +145,10 @@ def save():
         directory = os.path.dirname(path)
         if directory and not os.path.exists(directory):
             os.makedirs(directory)
+        data = dict((name, _flag(name)) for name in _DEFAULTS)
+        data['sets'] = _sets
         with open(path, 'w') as handle:
-            json.dump({
-                'autoEquipEnabled': bool(_settings['autoEquipEnabled']),
-                'downgradeEnabled': bool(_settings['downgradeEnabled']),
-                'sets': _sets,
-            }, handle, indent=4)
+            json.dump(data, handle, indent=4)
     except Exception:
         LOG.exc('save() failed')
 
@@ -162,24 +166,55 @@ def disable_mod():
     _mod_disabled = True
 
 
+def _flag(name):
+    """The raw stored value, ignoring whether the mod is disabled - that gate
+    belongs on the behaviour, not on the setting itself, so the settings panel
+    can still show what is configured."""
+    return bool(_settings.get(name, _DEFAULTS[name]))
+
+
+def flags():
+    """All settings as {name: bool} - what the settings panel is built from."""
+    return dict((name, _flag(name)) for name in _DEFAULTS)
+
+
+def set_flag(name, enabled):
+    """Stores one setting by name. Unknown names are ignored: the settings panel
+    hands back whatever its own storage holds, which may predate a rename."""
+    if name not in _DEFAULTS:
+        LOG.warning('ignoring unknown setting "%s"' % name)
+        return False
+    _settings[name] = bool(enabled)
+    save()
+    return _settings[name]
+
+
 def is_auto_enabled():
-    return bool(_settings['autoEquipEnabled']) and not _mod_disabled
+    return _flag('autoEquipEnabled') and not _mod_disabled
 
 
 def set_auto_enabled(enabled):
-    _settings['autoEquipEnabled'] = bool(enabled)
-    save()
-    return _settings['autoEquipEnabled']
+    return set_flag('autoEquipEnabled', enabled)
+
+
+def is_auto_save_enabled():
+    return _flag('autoSaveEnabled') and not _mod_disabled
 
 
 def is_downgrade_enabled():
-    return bool(_settings['downgradeEnabled']) and not _mod_disabled
+    return _flag('downgradeEnabled') and not _mod_disabled
 
 
 def set_downgrade_enabled(enabled):
-    _settings['downgradeEnabled'] = bool(enabled)
-    save()
-    return _settings['downgradeEnabled']
+    return set_flag('downgradeEnabled', enabled)
+
+
+def never_remount_improved():
+    return _flag('neverRemountImproved')
+
+
+def never_remount_experimental():
+    return _flag('neverRemountExperimental')
 
 
 # ---------------------------------------------------------------------------

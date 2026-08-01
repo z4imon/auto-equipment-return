@@ -57,7 +57,7 @@
 
     "autoDisabledAfterBatch": "AutoEquip: η αυτόματη τοποθέτηση απενεργοποιήθηκε, ώστε η περιήγηση στα άλλα οχήματα να μη μετακινεί κατά λάθος τον εξοπλισμό σου. Μπορείς να την ενεργοποιήσεις ξανά οποιαδήποτε στιγμή από το μενού.",
 
-    "importModDisplayName": "Auto Equipment Return από τον Z4imon – εισαγωγή",
+    "modDisplayName": "Auto Equipment Return από τον Z4imon",
     "importAccountLabel": "Το αναγνωριστικό λογαριασμού σου: %(accountId)s",
     "importDropdownLabel": "Εισαγωγή αποθηκευμένων διαμορφώσεων από το auto equipment return του kurzdor",
     "importOwnDropdownLabel": "Εισαγωγή αποθηκευμένων διαμορφώσεων από άλλον λογαριασμό σου",

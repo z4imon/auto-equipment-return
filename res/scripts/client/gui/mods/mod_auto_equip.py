@@ -5,16 +5,18 @@ This module has to sit directly in gui.mods under a mod_ name - that is how
 the client finds a mod at all. Everything else lives in the auto_equip package
 next to it, one module per job:
 
-    auto_equip.config      persisted settings and saved sets
-    auto_equip.inventory   reads against the items cache
-    auto_equip.rpc         raw inventory calls to the server
-    auto_equip.apply       restoring saved sets onto vehicles
-    auto_equip.save        snapshotting the current setups
-    auto_equip.gameface    the hangar popover
+    auto_equip.config         persisted settings and saved sets
+    auto_equip.inventory      reads against the items cache
+    auto_equip.rpc            raw inventory calls to the server
+    auto_equip.apply          restoring saved sets onto vehicles
+    auto_equip.save           snapshotting the current setups
+    auto_equip.autosave       keeping the saved sets in step with the hangar
+    auto_equip.gameface       the hangar popover
     auto_equip.carousel_menu  the carousel right-click entry
-    auto_equip.importer    the ModsSettingsAPI import panel
-    auto_equip.i18n        player-visible strings
-    auto_equip.messages    system messages and the hangar veil
+    auto_equip.modsettings    the ModsSettingsAPI panel
+    auto_equip.importer       the import half of that panel
+    auto_equip.i18n           player-visible strings
+    auto_equip.messages       system messages and the hangar veil
 """
 
 import os
@@ -22,7 +24,7 @@ import os
 from gui.shared.utils import getPlayerDatabaseID
 from PlayerEvents import g_playerEvents
 
-from .auto_equip import config, i18n, importer
+from .auto_equip import config, i18n, modsettings
 from .auto_equip import __version__
 from .auto_equip.log import LOG
 
@@ -90,6 +92,6 @@ def _on_account_show_gui(ctx=None):
 def _finish_account_load(account_id):
     config.load_for_account(account_id)
     try:
-        importer.register(account_id)
+        modsettings.register(account_id)
     except Exception:
-        LOG.exc('auto_equip.importer.register failed')
+        LOG.exc('auto_equip.modsettings.register failed')

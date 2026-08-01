@@ -57,7 +57,7 @@
 
     "autoDisabledAfterBatch": "AutoEquip: automatyczny montaż został wyłączony, aby przeglądanie innych pojazdów przypadkiem nie przenosiło wyposażenia. Możesz go w każdej chwili włączyć ponownie w menu.",
 
-    "importModDisplayName": "Auto Equipment Return autorstwa Z4imon – import",
+    "modDisplayName": "Auto Equipment Return autorstwa Z4imon",
     "importAccountLabel": "Twój identyfikator konta: %(accountId)s",
     "importDropdownLabel": "Importuj zapisane konfiguracje z auto equipment return autorstwa kurzdora",
     "importOwnDropdownLabel": "Importuj zapisane konfiguracje z innego swojego konta",

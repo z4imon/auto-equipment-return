@@ -57,7 +57,7 @@
 
     "autoDisabledAfterBatch": "AutoEquip：已关闭自动安装，以免浏览其他车辆时意外挪动你的设备。你可以随时通过菜单中的开关重新启用。",
 
-    "importModDisplayName": "Auto Equipment Return by Z4imon – 导入",
+    "modDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "你的账号 ID：%(accountId)s",
     "importDropdownLabel": "从 kurzdor 的 auto equipment return 导入已保存的配置",
     "importOwnDropdownLabel": "从你的另一个账号导入已保存的配置",

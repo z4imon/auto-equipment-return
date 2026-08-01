@@ -57,7 +57,7 @@
 
     "autoDisabledAfterBatch": "AutoEquip: automaatne paigaldus lülitati välja, et teiste sõidukite sirvimine ei liigutaks kogemata sinu varustust. Saad selle menüüs oleva lülitiga igal ajal uuesti sisse lülitada.",
 
-    "importModDisplayName": "Auto Equipment Return autorilt Z4imon – import",
+    "modDisplayName": "Auto Equipment Return autorilt Z4imon",
     "importAccountLabel": "Sinu konto ID: %(accountId)s",
     "importDropdownLabel": "Impordi salvestatud konfiguratsioonid kurzdori auto equipment returnist",
     "importOwnDropdownLabel": "Impordi salvestatud konfiguratsioonid mõnelt oma teiselt kontolt",

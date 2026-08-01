@@ -57,7 +57,7 @@
 
     "autoDisabledAfterBatch": "AutoEquip: az automatikus felszerelést kikapcsoltuk, hogy a többi jármű böngészése ne mozgassa véletlenül a felszerelésedet. A menüben lévő kapcsolóval bármikor újra bekapcsolhatod.",
 
-    "importModDisplayName": "Auto Equipment Return – Z4imon – importálás",
+    "modDisplayName": "Auto Equipment Return – Z4imon",
     "importAccountLabel": "A fiókazonosítód: %(accountId)s",
     "importDropdownLabel": "Mentett konfigurációk importálása kurzdor auto equipment return moduljából",
     "importOwnDropdownLabel": "Mentett konfigurációk importálása egy másik fiókodból",

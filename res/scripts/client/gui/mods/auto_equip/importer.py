@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Optional ModsSettingsAPI panel offering two ways to seed this account's
-saved sets instead of saving everything by hand again:
+"""The import half of the mod's "Mods settings+" panel (modsettings.py owns the
+panel itself and calls in here), offering two ways to seed this account's saved
+sets instead of saving everything by hand again:
 
 1. Import from kurzdor's "Auto Equipment Return" mod - a separate, more
    popular mod many players already have data for. This also runs silently,
@@ -9,8 +10,8 @@ saved sets instead of saving everything by hand again:
 2. Import from one of OUR OWN mod's other per-account save files, for players
    with several WoT accounts on this PC.
 
-Everything here degrades quietly if ModsSettingsAPI isn't installed, or if
-neither data source has anything to offer.
+Both are offered only when there is something to import - with no kurzdor data
+and no other account file, the panel simply has no import controls on it.
 
 kurzdor's .dat files are zlib-compressed pickle (protocol 0) dumps of:
 
@@ -50,7 +51,6 @@ from . import config, inventory, messages
 from .i18n import t
 from .log import LOG
 
-_MOD_LINKAGE = 'z4imon.auto_equipment_return.kurzdor_import'
 _VAR_KURZDOR_FILE = 'kurzdorFile'
 _VAR_OWN_FILE = 'ownAccountFile'
 
@@ -62,7 +62,7 @@ _NOTE_KEY = 'importOtherAccountWhy'
 _LABEL_MAX_CHARS = 130
 
 # Dropdown option index -> full path, and the account we're logged in as.
-# All three are filled in by register().
+# All three are filled in by prepare().
 _kurzdor_files = []
 _own_files = []
 _account_id = None
@@ -272,25 +272,21 @@ def _handle_own_import(index):
         messages.push_error(t('importFailedMsg'))
 
 
-def onButtonClicked(linkage, varName, value):
-    if linkage != _MOD_LINKAGE:
-        return
+def handle_button(var_name, value):
+    """An Import button next to one of our dropdowns was clicked; `value` is the
+    selected option's index. Routed here by modsettings.py."""
     try:
         index = int(value)
     except (TypeError, ValueError):
         return
-    if varName == _VAR_KURZDOR_FILE:
+    if var_name == _VAR_KURZDOR_FILE:
         _handle_kurzdor_import(index)
-    elif varName == _VAR_OWN_FILE:
+    elif var_name == _VAR_OWN_FILE:
         _handle_own_import(index)
 
 
-def onModSettingsChanged(linkage, newSettings):
-    pass
-
-
 # ---------------------------------------------------------------------------
-# Panel registration
+# The panel rows
 # ---------------------------------------------------------------------------
 
 def _has_other_account_files():
@@ -333,52 +329,33 @@ def _import_button(templates):
     return templates.createButton(text=t('importButtonText'), width=70, height=23)
 
 
-def _build_column(account_id, templates):
-    column = [templates.createLabel(t('importAccountLabel', accountId=account_id))]
-    if _kurzdor_files:
-        column.append(templates.createDropdown(
-            t('importDropdownLabel'), _VAR_KURZDOR_FILE, _kurzdor_options(), 0,
-            tooltip=t('importOtherAccountTooltip') if _has_other_account_files() else None,
-            button=_import_button(templates)))
-        column.extend(_other_account_note(account_id, templates))
-    if _own_files:
-        column.append(templates.createDropdown(
-            t('importOwnDropdownLabel'), _VAR_OWN_FILE,
-            [_file_label(path) for path in _own_files], 0,
-            button=_import_button(templates)))
-    return column
-
-
-def register(account_id):
-    """Adds the ModsSettingsAPI panel. No-op when the API isn't installed, or
-    when neither data source has anything to offer. Called by mod_auto_equip
-    once the account id is known - never before."""
+def prepare(account_id):
+    """Looks for importable files. Called by modsettings.py before it asks for
+    the rows, and never before the account id is known - which file belongs to
+    "us" is the whole question here."""
     global _kurzdor_files, _own_files, _account_id
-    try:
-        from gui.modsSettingsApi import g_modsSettingsApi, templates
-    except Exception:
-        LOG.info('ModsSettingsAPI not installed - import panel disabled')
-        return
-
     _account_id = account_id
     _kurzdor_files = _list_kurzdor_files()
     _own_files = _list_own_account_files()
-    if not _kurzdor_files and not _own_files:
-        LOG.info('no kurzdor data and no other account files - import panel disabled')
-        return
+    LOG.info('import sources for account %s: %d kurzdor file(s), %d own account file(s)'
+             % (account_id, len(_kurzdor_files), len(_own_files)))
 
-    template = {
-        'modDisplayName': t('importModDisplayName'),
-        'enabled': True,
-        'column1': _build_column(account_id, templates),
-    }
-    try:
-        if g_modsSettingsApi.getModSettings(_MOD_LINKAGE, template):
-            g_modsSettingsApi.registerCallback(_MOD_LINKAGE, onModSettingsChanged, onButtonClicked)
-        else:
-            g_modsSettingsApi.setModTemplate(_MOD_LINKAGE, template,
-                                             onModSettingsChanged, onButtonClicked)
-        LOG.info('registered import panel (%d kurzdor file(s), %d own account file(s), accountId=%s)'
-                 % (len(_kurzdor_files), len(_own_files), account_id))
-    except Exception:
-        LOG.exc('register failed')
+
+def panel_rows(templates):
+    """The import controls, or an empty list when there is nothing to import.
+    prepare() must have run first."""
+    if not _kurzdor_files and not _own_files:
+        return []
+    rows = [templates.createLabel(t('importAccountLabel', accountId=_account_id))]
+    if _kurzdor_files:
+        rows.append(templates.createDropdown(
+            t('importDropdownLabel'), _VAR_KURZDOR_FILE, _kurzdor_options(), 0,
+            tooltip=t('importOtherAccountTooltip') if _has_other_account_files() else None,
+            button=_import_button(templates)))
+        rows.extend(_other_account_note(_account_id, templates))
+    if _own_files:
+        rows.append(templates.createDropdown(
+            t('importOwnDropdownLabel'), _VAR_OWN_FILE,
+            [_file_label(path) for path in _own_files], 0,
+            button=_import_button(templates)))
+    return rows

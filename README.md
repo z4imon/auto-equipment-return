@@ -2,6 +2,15 @@
 
 ## Features
 - Saves your tank equipment and automatically reinstalls it when selecting the tank
+- *Press BATTLE to save:* the equipment you have mounted is stored automatically when
+  you press **BATTLE** (and when you switch to another tank), so a loadout you just
+  rebuilt does not need a manual save. Only tanks that already have a saved set are
+  updated.
+- **Improved** and **Experimental** equipment is never reinstalled automatically:
+  taking those off is not free (200 bonds for an Improved device), so once one is
+  gone the mod leaves the bounty or standard device you replaced it with in place
+  and updates the saved set accordingly. Both categories can be switched back on
+  in the mod settings.
 - Allows you to equip all your tanks with bounty equipment
 - The equipment is pulled from depot or other tanks (only if demounting is free)
 - *Downgrade:* if activated, installs a standard equipment instead of 
@@ -17,6 +26,16 @@
 - Allows you to import saved equipment from kurzdor's auto equipment return (only for the same account)
   - Done automatically on the first start of the mod or later over the modsettings 
 - Allows you to import saved equipments from other accounts (within the mod)
+
+## Mod settings
+The **Mods settings+** panel (*Auto Equipment Return by Z4imon*) holds the settings
+that apply to the whole account, each with an explanation behind its info icon:
+- **Press BATTLE to save the current equipment**
+- **Never re-install Improved equipment**
+- **Never re-install Experimental equipment**
+
+The same panel is where saved equipment is imported from kurzdor's mod or from
+another of your accounts.
 
 ## Dependencies
 - **Wot Plus** or **Wot Plus Pro** subscription

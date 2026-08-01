@@ -57,7 +57,7 @@
 
     "autoDisabledAfterBatch": "AutoEquip: den automatiska monteringen har stängts av så att bläddring bland andra fordon inte råkar flytta runt din utrustning. Du kan slå på den igen när som helst via reglaget i menyn.",
 
-    "importModDisplayName": "Auto Equipment Return av Z4imon – import",
+    "modDisplayName": "Auto Equipment Return av Z4imon",
     "importAccountLabel": "Ditt konto-ID: %(accountId)s",
     "importDropdownLabel": "Importera sparade konfigurationer från kurzdors auto equipment return",
     "importOwnDropdownLabel": "Importera sparade konfigurationer från ett annat av dina konton",

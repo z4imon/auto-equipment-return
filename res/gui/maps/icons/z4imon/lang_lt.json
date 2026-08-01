@@ -57,7 +57,7 @@
 
     "autoDisabledAfterBatch": "AutoEquip: automatinis montavimas išjungtas, kad naršant kitas technikas įranga netyčia nebūtų perkelta. Bet kada gali jį vėl įjungti meniu jungikliu.",
 
-    "importModDisplayName": "Auto Equipment Return, sukūrė Z4imon – importas",
+    "modDisplayName": "Auto Equipment Return, sukūrė Z4imon",
     "importAccountLabel": "Tavo paskyros ID: %(accountId)s",
     "importDropdownLabel": "Importuoti įrašytas konfigūracijas iš kurzdor auto equipment return",
     "importOwnDropdownLabel": "Importuoti įrašytas konfigūracijas iš kitos savo paskyros",

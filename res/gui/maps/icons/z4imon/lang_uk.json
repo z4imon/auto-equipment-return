@@ -57,7 +57,7 @@
 
     "autoDisabledAfterBatch": "AutoEquip: автовстановлення вимкнено, щоб перегляд інших машин випадково не переміщував обладнання. Увімкнути його знову можна будь-коли перемикачем у меню.",
 
-    "importModDisplayName": "Auto Equipment Return від Z4imon – імпорт",
+    "modDisplayName": "Auto Equipment Return від Z4imon",
     "importAccountLabel": "Ваш ID акаунта: %(accountId)s",
     "importDropdownLabel": "Імпортувати збережені конфігурації з auto equipment return від kurzdor",
     "importOwnDropdownLabel": "Імпортувати збережені конфігурації з іншого вашого акаунта",

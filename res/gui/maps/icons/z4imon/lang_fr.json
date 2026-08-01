@@ -57,7 +57,7 @@
 
     "autoDisabledAfterBatch": "AutoEquip : l'installation automatique a été désactivée afin que la consultation des autres véhicules ne déplace pas accidentellement vos équipements. Vous pouvez la réactiver à tout moment depuis le menu.",
 
-    "importModDisplayName": "Auto Equipment Return par Z4imon – Importation",
+    "modDisplayName": "Auto Equipment Return par Z4imon",
     "importAccountLabel": "Votre identifiant de compte : %(accountId)s",
     "importDropdownLabel": "Importer les configurations enregistrées d'auto equipment return de kurzdor",
     "importOwnDropdownLabel": "Importer les configurations enregistrées d'un autre de vos comptes",

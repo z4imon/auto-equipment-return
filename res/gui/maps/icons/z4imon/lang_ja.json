@@ -57,7 +57,7 @@
 
     "autoDisabledAfterBatch": "AutoEquip: 他の車輌を見て回るときに装備が誤って移動しないよう、自動装着をオフにしました。メニューのスイッチからいつでも再度オンにできます。",
 
-    "importModDisplayName": "Auto Equipment Return by Z4imon – インポート",
+    "modDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "あなたのアカウント ID: %(accountId)s",
     "importDropdownLabel": "kurzdor の auto equipment return から保存済み設定をインポート",
     "importOwnDropdownLabel": "自分の別アカウントから保存済み設定をインポート",

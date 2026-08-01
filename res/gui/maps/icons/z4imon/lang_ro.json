@@ -57,7 +57,7 @@
 
     "autoDisabledAfterBatch": "AutoEquip: instalarea automată a fost dezactivată, pentru ca răsfoirea celorlalte vehicule să nu îți mute echipamentele din greșeală. O poți reactiva oricând din meniu.",
 
-    "importModDisplayName": "Auto Equipment Return de Z4imon – Import",
+    "modDisplayName": "Auto Equipment Return de Z4imon",
     "importAccountLabel": "ID-ul contului tău: %(accountId)s",
     "importDropdownLabel": "Importă configurațiile salvate din auto equipment return al lui kurzdor",
     "importOwnDropdownLabel": "Importă configurațiile salvate dintr-un alt cont al tău",
