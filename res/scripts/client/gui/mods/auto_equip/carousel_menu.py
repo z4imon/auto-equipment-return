@@ -21,8 +21,9 @@ carousel redraws itself once the inventory comes back from the server.
 
 from adisp import adisp_async, adisp_process
 from gui.Scaleform.daapi.view.lobby.hangar.hangar_cm_handlers import VehicleContextMenuHandler
+from gui.shared.notifications import NotificationPriorityLevel
 
-from . import config, inventory, rpc
+from . import config, inventory, messages, rpc
 from . import apply as apply_engine
 from .i18n import t
 from .log import LOG
@@ -138,22 +139,32 @@ def demount_free_equipment(veh_inv_id):
 
     _busy = True
     original_setup_idx = inventory.active_setup_index(vehicle)
+    removed = 0
     try:
         LOG.info('carousel demount: start for %s' % vehicle.userName)
         for setup_idx in inventory.setup_indices(vehicle):
-            yield _clear_setup(veh_inv_id, setup_idx)
+            removed += yield _clear_setup(veh_inv_id, setup_idx)
         yield _restore_active_setup(veh_inv_id, original_setup_idx)
-        LOG.info('carousel demount: done for %s' % vehicle.userName)
+        LOG.info('carousel demount: done for %s - %d device(s) removed'
+                 % (vehicle.userName, removed))
     except Exception:
         LOG.exc('demount_free_equipment failed')
     finally:
         _busy = False
+        # Always reported, even at 0: the entry is only clickable when there IS
+        # something free to remove, so a zero means something went wrong and
+        # silence would just leave the player wondering whether the click took.
+        # HIGH is what makes it pop up in the hangar instead of only landing in
+        # the notification centre - same as the batch run's message.
+        messages.push_info(t('cmDemountDone', count=removed, veh=vehicle.userName),
+                           priority=NotificationPriorityLevel.HIGH)
 
 
 @adisp_async
 @adisp_process
 def _clear_setup(veh_inv_id, setup_idx, callback=None):
-    """Empties every free slot of ONE setup."""
+    """Empties every free slot of ONE setup. Reports how many devices came off."""
+    removed = 0
     try:
         vehicle = inventory.vehicle_by_inv_id(veh_inv_id)
         if vehicle is None:
@@ -172,18 +183,21 @@ def _clear_setup(veh_inv_id, setup_idx, callback=None):
         for slot_idx in range(inventory.slot_capacity(vehicle)):
             if inventory.vehicle_by_inv_id(veh_inv_id) is None:
                 break
-            yield _clear_slot(veh_inv_id, setup_idx, slot_idx)
+            if (yield _clear_slot(veh_inv_id, setup_idx, slot_idx)):
+                removed += 1
     except Exception:
         LOG.exc('_clear_setup failed')
     finally:
         if callback is not None:
-            callback(None)
+            callback(removed)
 
 
 @adisp_async
 @adisp_process
 def _clear_slot(veh_inv_id, setup_idx, slot_idx, callback=None):
-    """Removes the occupant of one slot, unless that would cost anything."""
+    """Removes the occupant of one slot, unless that would cost anything.
+    Reports True only when a device actually came off."""
+    removed = False
     try:
         vehicle = inventory.vehicle_by_inv_id(veh_inv_id)
         if vehicle is None:
@@ -205,12 +219,13 @@ def _clear_slot(veh_inv_id, setup_idx, slot_idx, callback=None):
             LOG.warning('carousel demount: %s failed (code %s, %s)'
                         % (item.userName, code, extra))
             return
+        removed = True
         yield rpc.pause(rpc.OP_PAUSE)
     except Exception:
         LOG.exc('_clear_slot failed')
     finally:
         if callback is not None:
-            callback(None)
+            callback(removed)
 
 
 @adisp_async
