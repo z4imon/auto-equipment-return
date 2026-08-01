@@ -12,6 +12,8 @@
   - Depending on the amount of vehicles, this takes time, this is normal!
   - After all equipments are succesfully equipped, the automatic equipment return is disabled 
     to allow browsing the other tanks.
+- *Demount equipment:* right-click a tank in the carousel to demount all equipment
+  that demounts for free.
 - Allows you to import saved equipment from kurzdor's auto equipment return (only for the same account)
   - Done automatically on the first start of the mod or later over the modsettings 
 - Allows you to import saved equipments from other accounts (within the mod)
@@ -31,6 +33,7 @@ next to the customization button.
 - **Set 1** and **Set 2** show the equipment that is currently saved for the
   selected tank.
   - Tanks without a second loadout only show Set 1
+  - The bin in the bottom right corner deletes the saved equipment for the selected tank
 - **Auto-install:** turns the automatic reinstalling on vehicle selection on
   and off
 - **Enable downgrade:** If turned on installs the standard equipment when the bounty or bond
@@ -40,6 +43,8 @@ next to the customization button.
 - **Equip all primary vehicles:** equips all your filtered primary vehicles
   with their saved equipment
 
+**Demount equipment** is added to the right-click menu of every tank in the carousel.
+It removes everything that can be demounted for free and leaves the rest mounted.
 
 ## Installation
 - Download the mod from the official WoT Mods webside
@@ -54,6 +59,8 @@ open a pull request.
 Bug reports and ideas are welcome in my channel of the official WoT discord: [Z4imon's mods](https://discord.com/channels/161053416796323840/1496838335857954887) 
 
 ## License
+Copyright (C) 2026 Z4imon
+
 [GPL-3.0](LICENSE) - you are free to use and modify this mod for yourself. If
 you distribute it, modified or not, it has to stay under GPL-3.0 and you have
 to make the source code available, keep the original copyright notice and mark

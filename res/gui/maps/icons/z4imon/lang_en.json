@@ -20,6 +20,10 @@
 
     "alreadyRunning": "AutoEquip: install already running",
 
+    "cmDemountFree": "Demount equipment",
+    "cmDemountWaiting": "Demounting equipment…",
+    "cmDemountDone": "AutoEquip: %(count)d item(s) demounted from %(veh)s",
+
     "errSetupSwitchFailed": "Setup %(setup)d could not be switched (code %(code)s)",
     "errUnknownItem": "Slot %(slot)d: unknown item %(cd)s",
     "reasonPaidDemount": "removal would not be free",
