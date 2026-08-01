@@ -11,6 +11,7 @@ next to it, one module per job:
     auto_equip.apply       restoring saved sets onto vehicles
     auto_equip.save        snapshotting the current setups
     auto_equip.gameface    the hangar popover
+    auto_equip.carousel_menu  the carousel right-click entry
     auto_equip.importer    the ModsSettingsAPI import panel
     auto_equip.i18n        player-visible strings
     auto_equip.messages    system messages and the hangar veil
@@ -36,6 +37,7 @@ def init():
         LOG.info('mod_auto_equip.init() finished OK')
     except Exception:
         LOG.exc('mod_auto_equip.init() failed')
+    _carousel_menu('init')
 
 
 def fini():
@@ -44,6 +46,18 @@ def fini():
         gameface.fini()
     except Exception:
         LOG.exc('mod_auto_equip.fini() failed')
+    _carousel_menu('fini')
+
+
+def _carousel_menu(step):
+    """The carousel entry gets its own try block, outside the one above: it
+    hooks a Scaleform class of the client, and losing that one extra menu item
+    must never take the popover and the auto-install down with it."""
+    try:
+        from .auto_equip import carousel_menu
+        getattr(carousel_menu, step)()
+    except Exception:
+        LOG.exc('carousel menu %s() failed' % step)
 
 
 # ---------------------------------------------------------------------------

@@ -20,6 +20,8 @@
 
     "alreadyRunning": "AutoEquip: Einbau läuft bereits",
 
+    "cmDemountFree": "Equipment ausbauen",
+
     "errSetupSwitchFailed": "Setup %(setup)d nicht umschaltbar (Code %(code)s)",
     "errUnknownItem": "Slot %(slot)d: unbekanntes Item %(cd)s",
     "reasonPaidDemount": "Ausbau wäre kostenpflichtig",

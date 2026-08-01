@@ -12,6 +12,9 @@
   - Depending on the amount of vehicles, this takes time, this is normal!
   - After all equipments are succesfully equipped, the automatic equipment return is disabled 
     to allow browsing the other tanks.
+- *Demount equipment:* right-click a tank in the carousel to strip it of all equipment
+  that comes off for free. Anything that would cost credits, gold or a demount kit stays
+  mounted.
 - Allows you to import saved equipment from kurzdor's auto equipment return (only for the same account)
   - Done automatically on the first start of the mod or later over the modsettings 
 - Allows you to import saved equipments from other accounts (within the mod)
@@ -39,6 +42,11 @@ next to the customization button.
   currently mounted on the selected tank
 - **Equip all primary vehicles:** equips all your filtered primary vehicles
   with their saved equipment
+
+**Demount equipment** is added to the right-click menu of every tank in the carousel.
+It removes everything that can be demounted for free and leaves the rest mounted.
+The entry is greyed out while the tank is locked, while another run is still going,
+or when there is nothing on the tank that comes off for free.
 
 
 ## Installation
