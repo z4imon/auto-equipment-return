@@ -69,6 +69,7 @@ const media = MediaContext();
 const SVGNS = "http://www.w3.org/2000/svg";
 
 const BUTTON_ICON = "img://gui/maps/icons/z4imon/AutoEquipmentIcon.png";
+const BIN_ICON = "img://gui/maps/icons/z4imon/bin.png";
 
 // Native button art ships in per-resolution folders; same mapping the native
 // MenuButton (and the Tank-Stats button) uses.
@@ -244,6 +245,26 @@ function buildSetBlock(label, slots, missingText) {
     return block;
 }
 
+// Bin in the bottom-right corner of the saved-sets area: forgets what is
+// stored for the vehicle currently in the hangar. No confirm dialog — nothing
+// here is expensive to redo, the two SAVE rows sit right below it.
+// Dimmed and inert while nothing is saved: the block next to it already says
+// so, and a bin that would do nothing must not look clickable.
+function buildDeleteButton() {
+    const hasSaved = !!(gData.saved1 || gData.saved2);
+    const btn = el("div", "z4ae-sets-delete" + (hasSaved ? "" : " z4ae-sets-delete-disabled"));
+    const icon = el("div", "z4ae-sets-delete-icon");
+    bg(icon, BIN_ICON);
+    btn.appendChild(icon);
+    if (hasSaved) {
+        btn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            cmd("onDeleteSets");
+        });
+    }
+    return btn;
+}
+
 // One menu row, exact copy of the native MenuItem markup:
 // item > inner > [hover, icon > (svg), title > span] (+ optional switch)
 function buildMenuRow(label, iconName, onClick, disabled) {
@@ -310,13 +331,16 @@ function buildPopover() {
     header.textContent = headText.toUpperCase();
     content.appendChild(header);
 
-    // saved sets
-    content.appendChild(buildSetBlock(ui("set1", "Set 1"), gData.saved1, ui("notSaved", "Noch nichts gespeichert")));
+    // saved sets — wrapped so the bin can be anchored to the block's corner
+    const sets = el("div", "z4ae-sets");
+    sets.appendChild(buildSetBlock(ui("set1", "Set 1"), gData.saved1, ui("notSaved", "Noch nichts gespeichert")));
     if (gData.hasSetup2) {
-        content.appendChild(buildSetBlock(ui("set2", "Set 2"), gData.saved2, ui("notSaved", "Noch nichts gespeichert")));
+        sets.appendChild(buildSetBlock(ui("set2", "Set 2"), gData.saved2, ui("notSaved", "Noch nichts gespeichert")));
     } else {
-        content.appendChild(buildSetBlock(ui("set2", "Set 2"), null, ui("noSetup2", "Kein zweites Loadout verfügbar")));
+        sets.appendChild(buildSetBlock(ui("set2", "Set 2"), null, ui("noSetup2", "Kein zweites Loadout verfügbar")));
     }
+    sets.appendChild(buildDeleteButton());
+    content.appendChild(sets);
 
     content.appendChild(el("div", "z4ae-divider"));
 

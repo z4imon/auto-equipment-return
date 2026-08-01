@@ -214,10 +214,10 @@ def _unsubscribe_from_vehicle():
 
 class AutoEquipViewModel(ViewModel):
     __slots__ = ('onJsLog', 'onToggleEnabled', 'onToggleDowngrade',
-                 'onSaveSet', 'onEquipPrimary')
+                 'onSaveSet', 'onDeleteSets', 'onEquipPrimary')
 
     def __init__(self):
-        super(AutoEquipViewModel, self).__init__(properties=2, commands=5)
+        super(AutoEquipViewModel, self).__init__(properties=2, commands=6)
 
     def getDataJson(self):
         return self._getString(0)
@@ -239,6 +239,7 @@ class AutoEquipViewModel(ViewModel):
         self.onToggleEnabled = self._addCommand('onToggleEnabled')
         self.onToggleDowngrade = self._addCommand('onToggleDowngrade')
         self.onSaveSet = self._addCommand('onSaveSet')
+        self.onDeleteSets = self._addCommand('onDeleteSets')
         self.onEquipPrimary = self._addCommand('onEquipPrimary')
         gf_mod_inject(self, _VIEW_ALIAS,
                       styles=['%s/AutoEquipView.css' % _VIEW_DIR],
@@ -272,6 +273,7 @@ class AutoEquipView(ViewComponent):
             (self.viewModel.onToggleEnabled, self._on_toggle_enabled),
             (self.viewModel.onToggleDowngrade, self._on_toggle_downgrade),
             (self.viewModel.onSaveSet, self._on_save_set),
+            (self.viewModel.onDeleteSets, self._on_delete_sets),
             (self.viewModel.onEquipPrimary, self._on_equip_primary),
         )
 
@@ -312,6 +314,13 @@ class AutoEquipView(ViewComponent):
             push_data()
         except Exception:
             LOG.exc('_on_save_set failed')
+
+    def _on_delete_sets(self, data=None):
+        try:
+            save.delete_current_vehicle_sets()
+            push_data()
+        except Exception:
+            LOG.exc('_on_delete_sets failed')
 
     def _on_equip_primary(self, data=None):
         try:
@@ -356,7 +365,6 @@ def _check_wot_plus(attempt):
         if inventory.has_wot_plus():
             _has_wot_plus = True
             LOG.info('WoT Plus subscription found - mod active')
-            inventory.log_equipment_overview()
             if _hangar_view is not None:
                 _activate(_hangar_view)
             return
