@@ -50,9 +50,6 @@ def fini():
 
 
 def _carousel_menu(step):
-    """The carousel entry gets its own try block, outside the one above: it
-    hooks a Scaleform class of the client, and losing that one extra menu item
-    must never take the popover and the auto-install down with it."""
     try:
         from .auto_equip import carousel_menu
         getattr(carousel_menu, step)()
