@@ -356,7 +356,6 @@ def _check_wot_plus(attempt):
         if inventory.has_wot_plus():
             _has_wot_plus = True
             LOG.info('WoT Plus subscription found - mod active')
-            inventory.log_equipment_overview()
             if _hangar_view is not None:
                 _activate(_hangar_view)
             return
