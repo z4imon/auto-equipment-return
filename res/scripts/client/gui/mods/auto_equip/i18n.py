@@ -19,7 +19,9 @@ from helpers import getClientLanguage
 from .log import LOG
 
 _LANG_PATH = u'gui/maps/icons/z4imon/lang_%s.json'
-_SUPPORTED = ('de', 'en')
+_SUPPORTED = ('be', 'bg', 'cs', 'de', 'el', 'en', 'es', 'es_ar', 'et', 'fi',
+              'fr', 'hr', 'hu', 'it', 'ja', 'kk', 'lt', 'lv', 'no', 'pl',
+              'pt', 'pt_br', 'ro', 'ru', 'sv', 'tr', 'uk', 'zh_cn')
 _FALLBACK = 'en'
 
 _strings = {}
