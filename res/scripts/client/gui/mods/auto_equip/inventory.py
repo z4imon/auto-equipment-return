@@ -43,6 +43,35 @@ def has_wot_plus():
         return False
 
 
+def is_improved(item):
+    """True for an "Improved" device - the purple bond equipment.
+
+    It is the one category the mod must never install on its own: taking one off
+    costs 200 bonds, so a player whose Improved device is no longer on the
+    vehicle paid for that, deliberately. Every other device can be put back for
+    free, which is the whole premise this mod is built on; this one cannot be put
+    back at all without undoing a purchase.
+
+    isDeluxe is the client's own flag for that category - the same one the
+    popover reads to draw the "improved" overlay art."""
+    try:
+        return bool(item.isDeluxe)
+    except Exception:
+        return False
+
+
+def is_experimental(item):
+    """True for an "Experimental" device. Only level 1 comes off for free under
+    WoT Plus, so from level 2 on this is the same story as is_improved(): the
+    player paid to take it off, and the mod can offer them nothing by putting it
+    back. isModernized is the client's flag (the popover draws the
+    experimental_<level>_level overlay off it)."""
+    try:
+        return bool(item.isModernized)
+    except Exception:
+        return False
+
+
 def is_free_to_demount(item):
     """True only if demounting this device is guaranteed to cost nothing.
     Removable devices (binoculars & co.) always demount for free; everything

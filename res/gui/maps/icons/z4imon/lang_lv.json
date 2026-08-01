@@ -57,7 +57,7 @@
 
     "autoDisabledAfterBatch": "AutoEquip: automātiskā uzstādīšana tika izslēgta, lai citu tehniku pārlūkošana nejauši nepārvietotu tavu aprīkojumu. To jebkurā brīdī var atkal ieslēgt ar slēdzi izvēlnē.",
 
-    "importModDisplayName": "Auto Equipment Return, autors Z4imon – imports",
+    "modDisplayName": "Auto Equipment Return, autors Z4imon",
     "importAccountLabel": "Tavs konta ID: %(accountId)s",
     "importDropdownLabel": "Importēt saglabātās konfigurācijas no kurzdor auto equipment return",
     "importOwnDropdownLabel": "Importēt saglabātās konfigurācijas no cita sava konta",

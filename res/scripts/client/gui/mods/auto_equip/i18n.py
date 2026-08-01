@@ -25,6 +25,7 @@ _SUPPORTED = ('be', 'bg', 'cs', 'de', 'el', 'en', 'es', 'es_ar', 'et', 'fi',
 _FALLBACK = 'en'
 
 _strings = {}
+_fallback_strings = {}      # English, for keys the chosen language has no entry for
 _language = _FALLBACK
 
 
@@ -52,7 +53,7 @@ def _detect_language():
 def init():
     """Loads the strings for the current client language. Call once, early in
     mod init — the client language cannot change without a game restart."""
-    global _strings, _language
+    global _strings, _fallback_strings, _language
     _language = _detect_language()
     data = _read_lang_file(_language)
     if data is None and _language != _FALLBACK:
@@ -61,20 +62,42 @@ def init():
         _language = _FALLBACK
         data = _read_lang_file(_language)
     _strings = data or {}
+    _fallback_strings = (_strings if _language == _FALLBACK
+                         else _read_lang_file(_FALLBACK) or {})
     LOG.info('loaded %d string(s) for language=%s' % (len(_strings), _language))
 
 
 def ui_strings():
     """Flat dict pushed to the popover JS as uiJson (same shape the JS side
     already expects — only where the data now comes from changed)."""
-    return dict(_strings)
+    merged = dict(_fallback_strings)
+    merged.update(_strings)
+    return merged
+
+
+def _template(key):
+    """The string for a key in the client's language, or the English one when
+    that language does not have it (yet).
+
+    With 28 language files, a newly added string realistically lands in one or
+    two of them first. Showing the rest !!theKey!! is worse than showing them
+    English: the player can still read what the button does, and the log line
+    says which file is missing what."""
+    template = _strings.get(key)
+    if template is not None:
+        return template
+    template = _fallback_strings.get(key)
+    if template is not None:
+        LOG.warning('key "%s" is missing from lang_%s.json, using %s'
+                    % (key, _language, _FALLBACK))
+    return template
 
 
 def t(key, **kwargs):
-    """One localized, formatted string. Missing key/file -> the raw key
-    wrapped in !!...!! (loud on purpose: a silent fallback would hide a typo
-    or missing key behind mixed-language text during testing)."""
-    template = _strings.get(key)
+    """One localized, formatted string. A key missing from every language file ->
+    the raw key wrapped in !!...!! (loud on purpose: a silent fallback would hide
+    a typo behind plausible-looking text during testing)."""
+    template = _template(key)
     if template is None:
         LOG.warning('missing translation key: %s' % key)
         return u'!!%s!!' % key

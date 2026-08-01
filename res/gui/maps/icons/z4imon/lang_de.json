@@ -36,7 +36,12 @@
     "reasonNotAvailable": "nicht verfügbar — Einbau übersprungen",
     "errSetupApplyFailed": "Setup %(setup)d: Einbau fehlgeschlagen (Code %(code)s, %(err)s)",
 
+    "kindImproved": "Verbessertes Equipment",
+    "kindExperimental": "Experimentelles Equipment",
+
     "summaryInstalled": "AutoEquip: %(count)d Teil(e) eingebaut",
+    "summaryProtectedReplaced": "%(kind)s: %(name)s ist nicht mehr auf diesem Fahrzeug — im gespeicherten Set steht jetzt %(replacement)s, %(name)s wird nie wieder eingebaut",
+    "summaryProtectedCleared": "%(kind)s: %(name)s ist nicht mehr auf diesem Fahrzeug — aus dem gespeicherten Set entfernt und wird nie wieder eingebaut",
     "summaryDowngrade": "Downgrade: %(special)s ersetzt durch %(standard)s",
     "summaryDonated": "%(name)s ausgebaut von %(donor)s",
     "summarySkipped": "Übersprungen: %(name)s — %(reason)s",
@@ -57,7 +62,15 @@
 
     "autoDisabledAfterBatch": "AutoEquip: Automatisches Einbauen wurde deaktiviert, damit beim Ansehen anderer Fahrzeuge nicht versehentlich Equipment hin- und hergetauscht wird. Über den Schalter im Menü wieder aktivierbar.",
 
-    "importModDisplayName": "Auto Equipment Return by Z4imon – Import",
+    "modDisplayName": "Auto Equipment Return by Z4imon",
+
+    "setSaveOnBattle": "Mit GEFECHT das aktuelle Equipment speichern",
+    "setSaveOnBattleTooltip": "{HEADER}Mit GEFECHT speichern{/HEADER}{BODY}Ein Klick auf GEFECHT schreibt das aktuell montierte Equipment in das gespeicherte Set des Panzers. Ein gerade umgebautes Loadout ist damit genau das, was beim nächsten Mal zurückkommt – ohne an „Speichern“ zu denken.\nBeim Wechsel auf einen anderen Panzer wird der verlassene Panzer genauso gespeichert.\n\nAktualisiert werden nur Panzer, die bereits ein gespeichertes Set haben: Ein Set zu speichern ist die Entscheidung, einen Panzer dieser Mod zu übergeben, und die bleibt bei dir.\nEbenfalls ausgenommen sind Panzer, deren Equipment von vornherein nicht zum gespeicherten Set passt – weil das automatische Einbauen aus ist oder die Mod noch nicht alles beschaffen konnte. Zu speichern würde dort genau das Equipment aus dem Set werfen, auf das du noch wartest.{/BODY}",
+    "setNeverImproved": "Verbessertes Equipment nie wieder einbauen",
+    "setNeverExperimental": "Experimentelles Equipment nie wieder einbauen",
+    "setNeverImprovedTooltip": "{HEADER}Verbessertes Equipment{/HEADER}{BODY}Der Ausbau eines verbesserten Teils kostet 200 Bonds – von einem Panzer verschwindet es also nie versehentlich, sondern weil du dafür bezahlt hast, es woanders zu verbauen.\n\nIst diese Option aktiv, baut die Mod es nie wieder ein: Im Slot bleibt das Bounty- oder Standardteil, das du stattdessen montiert hast, und das gespeicherte Set wird darauf angepasst. Die 200 Bonds bleiben damit einmalig ausgegeben.\nEin verbessertes Teil, das noch auf dem Panzer ist, bleibt unberührt – es innerhalb desselben Panzers umzustecken ist kostenlos.{/BODY}",
+    "setNeverExperimentalTooltip": "{HEADER}Experimentelles Equipment{/HEADER}{BODY}Nur Stufe 1 lässt sich mit WoT Plus kostenlos ausbauen; ab Stufe 2 kostet der Ausbau – der Wiedereinbau ist damit derselbe Fehler wie bei verbessertem Equipment.\n\nIst diese Option aktiv, baut die Mod ein experimentelles Teil, das nicht mehr auf dem Panzer ist, nie wieder ein und passt das gespeicherte Set an das an, was es ersetzt hat.\nSchalte sie aus, wenn die Mod dein experimentelles Equipment weiterhin von Panzer zu Panzer mitnehmen soll.{/BODY}",
+
     "importAccountLabel": "Deine Account-ID: %(accountId)s",
     "importDropdownLabel": "Gespeicherte Setups von Kurzdors Auto Equipment Return importieren",
     "importOwnDropdownLabel": "Gespeicherte Setups von einem deiner anderen Accounts importieren",

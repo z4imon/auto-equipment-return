@@ -57,7 +57,7 @@
 
     "autoDisabledAfterBatch": "AutoEquip: automatisk montering er slått av slik at det å bla gjennom andre kjøretøy ikke flytter utstyret ditt ved et uhell. Du kan slå den på igjen når som helst med bryteren i menyen.",
 
-    "importModDisplayName": "Auto Equipment Return av Z4imon – import",
+    "modDisplayName": "Auto Equipment Return av Z4imon",
     "importAccountLabel": "Konto-ID-en din: %(accountId)s",
     "importDropdownLabel": "Importer lagrede konfigurasjoner fra kurzdors auto equipment return",
     "importOwnDropdownLabel": "Importer lagrede konfigurasjoner fra en annen av kontoene dine",

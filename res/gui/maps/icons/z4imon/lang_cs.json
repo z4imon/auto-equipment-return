@@ -57,7 +57,7 @@
 
     "autoDisabledAfterBatch": "AutoEquip: automatická montáž byla vypnuta, aby prohlížení ostatních vozidel omylem nepřesouvalo vybavení. Kdykoli ji můžeš znovu zapnout přepínačem v nabídce.",
 
-    "importModDisplayName": "Auto Equipment Return od Z4imon – import",
+    "modDisplayName": "Auto Equipment Return od Z4imon",
     "importAccountLabel": "ID tvého účtu: %(accountId)s",
     "importDropdownLabel": "Importovat uložené konfigurace z auto equipment return od kurzdora",
     "importOwnDropdownLabel": "Importovat uložené konfigurace z jiného tvého účtu",

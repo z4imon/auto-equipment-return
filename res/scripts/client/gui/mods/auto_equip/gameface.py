@@ -14,7 +14,7 @@ import BigWorld
 
 from CurrentVehicle import g_currentVehicle
 
-from . import config, hangar, i18n, inventory, messages, save
+from . import autosave, config, hangar, i18n, inventory, messages, save
 from . import apply as apply_engine
 from .i18n import t
 from .log import LOG
@@ -175,6 +175,10 @@ def push_data():
 
 def _on_vehicle_changed(*args, **kwargs):
     try:
+        # Autosave first: it writes back the vehicle the selection is LEAVING,
+        # which has to happen before the apply engine starts working on the new
+        # one.
+        autosave.on_vehicle_changed()
         apply_engine.on_vehicle_changed()
         push_data()
     except Exception:
@@ -310,6 +314,7 @@ class AutoEquipView(ViewComponent):
         try:
             which = int(data.get('which', save.BOTH_SETS)) if data else save.BOTH_SETS
             status = save.save_current_vehicle_sets(which)
+            autosave.recheck_current_vehicle('sets saved by hand')
             LOG.info('_on_save_set(%s): %s' % (which, status))
             push_data()
         except Exception:
@@ -318,6 +323,7 @@ class AutoEquipView(ViewComponent):
     def _on_delete_sets(self, data=None):
         try:
             save.delete_current_vehicle_sets()
+            autosave.recheck_current_vehicle('sets deleted by hand')
             push_data()
         except Exception:
             LOG.exc('_on_delete_sets failed')
@@ -350,6 +356,7 @@ def _on_hangar_loaded(view):
 
 def _activate(view):
     _subscribe_to_vehicle()
+    autosave.init()
     _inject_into(view)
     push_data()
 
@@ -413,6 +420,10 @@ def init():
     global _initialized, _pending_hangar_view
     _initialized = True
     apply_engine.set_refresh_callback(push_data)
+    autosave.set_refresh_callback(push_data)
+    # Autosave must not write while an install run is in flight; asking the
+    # engine directly would make apply.py and autosave.py import each other.
+    autosave.set_busy_probe(apply_engine.is_busy)
     if _pending_hangar_view is not None:
         view = _pending_hangar_view
         _pending_hangar_view = None
@@ -422,6 +433,7 @@ def init():
 def fini():
     global _view, _injected_into_view_id, _hangar_view
     _unsubscribe_from_vehicle()
+    autosave.fini()
     _view = None
     _injected_into_view_id = None
     _hangar_view = None

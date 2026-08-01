@@ -24,7 +24,7 @@ from adisp import adisp_async, adisp_process
 from gui.Scaleform.daapi.view.lobby.hangar.hangar_cm_handlers import VehicleContextMenuHandler
 from gui.shared.notifications import NotificationPriorityLevel
 
-from . import config, inventory, messages, rpc
+from . import autosave, config, inventory, messages, rpc
 from . import apply as apply_engine
 from .i18n import t
 from .log import LOG
@@ -154,6 +154,10 @@ def demount_free_equipment(veh_inv_id):
         LOG.exc('demount_free_equipment failed')
     finally:
         _busy = False
+        # The vehicle no longer holds what its saved sets say, and that is the
+        # MOD's doing - autosave must not read it as the player rebuilding the
+        # loadout and write the stripped state over their set.
+        autosave.recheck(veh_inv_id, 'equipment demounted from the carousel menu')
         if veil_shown:
             messages.hide_waiting(messages.WAITING_KEY_OPERATION)
         # Always reported, even at 0: the entry is only clickable when there IS

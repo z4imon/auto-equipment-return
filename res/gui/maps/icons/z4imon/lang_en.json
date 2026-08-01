@@ -36,7 +36,12 @@
     "reasonNotAvailable": "not available — install skipped",
     "errSetupApplyFailed": "Setup %(setup)d: install failed (code %(code)s, %(err)s)",
 
+    "kindImproved": "Improved equipment",
+    "kindExperimental": "Experimental equipment",
+
     "summaryInstalled": "AutoEquip: %(count)d item(s) installed",
+    "summaryProtectedReplaced": "%(kind)s: %(name)s is no longer on this vehicle — the saved set now holds %(replacement)s and is never filled with %(name)s again",
+    "summaryProtectedCleared": "%(kind)s: %(name)s is no longer on this vehicle — removed from the saved set and never installed again",
     "summaryDowngrade": "Downgrade: %(special)s replaced with %(standard)s",
     "summaryDonated": "%(name)s removed from %(donor)s",
     "summarySkipped": "Skipped: %(name)s — %(reason)s",
@@ -57,7 +62,15 @@
 
     "autoDisabledAfterBatch": "AutoEquip: Auto-install has been turned off so browsing other vehicles doesn't accidentally shuffle equipment around. Re-enable it any time via the toggle in the menu.",
 
-    "importModDisplayName": "Auto Equipment Return by Z4imon – Import",
+    "modDisplayName": "Auto Equipment Return by Z4imon",
+
+    "setSaveOnBattle": "Press BATTLE to save the current equipment",
+    "setSaveOnBattleTooltip": "{HEADER}Press BATTLE to save{/HEADER}{BODY}Pressing BATTLE writes the equipment currently mounted on the tank into its saved set, so a loadout you just rebuilt is the one that comes back - no need to remember the Save button.\nSwitching to another tank saves the one you are leaving in the same way.\n\nOnly tanks that already have a saved set are updated: saving a set is how you hand a tank to this mod, and that stays your decision.\nA tank whose equipment does not match its saved set to begin with is left alone as well - because auto-install is off, or because the mod could not get hold of everything yet. Saving there would drop the equipment you are still waiting for out of the set.{/BODY}",
+    "setNeverImproved": "Never re-install Improved equipment",
+    "setNeverExperimental": "Never re-install Experimental equipment",
+    "setNeverImprovedTooltip": "{HEADER}Improved equipment{/HEADER}{BODY}Taking an Improved device off costs 200 bonds, so it never leaves a tank by accident - you paid to move it somewhere else.\n\nWith this on, the mod never puts one back: the slot keeps the bounty or standard device you replaced it with, and the saved set is updated to match, so those 200 bonds stay spent exactly once.\nAn Improved device still on the tank is not affected - moving it between slots or loadouts of the same tank is free.{/BODY}",
+    "setNeverExperimentalTooltip": "{HEADER}Experimental equipment{/HEADER}{BODY}Only level 1 Experimental equipment comes off for free with WoT Plus; from level 2 on, removing it costs you - which makes putting it back the same mistake as with Improved equipment.\n\nWith this on, the mod never re-installs an Experimental device that is no longer on the tank, and updates the saved set to whatever replaced it.\nTurn it off if you would rather have the mod carry your Experimental equipment from tank to tank.{/BODY}",
+
     "importAccountLabel": "Your account ID: %(accountId)s",
     "importDropdownLabel": "Import saved configs from kurzdor's auto equipment return",
     "importOwnDropdownLabel": "Import saved configs from another of your accounts",

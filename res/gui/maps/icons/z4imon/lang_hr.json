@@ -57,7 +57,7 @@
 
     "autoDisabledAfterBatch": "AutoEquip: automatska ugradnja je isključena kako pregledavanje drugih vozila ne bi slučajno premještalo tvoju opremu. Možeš je ponovno uključiti u bilo kojem trenutku prekidačem u izborniku.",
 
-    "importModDisplayName": "Auto Equipment Return autora Z4imon – uvoz",
+    "modDisplayName": "Auto Equipment Return autora Z4imon",
     "importAccountLabel": "ID tvog računa: %(accountId)s",
     "importDropdownLabel": "Uvezi spremljene konfiguracije iz kurzdorovog auto equipment returna",
     "importOwnDropdownLabel": "Uvezi spremljene konfiguracije s drugog svog računa",

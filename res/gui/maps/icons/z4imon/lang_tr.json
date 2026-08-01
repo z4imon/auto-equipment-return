@@ -57,7 +57,7 @@
 
     "autoDisabledAfterBatch": "AutoEquip: diğer araçlara göz atmanın ekipmanını yanlışlıkla yer değiştirmemesi için otomatik takma kapatıldı. Menüdeki anahtarla istediğin zaman yeniden açabilirsin.",
 
-    "importModDisplayName": "Z4imon tarafından Auto Equipment Return – içe aktarma",
+    "modDisplayName": "Z4imon tarafından Auto Equipment Return",
     "importAccountLabel": "Hesap kimliğin: %(accountId)s",
     "importDropdownLabel": "kurzdor'un auto equipment return modundaki kayıtlı yapılandırmaları içe aktar",
     "importOwnDropdownLabel": "Başka bir hesabından kayıtlı yapılandırmaları içe aktar",
