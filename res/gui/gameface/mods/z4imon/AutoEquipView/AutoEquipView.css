@@ -400,6 +400,12 @@
 }
 
 /* saved sets (own section, native palette) */
+/* Wrapper around both set blocks - only here so the bin can be anchored to the
+   bottom-right corner of the whole saved-sets area rather than to one set. */
+.z4ae-sets {
+    width: 100%;
+    position: relative;
+}
 .z4ae-set-block {
     padding: 2rem 20rem 6rem 20rem;
 }
@@ -454,4 +460,48 @@
 .z4ae-set-missing {
     font-size: 11rem;
     color: rgba(238, 237, 233, 0.35);
+}
+
+/* bin, bottom-right corner of the saved-sets area. Dimmed at rest like every
+   other glyph in this popover, lit on hover with the same tint the ui-kit
+   checkbox uses. */
+.z4ae-sets-delete {
+    position: absolute;
+    right: 16rem;
+    bottom: 6rem;
+    width: 26rem;
+    height: 26rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2rem;
+    opacity: 0.55;
+    cursor: pointer;
+    transition: opacity 0.2s ease, background-color 0.1s ease-out;
+}
+.z4ae-large .z4ae-sets-delete {
+    width: 30rem;
+    height: 30rem;
+}
+.z4ae-sets-delete:hover {
+    opacity: 1;
+    background-color: rgba(237, 230, 217, 0.24);
+}
+.z4ae-sets-delete-disabled {
+    opacity: 0.2;
+    cursor: default;
+    pointer-events: none;
+}
+.z4ae-sets-delete-icon {
+    width: 16rem;
+    height: 16rem;
+    pointer-events: none;
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position-x: 50%;
+    background-position-y: 50%;
+}
+.z4ae-large .z4ae-sets-delete-icon {
+    width: 18rem;
+    height: 18rem;
 }

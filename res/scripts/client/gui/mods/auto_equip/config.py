@@ -212,6 +212,15 @@ def store_sets(veh_inv_id, set1=None, set2=None, veh_cd=None):
     return entry
 
 
+def delete_sets(veh_inv_id):
+    """Forgets everything stored for a vehicle - both sets and the vehicleCD.
+    Returns True when there was something to forget."""
+    if _sets.pop(str(veh_inv_id), None) is None:
+        return False
+    save()
+    return True
+
+
 def fill_in_vehicle_cd(veh_inv_id, veh_cd):
     """Fills in vehicleCD on an already-saved entry that predates that field
     (kurzdor imports carry no vehicle type id - see importer.py).

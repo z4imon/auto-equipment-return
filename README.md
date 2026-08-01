@@ -33,6 +33,7 @@ next to the customization button.
 - **Set 1** and **Set 2** show the equipment that is currently saved for the
   selected tank.
   - Tanks without a second loadout only show Set 1
+  - The bin in the bottom right corner deletes the saved equipment for the selected tank
 - **Auto-install:** turns the automatic reinstalling on vehicle selection on
   and off
 - **Enable downgrade:** If turned on installs the standard equipment when the bounty or bond

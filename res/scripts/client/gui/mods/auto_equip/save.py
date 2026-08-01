@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Snapshotting the current vehicle's setups into the config - the other half
-of the feature apply.py restores."""
+of the feature apply.py restores - and throwing a snapshot away again."""
 
 from . import config, inventory
 from .i18n import t
@@ -32,3 +32,16 @@ def save_current_vehicle_sets(which):
     LOG.info('saved sets for %s (which=%s): set1=%s set2=%s'
              % (vehicle.userName, which, set1, set2))
     return t(_STATUS_TEXT.get(which, 'bothSetsSaved'))
+
+
+def delete_current_vehicle_sets():
+    """Drops the selected vehicle's saved sets. Returns True when something was
+    actually deleted. Nothing is said to the player: the popover redraws right
+    away and then reads "nothing saved yet", which is the answer."""
+    vehicle = g_currentVehicle.item
+    if vehicle is None:
+        return False
+    if not config.delete_sets(vehicle.invID):
+        return False
+    LOG.info('deleted the saved sets of %s' % vehicle.userName)
+    return True
