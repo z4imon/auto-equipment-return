@@ -236,6 +236,13 @@ def apply_to_vehicle(veh_inv_id, options, callback=None):
         if vehicle.isLocked:
             LOG.warning('apply: vehicle %s is locked, aborting' % veh_inv_id)
             return
+        if inventory.is_mode_only_vehicle(vehicle):
+            # A mode loaner arrives fully equipped and the server will not let
+            # any of it go, so a run here can only demount-fail its way through
+            # the whole plan.
+            LOG.info('apply: %s is a mode-only loaner, leaving its equipment alone'
+                     % vehicle.userName)
+            return
 
         original_setup_idx = inventory.active_setup_index(vehicle)
         plan = _build_plan(vehicle, saved)
@@ -618,7 +625,11 @@ def equip_primary_vehicles():
         messages.push_warning(t('alreadyRunning'))
         return
 
-    targets = inventory.filtered_primary_vehicles()
+    # Mode loaners drop out here rather than inside the run: apply_to_vehicle
+    # would refuse them anyway, but counting them as "processed" in the summary
+    # would claim work that never happened.
+    targets = [vehicle for vehicle in inventory.filtered_primary_vehicles()
+               if not inventory.is_mode_only_vehicle(vehicle)]
     if not targets:
         messages.push_warning(t('batchNoTargets'))
         return
