@@ -24,6 +24,13 @@
     "cmDemountWaiting": "正在拆卸设备…",
     "cmDemountDone": "AutoEquip：已从 %(veh)s 拆卸 %(count)d 件设备",
 
+    "recTitle": "推荐设备",
+    "recNone": "AutoEquip：该车辆没有设备推荐",
+    "recSaved": "AutoEquip：已为 %(veh)s 保存推荐设备",
+    "recUnavailable1": "第一推荐不可用",
+    "recUnavailable2": "第二推荐不可用",
+    "recAlreadySaved": "请先删除已保存的设备再应用此推荐",
+
     "errSetupSwitchFailed": "无法切换到配置 %(setup)d（代码 %(code)s）",
     "errUnknownItem": "插槽 %(slot)d：未知物品 %(cd)s",
     "reasonPaidDemount": "拆卸不是免费的",

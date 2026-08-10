@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Desmontando equipamento…",
     "cmDemountDone": "AutoEquip: %(count)d equipamento(s) desmontado(s) de %(veh)s",
 
+    "recTitle": "Equipamento recomendado",
+    "recNone": "AutoEquip: não há recomendação de equipamento para este veículo",
+    "recSaved": "AutoEquip: equipamento recomendado salvo para %(veh)s",
+    "recUnavailable1": "Primeira recomendação indisponível",
+    "recUnavailable2": "Segunda recomendação indisponível",
+    "recAlreadySaved": "Exclua primeiro o equipamento salvo para aplicar isto",
+
     "errSetupSwitchFailed": "Não foi possível mudar para a configuração %(setup)d (código %(code)s)",
     "errUnknownItem": "Slot %(slot)d: item desconhecido %(cd)s",
     "reasonPaidDemount": "a desmontagem não seria gratuita",

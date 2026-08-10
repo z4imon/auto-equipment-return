@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Demonterer utstyr…",
     "cmDemountDone": "AutoEquip: %(count)d utstyr demontert fra %(veh)s",
 
+    "recTitle": "Anbefalt utstyr",
+    "recNone": "AutoEquip: ingen utstyrsanbefaling for dette kjøretøyet",
+    "recSaved": "AutoEquip: anbefalt utstyr lagret for %(veh)s",
+    "recUnavailable1": "Første anbefaling er ikke tilgjengelig",
+    "recUnavailable2": "Andre anbefaling er ikke tilgjengelig",
+    "recAlreadySaved": "Slett det lagrede utstyret først for å bruke dette",
+
     "errSetupSwitchFailed": "Kunne ikke bytte til konfigurasjon %(setup)d (kode %(code)s)",
     "errUnknownItem": "Plass %(slot)d: ukjent gjenstand %(cd)s",
     "reasonPaidDemount": "demonteringen ville ikke være gratis",

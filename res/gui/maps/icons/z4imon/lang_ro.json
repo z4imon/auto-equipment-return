@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Se demontează echipamentele…",
     "cmDemountDone": "AutoEquip: %(count)d echipament(e) demontat(e) de pe %(veh)s",
 
+    "recTitle": "Echipament recomandat",
+    "recNone": "AutoEquip: nu există o recomandare de echipament pentru acest vehicul",
+    "recSaved": "AutoEquip: echipamentul recomandat a fost salvat pentru %(veh)s",
+    "recUnavailable1": "Prima recomandare nu este disponibilă",
+    "recUnavailable2": "A doua recomandare nu este disponibilă",
+    "recAlreadySaved": "Șterge mai întâi echipamentul salvat pentru a aplica asta",
+
     "errSetupSwitchFailed": "Nu s-a putut comuta la configurația %(setup)d (cod %(code)s)",
     "errUnknownItem": "Slotul %(slot)d: obiect necunoscut %(cd)s",
     "reasonPaidDemount": "demontarea nu ar fi gratuită",

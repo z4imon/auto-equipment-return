@@ -462,35 +462,68 @@
     color: rgba(238, 237, 233, 0.35);
 }
 
-/* bin, bottom-right corner of the saved-sets area. Dimmed at rest like every
-   other glyph in this popover, lit on hover with the same tint the ui-kit
-   checkbox uses. */
-.z4ae-sets-delete {
+/* The two corner buttons of the saved-sets area: recommendation top right, bin
+   bottom right. Dimmed at rest like every other glyph in this popover, lit on
+   hover with the same tint the ui-kit checkbox uses. */
+.z4ae-corner-btn {
     position: absolute;
     right: 16rem;
-    bottom: 6rem;
     width: 26rem;
     height: 26rem;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 2rem;
-    opacity: 0.55;
     cursor: pointer;
-    transition: opacity 0.2s ease, background-color 0.1s ease-out;
+    transition: background-color 0.1s ease-out;
 }
-.z4ae-large .z4ae-sets-delete {
+.z4ae-large .z4ae-corner-btn {
     width: 30rem;
     height: 30rem;
 }
-.z4ae-sets-delete:hover {
-    opacity: 1;
+/* Dimming lives on the ICON, never on the button: the hover preview is a child
+   of the button, so an opacity on the button would grey out the preview along
+   with the glyph - and the preview is exactly what has to stay readable while
+   the button is inert. */
+.z4ae-corner-icon {
+    opacity: 0.55;
+    transition: opacity 0.2s ease;
+}
+.z4ae-corner-btn:hover {
     background-color: rgba(237, 230, 217, 0.24);
 }
-.z4ae-sets-delete-disabled {
-    opacity: 0.2;
+.z4ae-corner-btn:hover .z4ae-corner-icon {
+    opacity: 1;
+}
+.z4ae-corner-btn-disabled {
     cursor: default;
     pointer-events: none;
+}
+.z4ae-corner-btn-disabled .z4ae-corner-icon {
+    opacity: 0.2;
+}
+/* Not clickable, but deliberately NOT pointer-events:none - the hover preview
+   is the only place that explains why there is nothing to apply. */
+.z4ae-corner-btn-inactive {
+    cursor: default;
+}
+.z4ae-corner-btn-inactive .z4ae-corner-icon {
+    opacity: 0.3;
+}
+/* Hovering still opens the preview, but the button must not light up as a
+   click target while it is inert. Same specificity as the two rules above,
+   so these have to stay BELOW them to win. No :not() - unreliable here. */
+.z4ae-corner-btn-inactive:hover {
+    background-color: transparent;
+}
+.z4ae-corner-btn-inactive:hover .z4ae-corner-icon {
+    opacity: 0.3;
+}
+.z4ae-sets-delete {
+    bottom: 6rem;
+}
+.z4ae-sets-recommend {
+    top: 0;
 }
 .z4ae-sets-delete-icon {
     width: 16rem;
@@ -504,4 +537,64 @@
 .z4ae-large .z4ae-sets-delete-icon {
     width: 18rem;
     height: 18rem;
+}
+/* The star is an inline SVG (ROW_ICONS.star), so it is sized like the row
+   glyphs rather than as a background image. */
+.z4ae-sets-recommend-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+.z4ae-sets-recommend-icon .z4ae-row-svg {
+    width: 16rem;
+    height: 16rem;
+}
+.z4ae-large .z4ae-sets-recommend-icon .z4ae-row-svg {
+    width: 18rem;
+    height: 18rem;
+}
+
+/* Hover preview of what the recommendation would store. Grows UPWARDS from the
+   button's top edge (bottom: 100%), out over the popover's own top edge - the
+   button sits near the top of the popover, so downwards would have buried the
+   saved sets the preview is meant to be compared against. */
+.z4ae-rec-popup {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    margin-bottom: 4rem;
+    right: 0;
+    width: 240rem;
+    padding: 8rem 0 10rem;
+    z-index: 2;
+    border-width: 2rem;
+    border-style: solid;
+    border-image: url(img://gui/maps/icons/hangar/vehicleMenu/menu_border.png) 2/2rem repeat;
+    background: url(img://gui/maps/icons/hangar/vehicleMenu/menu_background.png) center no-repeat;
+    background-size: 100% 100%;
+    background-color: rgba(20, 20, 23, 0.98);
+    cursor: default;
+}
+.z4ae-corner-btn:hover .z4ae-rec-popup {
+    display: block;
+}
+.z4ae-rec-head {
+    padding: 0 14rem 6rem 14rem;
+    font-size: 10rem;
+    letter-spacing: 0.03em;
+    color: rgba(238, 237, 233, 0.45);
+}
+.z4ae-rec-block {
+    padding: 2rem 14rem 4rem 14rem;
+}
+/* Why the star is greyed out. Warm tone rather than the dimmed grey of the
+   labels - this is the one line in the preview that asks for an action. */
+.z4ae-rec-note {
+    margin-top: 6rem;
+    padding: 7rem 14rem 0 14rem;
+    border-top: 1rem solid rgba(238, 237, 233, 0.12);
+    font-size: 11rem;
+    line-height: 1.3;
+    color: rgba(255, 221, 153, 0.85);
 }

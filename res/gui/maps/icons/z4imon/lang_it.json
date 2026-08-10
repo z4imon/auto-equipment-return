@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Smontaggio dell'equipaggiamento…",
     "cmDemountDone": "AutoEquip: %(count)d equipaggiamento/i smontato/i da %(veh)s",
 
+    "recTitle": "Equipaggiamento consigliato",
+    "recNone": "AutoEquip: nessun consiglio di equipaggiamento per questo veicolo",
+    "recSaved": "AutoEquip: equipaggiamento consigliato salvato per %(veh)s",
+    "recUnavailable1": "Primo consiglio non disponibile",
+    "recUnavailable2": "Secondo consiglio non disponibile",
+    "recAlreadySaved": "Elimina prima l’equipaggiamento salvato per applicare questo",
+
     "errSetupSwitchFailed": "Impossibile passare alla configurazione %(setup)d (codice %(code)s)",
     "errUnknownItem": "Slot %(slot)d: oggetto sconosciuto %(cd)s",
     "reasonPaidDemount": "lo smontaggio non sarebbe gratuito",

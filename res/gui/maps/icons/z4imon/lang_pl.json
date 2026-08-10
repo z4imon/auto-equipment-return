@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Demontowanie wyposażenia…",
     "cmDemountDone": "AutoEquip: zdemontowano %(count)d element(ów) wyposażenia z pojazdu %(veh)s",
 
+    "recTitle": "Zalecane wyposażenie",
+    "recNone": "AutoEquip: brak zalecanego wyposażenia dla tego pojazdu",
+    "recSaved": "AutoEquip: zapisano zalecane wyposażenie dla %(veh)s",
+    "recUnavailable1": "Pierwsze zalecenie niedostępne",
+    "recUnavailable2": "Drugie zalecenie niedostępne",
+    "recAlreadySaved": "Najpierw usuń zapisane wyposażenie, aby to zastosować",
+
     "errSetupSwitchFailed": "Nie udało się przełączyć na konfigurację %(setup)d (kod %(code)s)",
     "errUnknownItem": "Gniazdo %(slot)d: nieznany przedmiot %(cd)s",
     "reasonPaidDemount": "demontaż nie byłby darmowy",

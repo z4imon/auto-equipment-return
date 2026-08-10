@@ -24,6 +24,13 @@
     "cmDemountWaiting": "装備を取り外しています…",
     "cmDemountDone": "AutoEquip: %(veh)s から装備 %(count)d 個を取り外しました",
 
+    "recTitle": "推奨装備",
+    "recNone": "AutoEquip: この車輌には装備の推奨データがありません",
+    "recSaved": "AutoEquip: %(veh)s に推奨装備を保存しました",
+    "recUnavailable1": "1 番目の推奨は利用できません",
+    "recUnavailable2": "2 番目の推奨は利用できません",
+    "recAlreadySaved": "これを適用するには、保存済みの装備を先に削除してください",
+
     "errSetupSwitchFailed": "構成 %(setup)d に切り替えられませんでした (コード %(code)s)",
     "errUnknownItem": "スロット %(slot)d: 不明なアイテム %(cd)s",
     "reasonPaidDemount": "取り外しは無料になりません",

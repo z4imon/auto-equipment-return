@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Ekipman sökülüyor…",
     "cmDemountDone": "AutoEquip: %(veh)s aracından %(count)d ekipman söküldü",
 
+    "recTitle": "Önerilen ekipman",
+    "recNone": "AutoEquip: bu araç için ekipman önerisi yok",
+    "recSaved": "AutoEquip: %(veh)s için önerilen ekipman kaydedildi",
+    "recUnavailable1": "İlk öneri kullanılamıyor",
+    "recUnavailable2": "İkinci öneri kullanılamıyor",
+    "recAlreadySaved": "Bunu uygulamak için önce kayıtlı ekipmanı sil",
+
     "errSetupSwitchFailed": "%(setup)d numaralı yapılandırmaya geçilemedi (kod %(code)s)",
     "errUnknownItem": "Yuva %(slot)d: bilinmeyen nesne %(cd)s",
     "reasonPaidDemount": "sökme işlemi ücretsiz olmayacaktı",
