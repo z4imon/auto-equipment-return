@@ -44,13 +44,15 @@
 
     "batchNoTargets": "AutoEquip: praeguses karusselli filtris pole lemmiksõidukeid",
     "batchNoSavedSets": "AutoEquip: ühelgi %(count)d lemmiksõidukist pole salvestatud komplekte",
-    "batchSummary": "AutoEquip: töödeldi %(processed)d lemmiksõidukit, paigaldati %(installed)d eset",
+    "batchReady": "AutoEquip: %(ready)d / %(total)d põhisõidukist on lahinguvalmis",
+    "batchIncomplete": "Puudulikud: %(vehicles)s",
+    "batchMoreIncomplete": "… ja veel %(count)d",
+    "batchMissingInline": "Puuduvad: %(items)s",
     "batchDonated": "Teistelt sõidukitelt eemaldati %(count)d eset",
+    "batchDowngraded": "Downgrade: %(count)d tüüp(i) asendatud saadaoleva variandiga",
     "batchSkippedNoSets": "%(count)d sõidukit jäeti vahele (salvestatud komplekte pole)",
     "batchVehicleError": "%(veh)s: %(err)s",
     "batchMoreErrors": "… ja veel %(count)d viga (vaata logi)",
-    "batchMissingHeader": "AutoEquip: kõigi lemmiksõidukite jaoks ei jätku varustust!",
-    "batchMissingListHeader": "Puudu on:",
     "batchMissingLine": "%(count)d× %(name)s",
 
     "noSubscription": "Auto Equipment Return on välja lülitatud: aktiivset WoT Plusi tellimust ei leitud.",

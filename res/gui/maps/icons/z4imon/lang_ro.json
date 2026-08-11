@@ -44,13 +44,15 @@
 
     "batchNoTargets": "AutoEquip: niciun vehicul favorit în filtrul curent al caruselului",
     "batchNoSavedSets": "AutoEquip: niciunul dintre cele %(count)d vehicule favorite nu are seturi salvate",
-    "batchSummary": "AutoEquip: %(processed)d vehicul(e) favorit(e) procesat(e), %(installed)d echipament(e) instalat(e)",
+    "batchReady": "AutoEquip: %(ready)d din %(total)d vehicule principale sunt pregătite de luptă",
+    "batchIncomplete": "Incomplete: %(vehicles)s",
+    "batchMoreIncomplete": "… și încă %(count)d",
+    "batchMissingInline": "Lipsesc: %(items)s",
     "batchDonated": "%(count)d echipament(e) demontat(e) de pe alte vehicule",
+    "batchDowngraded": "Downgrade: %(count)d tip(uri) înlocuite cu o variantă disponibilă",
     "batchSkippedNoSets": "%(count)d vehicul(e) omis(e) (fără seturi salvate)",
     "batchVehicleError": "%(veh)s: %(err)s",
     "batchMoreErrors": "… și încă %(count)d eroare/erori (vezi jurnalul)",
-    "batchMissingHeader": "AutoEquip: nu sunt suficiente echipamente pentru toate vehiculele favorite.",
-    "batchMissingListHeader": "Lipsesc:",
     "batchMissingLine": "%(count)d× %(name)s",
 
     "noSubscription": "Auto Equipment Return este dezactivat: nu a fost găsit niciun abonament WoT Plus activ.",
