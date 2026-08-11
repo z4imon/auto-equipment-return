@@ -197,11 +197,50 @@ def log_donor_search_stats(context):
                 '' if _donor_search_count == 1 else 's'))
 
 
+# Vehicles the game hands out for one mode only. They arrive with equipment
+# already fitted that the server refuses to release, so every attempt to move
+# it fails - and worse, the mod would be asking to strip a loadout the player
+# never chose and cannot rebuild.
+#
+# Checked as tags on the vehicle (VEHICLE_TAGS.COMP7_BATTLES and friends), which
+# is the same test the client itself uses. Onslaught ("Ansturm") is the one that
+# actually bit; the others are the same kind of loaner and are listed so the
+# next mode's rental does not reopen this bug.
+_MODE_ONLY_FLAGS = (
+    'isOnlyForComp7Battles',        # Onslaught / Ansturm - the reported case
+    'isOnlyForClanWarsBattles',
+    'isOnlyForBattleRoyaleBattles',
+    'isOnlyForEpicBattles',
+    'isOnlyForEventBattles',
+    'isOnlyForMapsTrainingBattles',
+)
+
+
+def is_mode_only_vehicle(vehicle):
+    """True for a mode-locked loaner whose equipment must not be touched.
+
+    NOT a general "is this vehicle special" test - regular tanks taken into
+    Frontline or Onslaught are untagged and stay fully in scope, including for
+    the batch run over Primary vehicles."""
+    if vehicle is None:
+        return False
+    for flag in _MODE_ONLY_FLAGS:
+        try:
+            if getattr(vehicle, flag, False):
+                return True
+        except Exception:
+            continue
+    return False
+
+
 def find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids=None):
     """First unlocked vehicle (not in battle, queue or a prebattle) carrying
     the device in any of its setups. excluded_inv_ids rules out further
     vehicles - the batch run uses it so Primary vehicles never cannibalise
-    each other's freshly installed equipment."""
+    each other's freshly installed equipment.
+
+    Mode-locked loaners are never donors: their equipment cannot be released,
+    so picking one only produces a failed demount and a skipped install."""
     global _donor_search_seconds, _donor_search_count
     started = time.time()
     try:
@@ -216,6 +255,8 @@ def _find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids):
         if vehicle.invID == exclude_inv_id:
             continue
         if excluded_inv_ids and vehicle.invID in excluded_inv_ids:
+            continue
+        if is_mode_only_vehicle(vehicle):
             continue
         try:
             if vehicle_has_device(vehicle, device_cd) and not vehicle.isLocked:
