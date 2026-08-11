@@ -44,13 +44,15 @@
 
     "batchNoTargets": "AutoEquip: у бягучым фільтры каруселі няма абраных машын",
     "batchNoSavedSets": "AutoEquip: ніводная з %(count)d абраных машын не мае захаваных набораў",
-    "batchSummary": "AutoEquip: апрацавана абраных машын: %(processed)d, усталявана прадметаў: %(installed)d",
+    "batchReady": "AutoEquip: %(ready)d з %(total)d асноўных машын гатовыя да бою",
+    "batchIncomplete": "Няпоўныя: %(vehicles)s",
+    "batchMoreIncomplete": "… і яшчэ %(count)d",
+    "batchMissingInline": "Не хапае: %(items)s",
     "batchDonated": "З іншых машын знята прадметаў: %(count)d",
+    "batchDowngraded": "Downgrade: %(count)d тып(ы) заменены даступным варыянтам",
     "batchSkippedNoSets": "Прапушчана машын: %(count)d (няма захаваных набораў)",
     "batchVehicleError": "%(veh)s: %(err)s",
     "batchMoreErrors": "… і яшчэ памылак: %(count)d (гл. журнал)",
-    "batchMissingHeader": "AutoEquip: абсталявання не хапае на ўсе абраныя машыны!",
-    "batchMissingListHeader": "Не хапае:",
     "batchMissingLine": "%(count)d× %(name)s",
 
     "noSubscription": "Auto Equipment Return адключаны: актыўнай падпіскі WoT Plus не знойдзена.",

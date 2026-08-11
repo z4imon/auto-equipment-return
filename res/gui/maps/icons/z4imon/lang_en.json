@@ -44,13 +44,15 @@
 
     "batchNoTargets": "AutoEquip: no Primary vehicles in the current carousel filter",
     "batchNoSavedSets": "AutoEquip: none of the %(count)d Primary vehicles has saved sets",
-    "batchSummary": "AutoEquip: %(processed)d Primary vehicle(s) processed, %(installed)d item(s) installed",
+    "batchReady": "AutoEquip: %(ready)d of %(total)d Primary vehicles are battle-ready",
+    "batchIncomplete": "Incomplete: %(vehicles)s",
+    "batchMoreIncomplete": "… and %(count)d more",
+    "batchMissingInline": "Missing: %(items)s",
     "batchDonated": "%(count)d item(s) removed from other vehicles",
+    "batchDowngraded": "Downgrade: %(count)d item type(s) replaced with an available variant",
     "batchSkippedNoSets": "%(count)d vehicle(s) skipped (no saved sets)",
     "batchVehicleError": "%(veh)s: %(err)s",
     "batchMoreErrors": "… and %(count)d more error(s) (see log)",
-    "batchMissingHeader": "AutoEquip: not enough equipment for all Primary vehicles!",
-    "batchMissingListHeader": "Missing:",
     "batchMissingLine": "%(count)d× %(name)s",
 
     "noSubscription": "Auto Equipment Return is disabled: no active WoT Plus subscription found.",
