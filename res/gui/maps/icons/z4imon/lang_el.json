@@ -44,13 +44,15 @@
 
     "batchNoTargets": "AutoEquip: δεν υπάρχουν αγαπημένα οχήματα στο τρέχον φίλτρο του καρουζέλ",
     "batchNoSavedSets": "AutoEquip: κανένα από τα %(count)d αγαπημένα οχήματα δεν έχει αποθηκευμένα σετ",
-    "batchSummary": "AutoEquip: επεξεργάστηκαν %(processed)d αγαπημένα οχήματα, τοποθετήθηκαν %(installed)d αντικείμενα",
+    "batchReady": "AutoEquip: %(ready)d από %(total)d κύρια οχήματα είναι έτοιμα για μάχη",
+    "batchIncomplete": "Ημιτελή: %(vehicles)s",
+    "batchMoreIncomplete": "… και %(count)d ακόμη",
+    "batchMissingInline": "Λείπουν: %(items)s",
     "batchDonated": "Αφαιρέθηκαν %(count)d αντικείμενα από άλλα οχήματα",
+    "batchDowngraded": "Downgrade: %(count)d τύπος/οι αντικαταστάθηκαν με διαθέσιμη παραλλαγή",
     "batchSkippedNoSets": "Παραλείφθηκαν %(count)d οχήματα (χωρίς αποθηκευμένα σετ)",
     "batchVehicleError": "%(veh)s: %(err)s",
     "batchMoreErrors": "… και %(count)d ακόμη σφάλματα (δες το αρχείο καταγραφής)",
-    "batchMissingHeader": "AutoEquip: δεν υπάρχει αρκετός εξοπλισμός για όλα τα αγαπημένα οχήματα!",
-    "batchMissingListHeader": "Λείπουν:",
     "batchMissingLine": "%(count)d× %(name)s",
 
     "noSubscription": "Το Auto Equipment Return είναι απενεργοποιημένο: δεν βρέθηκε ενεργή συνδρομή WoT Plus.",

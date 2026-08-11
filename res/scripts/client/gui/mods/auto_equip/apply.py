@@ -30,6 +30,10 @@ from .log import LOG
 
 _MAX_SUMMARY_ERRORS = 8
 
+# Vehicle names run long ("Object 279 (early)"), so the incomplete list is cut
+# shorter than the error list and the rest is counted off in one line.
+_MAX_SUMMARY_VEHICLES = 6
+
 # One apply run at a time - the popover reflects this, and the vehicle-
 # selection trigger skips while it is set.
 _busy = False
@@ -87,9 +91,22 @@ class RunOutcome(object):
         self.donated = []       # (device name, donor vehicle name)
         self.downgraded = []    # (special device name, standard device name)
         self.missing = []       # devices that could not be sourced for free
+        self.aborted = False    # the run never got as far as looking at slots
 
     def has_anything_to_report(self):
         return bool(self.installed or self.skipped or self.errors or self.donated)
+
+    def is_complete(self):
+        """True when this vehicle ended the run carrying its full saved sets.
+
+        A run that never started counts as incomplete on purpose: the vehicle
+        may well be fine, but nothing here verified it, and the batch summary
+        promises the player their tanks are ready to fight. Claiming that for a
+        vehicle we did not touch is the one error that costs them a battle.
+
+        A downgrade does NOT make a vehicle incomplete - every slot is filled,
+        just with the standard device, and the summary says so separately."""
+        return not (self.aborted or self.skipped or self.errors or self.missing)
 
     def note_skipped(self, device_name, reason, also_missing=True):
         self.skipped.append((device_name, reason))
@@ -232,9 +249,19 @@ def apply_to_vehicle(veh_inv_id, options, callback=None):
         saved = config.saved_sets(veh_inv_id)
         vehicle = inventory.vehicle_by_inv_id(veh_inv_id)
         if saved is None or vehicle is None:
+            outcome.aborted = True
             return
         if vehicle.isLocked:
             LOG.warning('apply: vehicle %s is locked, aborting' % veh_inv_id)
+            outcome.aborted = True
+            return
+        if inventory.is_mode_only_vehicle(vehicle):
+            # A mode loaner arrives fully equipped and the server will not let
+            # any of it go, so a run here can only demount-fail its way through
+            # the whole plan.
+            LOG.info('apply: %s is a mode-only loaner, leaving its equipment alone'
+                     % vehicle.userName)
+            outcome.aborted = True
             return
 
         original_setup_idx = inventory.active_setup_index(vehicle)
@@ -618,7 +645,11 @@ def equip_primary_vehicles():
         messages.push_warning(t('alreadyRunning'))
         return
 
-    targets = inventory.filtered_primary_vehicles()
+    # Mode loaners drop out here rather than inside the run: apply_to_vehicle
+    # would refuse them anyway, but counting them as "processed" in the summary
+    # would claim work that never happened.
+    targets = [vehicle for vehicle in inventory.filtered_primary_vehicles()
+               if not inventory.is_mode_only_vehicle(vehicle)]
     if not targets:
         messages.push_warning(t('batchNoTargets'))
         return
@@ -648,13 +679,18 @@ def equip_primary_vehicles():
             outcome = yield apply_to_vehicle(vehicle.invID, options)
             totals.add(vehicle, outcome)
 
+        # One message, warning-coloured as soon as a vehicle is not ready -
+        # "9 of 12" in the calm information colour would read as success.
         messages.push_lines(totals.summary_lines(without_sets),
-                            warning=bool(totals.errors))
-        if totals.missing_counts:
-            messages.push_error(u'<br/>'.join(totals.missing_lines()))
+                            warning=bool(totals.errors or totals.incomplete))
         _disable_auto_install_after_batch()
-        LOG.info('equip_primary_vehicles: done - processed=%d installed=%d missing=%s'
-                 % (totals.processed, totals.installed, totals.missing_counts))
+        LOG.info('equip_primary_vehicles: done - ready=%d/%d installed=%d missing=%s'
+                 % (totals.ready, totals.processed, totals.installed,
+                    totals.missing_counts))
+        # The summary only counts these; this is where they can still be read.
+        for special_name, standard_name in totals.downgraded:
+            LOG.info((u'  downgrade: %s -> %s'
+                      % (special_name, standard_name)).encode('utf-8'))
     except Exception:
         LOG.exc('equip_primary_vehicles failed')
     finally:
@@ -673,6 +709,8 @@ class _BatchTotals(object):
         self.processed = 0
         self.installed = 0
         self.donated = 0
+        self.ready = 0              # vehicles carrying their full saved sets
+        self.incomplete = []        # names of those that are not
         self.downgraded = []
         self.errors = []
         self.missing_counts = {}    # device name -> number of vehicles missing it
@@ -681,6 +719,10 @@ class _BatchTotals(object):
         self.processed += 1
         self.installed += outcome.installed
         self.donated += len(outcome.donated)
+        if outcome.is_complete():
+            self.ready += 1
+        else:
+            self.incomplete.append(vehicle.userName)
         for note in outcome.downgraded:
             if note not in self.downgraded:
                 self.downgraded.append(note)
@@ -690,23 +732,40 @@ class _BatchTotals(object):
             self.missing_counts[name] = self.missing_counts.get(name, 0) + 1
 
     def summary_lines(self, without_sets):
-        lines = [t('batchSummary', processed=self.processed, installed=self.installed)]
+        """The batch report, led by the only question the player actually has
+        after pressing the button: can I go and play?
+
+        Everything below the first line is detail for the cases where the
+        answer is "not quite" - so a run that worked is one line long."""
+        lines = [t('batchReady', ready=self.ready, total=self.processed)]
+        if self.incomplete:
+            shown = self.incomplete[:_MAX_SUMMARY_VEHICLES]
+            lines.append(t('batchIncomplete', vehicles=u', '.join(shown)))
+            if len(self.incomplete) > _MAX_SUMMARY_VEHICLES:
+                lines.append(t('batchMoreIncomplete',
+                               count=len(self.incomplete) - _MAX_SUMMARY_VEHICLES))
+        if self.missing_counts:
+            # Inline instead of the separate "not enough equipment" message it
+            # used to be: what is missing is the reason for the line above it,
+            # and a second notification was easy to miss.
+            lines.append(t('batchMissingInline', items=u', '.join(
+                t('batchMissingLine', count=self.missing_counts[name], name=name)
+                for name in sorted(self.missing_counts))))
         if self.donated:
             lines.append(t('batchDonated', count=self.donated))
-        for special_name, standard_name in self.downgraded:
-            lines.append(t('summaryDowngrade', special=special_name, standard=standard_name))
+        if self.downgraded:
+            # Counted, not listed. A fleet-wide run routinely swaps a dozen
+            # different devices, and one line each buried the head line under
+            # detail nobody acts on - what the player does with this is "I am
+            # short on bounty equipment", which the count already says. The
+            # pairs go to the log for whoever wants them.
+            lines.append(t('batchDowngraded', count=len(self.downgraded)))
         if without_sets:
             lines.append(t('batchSkippedNoSets', count=without_sets))
         for error in self.errors[:_MAX_SUMMARY_ERRORS]:
             lines.append(t('summaryError', err=error))
         if len(self.errors) > _MAX_SUMMARY_ERRORS:
             lines.append(t('batchMoreErrors', count=len(self.errors) - _MAX_SUMMARY_ERRORS))
-        return lines
-
-    def missing_lines(self):
-        lines = [t('batchMissingHeader'), t('batchMissingListHeader')]
-        for name in sorted(self.missing_counts):
-            lines.append(t('batchMissingLine', count=self.missing_counts[name], name=name))
         return lines
 
 

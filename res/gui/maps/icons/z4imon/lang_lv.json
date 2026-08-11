@@ -44,13 +44,15 @@
 
     "batchNoTargets": "AutoEquip: pašreizējā karuseļa filtrā nav iecienīto tehniku",
     "batchNoSavedSets": "AutoEquip: nevienai no %(count)d iecienītajām tehnikām nav saglabātu komplektu",
-    "batchSummary": "AutoEquip: apstrādātas iecienītās tehnikas: %(processed)d, uzstādīti priekšmeti: %(installed)d",
+    "batchReady": "AutoEquip: %(ready)d no %(total)d galvenajām tehnikas vienībām ir kaujas gatavībā",
+    "batchIncomplete": "Nepabeigti: %(vehicles)s",
+    "batchMoreIncomplete": "… un vēl %(count)d",
+    "batchMissingInline": "Trūkst: %(items)s",
     "batchDonated": "No citām tehnikām noņemti priekšmeti: %(count)d",
+    "batchDowngraded": "Downgrade: %(count)d veids(-i) aizstāts ar pieejamu variantu",
     "batchSkippedNoSets": "Izlaistas tehnikas: %(count)d (nav saglabātu komplektu)",
     "batchVehicleError": "%(veh)s: %(err)s",
     "batchMoreErrors": "… un vēl %(count)d kļūdas (skati žurnālu)",
-    "batchMissingHeader": "AutoEquip: visām iecienītajām tehnikām nepietiek aprīkojuma!",
-    "batchMissingListHeader": "Trūkst:",
     "batchMissingLine": "%(count)d× %(name)s",
 
     "noSubscription": "Auto Equipment Return ir izslēgts: netika atrasts aktīvs WoT Plus abonements.",
