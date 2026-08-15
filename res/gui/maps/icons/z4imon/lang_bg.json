@@ -44,15 +44,13 @@
 
     "batchNoTargets": "AutoEquip: няма любими машини в текущия филтър на въртележката",
     "batchNoSavedSets": "AutoEquip: нито една от %(count)d любими машини няма запазени комплекти",
-    "batchReady": "AutoEquip: %(ready)d от %(total)d основни машини са готови за бой",
-    "batchIncomplete": "Непълни: %(vehicles)s",
-    "batchMoreIncomplete": "… и още %(count)d",
-    "batchMissingInline": "Липсват: %(items)s",
+    "batchSummary": "AutoEquip: обработени са %(processed)d любими машини, поставени са %(installed)d предмета",
     "batchDonated": "От други машини са свалени %(count)d предмета",
-    "batchDowngraded": "Downgrade: %(count)d вид(а) оборудване заменени с наличен вариант",
     "batchSkippedNoSets": "Пропуснати са %(count)d машини (без запазени комплекти)",
     "batchVehicleError": "%(veh)s: %(err)s",
     "batchMoreErrors": "… и още %(count)d грешки (виж дневника)",
+    "batchMissingHeader": "AutoEquip: няма достатъчно оборудване за всички любими машини!",
+    "batchMissingListHeader": "Липсват:",
     "batchMissingLine": "%(count)d× %(name)s",
 
     "noSubscription": "Auto Equipment Return е изключен: не е открит активен абонамент за WoT Plus.",

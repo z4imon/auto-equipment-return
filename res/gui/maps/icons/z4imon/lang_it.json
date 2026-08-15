@@ -44,15 +44,13 @@
 
     "batchNoTargets": "AutoEquip: nessun veicolo preferito nel filtro attuale del carosello",
     "batchNoSavedSets": "AutoEquip: nessuno dei %(count)d veicoli preferiti ha set salvati",
-    "batchReady": "AutoEquip: %(ready)d di %(total)d veicoli principali sono pronti al combattimento",
-    "batchIncomplete": "Incompleti: %(vehicles)s",
-    "batchMoreIncomplete": "… e altri %(count)d",
-    "batchMissingInline": "Mancano: %(items)s",
+    "batchSummary": "AutoEquip: %(processed)d veicolo/i preferito/i elaborato/i, %(installed)d equipaggiamento/i installato/i",
     "batchDonated": "%(count)d equipaggiamento/i smontato/i da altri veicoli",
-    "batchDowngraded": "Downgrade: %(count)d tipo/i sostituiti con una variante disponibile",
     "batchSkippedNoSets": "%(count)d veicolo/i saltato/i (nessun set salvato)",
     "batchVehicleError": "%(veh)s: %(err)s",
     "batchMoreErrors": "… e altri %(count)d errore/i (vedi il registro)",
+    "batchMissingHeader": "AutoEquip: equipaggiamento insufficiente per tutti i veicoli preferiti.",
+    "batchMissingListHeader": "Mancano:",
     "batchMissingLine": "%(count)d× %(name)s",
 
     "noSubscription": "Auto Equipment Return è disattivato: nessun abbonamento WoT Plus attivo trovato.",

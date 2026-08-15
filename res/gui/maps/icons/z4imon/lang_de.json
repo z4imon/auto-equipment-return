@@ -44,15 +44,13 @@
 
     "batchNoTargets": "AutoEquip: Keine Primärpanzer im aktuellen Karussell-Filter",
     "batchNoSavedSets": "AutoEquip: Keiner der %(count)d Primärpanzer hat gespeicherte Sets",
-    "batchReady": "AutoEquip: %(ready)d von %(total)d Primärpanzern sind einsatzbereit",
-    "batchIncomplete": "Unvollständig: %(vehicles)s",
-    "batchMoreIncomplete": "… und %(count)d weitere",
-    "batchMissingInline": "Es fehlen: %(items)s",
+    "batchSummary": "AutoEquip: %(processed)d Primärpanzer verarbeitet, %(installed)d Teil(e) eingebaut",
     "batchDonated": "%(count)d Teil(e) von anderen Panzern ausgebaut",
-    "batchDowngraded": "Downgrade: %(count)d Teil(e) durch eine verfügbare Variante ersetzt",
     "batchSkippedNoSets": "%(count)d Panzer ohne gespeicherte Sets übersprungen",
     "batchVehicleError": "%(veh)s: %(err)s",
     "batchMoreErrors": "… und %(count)d weitere Fehler (siehe Log)",
+    "batchMissingHeader": "AutoEquip: Nicht genug Equipment für alle Primärpanzer!",
+    "batchMissingListHeader": "Es fehlen:",
     "batchMissingLine": "%(count)d× %(name)s",
 
     "noSubscription": "Auto Equipment Return ist deaktiviert: Kein aktives WoT-Plus-Abonnement gefunden.",

@@ -44,15 +44,13 @@
 
     "batchNoTargets": "AutoEquip: 現在のカルーセルフィルターにお気に入り車輌がありません",
     "batchNoSavedSets": "AutoEquip: %(count)d 輌のお気に入り車輌のいずれにも保存済みセットがありません",
-    "batchReady": "AutoEquip: 主力車輌 %(total)d 輌のうち %(ready)d 輌が出撃可能です",
-    "batchIncomplete": "未完了: %(vehicles)s",
-    "batchMoreIncomplete": "… ほか %(count)d 輌",
-    "batchMissingInline": "不足: %(items)s",
+    "batchSummary": "AutoEquip: お気に入り車輌 %(processed)d 輌を処理し、%(installed)d 個を装着しました",
     "batchDonated": "他の車輌から %(count)d 個を取り外しました",
-    "batchDowngraded": "Downgrade: %(count)d 種類を入手可能なものに置き換えました",
     "batchSkippedNoSets": "%(count)d 輌をスキップしました (保存済みセットなし)",
     "batchVehicleError": "%(veh)s: %(err)s",
     "batchMoreErrors": "… ほか %(count)d 件のエラー (ログを参照)",
+    "batchMissingHeader": "AutoEquip: お気に入り車輌すべてに行き渡るだけの装備がありません!",
+    "batchMissingListHeader": "不足:",
     "batchMissingLine": "%(count)d× %(name)s",
 
     "noSubscription": "Auto Equipment Return は無効です: 有効な WoT Plus サブスクリプションが見つかりません。",

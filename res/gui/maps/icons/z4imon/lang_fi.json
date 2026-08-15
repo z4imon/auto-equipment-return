@@ -44,15 +44,13 @@
 
     "batchNoTargets": "AutoEquip: nykyisessä karusellisuodattimessa ei ole suosikkiajoneuvoja",
     "batchNoSavedSets": "AutoEquip: yhdelläkään %(count)d suosikkiajoneuvosta ei ole tallennettuja sarjoja",
-    "batchReady": "AutoEquip: %(ready)d / %(total)d ensisijaisesta ajoneuvosta on taisteluvalmis",
-    "batchIncomplete": "Keskeneräiset: %(vehicles)s",
-    "batchMoreIncomplete": "… ja %(count)d muuta",
-    "batchMissingInline": "Puuttuu: %(items)s",
+    "batchSummary": "AutoEquip: %(processed)d suosikkiajoneuvoa käsitelty, %(installed)d esinettä asennettu",
     "batchDonated": "%(count)d esinettä irrotettu muista ajoneuvoista",
-    "batchDowngraded": "Downgrade: %(count)d tyyppi(ä) korvattu saatavilla olevalla versiolla",
     "batchSkippedNoSets": "%(count)d ajoneuvoa ohitettu (ei tallennettuja sarjoja)",
     "batchVehicleError": "%(veh)s: %(err)s",
     "batchMoreErrors": "… ja %(count)d virhettä lisää (katso loki)",
+    "batchMissingHeader": "AutoEquip: varusteita ei riitä kaikille suosikkiajoneuvoille!",
+    "batchMissingListHeader": "Puuttuu:",
     "batchMissingLine": "%(count)d× %(name)s",
 
     "noSubscription": "Auto Equipment Return on poissa käytöstä: aktiivista WoT Plus -tilausta ei löytynyt.",
