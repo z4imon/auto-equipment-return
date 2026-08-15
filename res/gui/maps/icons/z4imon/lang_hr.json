@@ -44,15 +44,13 @@
 
     "batchNoTargets": "AutoEquip: u trenutnom filtru vrtuljka nema omiljenih vozila",
     "batchNoSavedSets": "AutoEquip: nijedno od %(count)d omiljenih vozila nema spremljene komplete",
-    "batchReady": "AutoEquip: %(ready)d od %(total)d glavnih vozila spremno je za bitku",
-    "batchIncomplete": "Nepotpuna: %(vehicles)s",
-    "batchMoreIncomplete": "… i još %(count)d",
-    "batchMissingInline": "Nedostaje: %(items)s",
+    "batchSummary": "AutoEquip: obrađeno je %(processed)d omiljenih vozila, ugrađeno je %(installed)d predmeta",
     "batchDonated": "S drugih vozila skinuto je %(count)d predmeta",
-    "batchDowngraded": "Downgrade: %(count)d vrsta/e zamijenjena dostupnom varijantom",
     "batchSkippedNoSets": "Preskočeno je %(count)d vozila (nema spremljenih kompleta)",
     "batchVehicleError": "%(veh)s: %(err)s",
     "batchMoreErrors": "… i još %(count)d pogrešaka (vidi zapisnik)",
+    "batchMissingHeader": "AutoEquip: nema dovoljno opreme za sva omiljena vozila!",
+    "batchMissingListHeader": "Nedostaje:",
     "batchMissingLine": "%(count)d× %(name)s",
 
     "noSubscription": "Auto Equipment Return je isključen: nije pronađena aktivna WoT Plus pretplata.",

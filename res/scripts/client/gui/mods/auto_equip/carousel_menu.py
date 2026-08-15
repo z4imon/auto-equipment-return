@@ -69,10 +69,6 @@ def _demount_option(handler):
     vehicle = inventory.vehicle_by_inv_id(handler.getVehInvID())
     if vehicle is None:
         return None
-    if inventory.is_mode_only_vehicle(vehicle):
-        # Hidden, not greyed out: nothing the player could do would ever make
-        # this work, so a disabled row would only invite them to wonder why.
-        return None
     enabled = (not vehicle.isLocked
                and not _busy
                and not apply_engine.is_busy()
@@ -140,10 +136,6 @@ def demount_free_equipment(veh_inv_id):
         return
     if vehicle.isLocked:
         LOG.warning('carousel demount: %s is locked, aborting' % veh_inv_id)
-        return
-    if inventory.is_mode_only_vehicle(vehicle):
-        LOG.warning('carousel demount: %s is a mode-only loaner, aborting'
-                    % vehicle.userName)
         return
 
     _busy = True

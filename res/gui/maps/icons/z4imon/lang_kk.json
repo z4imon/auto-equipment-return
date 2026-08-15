@@ -44,15 +44,13 @@
 
     "batchNoTargets": "AutoEquip: ағымдағы карусель сүзгісінде таңдаулы машиналар жоқ",
     "batchNoSavedSets": "AutoEquip: %(count)d таңдаулы машинаның ешқайсысында сақталған жинақ жоқ",
-    "batchReady": "AutoEquip: %(total)d негізгі техниканың %(ready)d-і жауынгерлік дайын",
-    "batchIncomplete": "Толық емес: %(vehicles)s",
-    "batchMoreIncomplete": "… және тағы %(count)d",
-    "batchMissingInline": "Жетіспейді: %(items)s",
+    "batchSummary": "AutoEquip: %(processed)d таңдаулы машина өңделді, %(installed)d зат орнатылды",
     "batchDonated": "Басқа машиналардан %(count)d зат шешілді",
-    "batchDowngraded": "Downgrade: %(count)d түр қолжетімді нұсқамен ауыстырылды",
     "batchSkippedNoSets": "%(count)d машина өткізіп жіберілді (сақталған жинақ жоқ)",
     "batchVehicleError": "%(veh)s: %(err)s",
     "batchMoreErrors": "… және тағы %(count)d қате (журналды қараңыз)",
+    "batchMissingHeader": "AutoEquip: барлық таңдаулы машиналарға жабдық жеткіліксіз!",
+    "batchMissingListHeader": "Жетіспейді:",
     "batchMissingLine": "%(count)d× %(name)s",
 
     "noSubscription": "Auto Equipment Return өшірілген: белсенді WoT Plus жазылымы табылмады.",

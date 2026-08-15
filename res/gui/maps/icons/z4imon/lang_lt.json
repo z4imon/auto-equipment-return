@@ -44,15 +44,13 @@
 
     "batchNoTargets": "AutoEquip: dabartiniame karuselės filtre nėra mėgstamų technikų",
     "batchNoSavedSets": "AutoEquip: nė viena iš %(count)d mėgstamų technikų neturi įrašytų rinkinių",
-    "batchReady": "AutoEquip: %(ready)d iš %(total)d pagrindinės technikos parengta kovai",
-    "batchIncomplete": "Nebaigti: %(vehicles)s",
-    "batchMoreIncomplete": "… ir dar %(count)d",
-    "batchMissingInline": "Trūksta: %(items)s",
+    "batchSummary": "AutoEquip: apdorota mėgstamų technikų: %(processed)d, sumontuota daiktų: %(installed)d",
     "batchDonated": "Nuo kitų technikų nuimta daiktų: %(count)d",
-    "batchDowngraded": "Downgrade: %(count)d tipas (-ai) pakeisti prieinamu variantu",
     "batchSkippedNoSets": "Praleista technikų: %(count)d (nėra įrašytų rinkinių)",
     "batchVehicleError": "%(veh)s: %(err)s",
     "batchMoreErrors": "… ir dar %(count)d klaidų (žr. žurnalą)",
+    "batchMissingHeader": "AutoEquip: visoms mėgstamoms technikoms įrangos nepakanka!",
+    "batchMissingListHeader": "Trūksta:",
     "batchMissingLine": "%(count)d× %(name)s",
 
     "noSubscription": "Auto Equipment Return išjungtas: aktyvi WoT Plus prenumerata nerasta.",
