@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Nuimama įranga…",
     "cmDemountDone": "AutoEquip: nuo technikos %(veh)s nuimta įrangos: %(count)d",
 
+    "recTitle": "Rekomenduojama įranga",
+    "recNone": "AutoEquip: šiai technikai nėra įrangos rekomendacijos",
+    "recSaved": "AutoEquip: rekomenduojama įranga išsaugota technikai %(veh)s",
+    "recUnavailable1": "Pirma rekomendacija nepasiekiama",
+    "recUnavailable2": "Antra rekomendacija nepasiekiama",
+    "recAlreadySaved": "Norėdami tai pritaikyti, pirmiausia ištrinkite išsaugotą įrangą",
+
     "errSetupSwitchFailed": "Nepavyko perjungti į %(setup)d konfigūraciją (kodas %(code)s)",
     "errUnknownItem": "%(slot)d lizdas: nežinomas daiktas %(cd)s",
     "reasonPaidDemount": "nuėmimas nebūtų nemokamas",

@@ -13,8 +13,9 @@ import json
 import BigWorld
 
 from CurrentVehicle import g_currentVehicle
+from gui.shared.notifications import NotificationPriorityLevel
 
-from . import config, hangar, i18n, inventory, messages, save
+from . import config, hangar, i18n, inventory, messages, recommended, save
 from . import apply as apply_engine
 from .i18n import t
 from .log import LOG
@@ -127,6 +128,7 @@ def _build_data():
         'hasSetup2': False,
         'saved1': None,
         'saved2': None,
+        'recommended': [],
         'busy': apply_engine.is_busy(),
     }
     try:
@@ -140,9 +142,23 @@ def _build_data():
         if saved:
             data['saved1'] = _set_payload(saved.get('set1'))
             data['saved2'] = _set_payload(saved.get('set2'))
+        data['recommended'] = _recommended_payload(vehicle)
     except Exception:
         LOG.exc('_build_data failed')
     return data
+
+
+def _recommended_payload(vehicle):
+    """The equipment assistant's proposal, already resolved to real devices, in
+    the same slot shape the saved sets use - so the hover preview can be drawn
+    with the same JS as the saved sets themselves."""
+    try:
+        return [{'percent': entry['percent'],
+                 'slots': _set_payload(entry['cds'])}
+                for entry in recommended.for_vehicle(vehicle)]
+    except Exception:
+        LOG.exc('_recommended_payload failed')
+        return []
 
 
 def push_data():
@@ -214,10 +230,11 @@ def _unsubscribe_from_vehicle():
 
 class AutoEquipViewModel(ViewModel):
     __slots__ = ('onJsLog', 'onToggleEnabled', 'onToggleDowngrade',
-                 'onSaveSet', 'onDeleteSets', 'onEquipPrimary')
+                 'onSaveSet', 'onDeleteSets', 'onSaveRecommended',
+                 'onEquipPrimary')
 
     def __init__(self):
-        super(AutoEquipViewModel, self).__init__(properties=2, commands=6)
+        super(AutoEquipViewModel, self).__init__(properties=2, commands=7)
 
     def getDataJson(self):
         return self._getString(0)
@@ -240,6 +257,7 @@ class AutoEquipViewModel(ViewModel):
         self.onToggleDowngrade = self._addCommand('onToggleDowngrade')
         self.onSaveSet = self._addCommand('onSaveSet')
         self.onDeleteSets = self._addCommand('onDeleteSets')
+        self.onSaveRecommended = self._addCommand('onSaveRecommended')
         self.onEquipPrimary = self._addCommand('onEquipPrimary')
         gf_mod_inject(self, _VIEW_ALIAS,
                       styles=['%s/AutoEquipView.css' % _VIEW_DIR],
@@ -274,6 +292,7 @@ class AutoEquipView(ViewComponent):
             (self.viewModel.onToggleDowngrade, self._on_toggle_downgrade),
             (self.viewModel.onSaveSet, self._on_save_set),
             (self.viewModel.onDeleteSets, self._on_delete_sets),
+            (self.viewModel.onSaveRecommended, self._on_save_recommended),
             (self.viewModel.onEquipPrimary, self._on_equip_primary),
         )
 
@@ -321,6 +340,49 @@ class AutoEquipView(ViewComponent):
             push_data()
         except Exception:
             LOG.exc('_on_delete_sets failed')
+
+    def _on_save_recommended(self, data=None):
+        """Stores the equipment assistant's proposal as this vehicle's sets and
+        installs it right away - saving without installing would leave the
+        player looking at a set that is not on the tank.
+
+        Only ever runs on a vehicle with nothing saved: the proposal fills both
+        sets, so on a vehicle that already has one it would silently replace
+        the player's own work."""
+        try:
+            vehicle = g_currentVehicle.item
+            if vehicle is None:
+                return
+            if config.has_saved_sets(vehicle.invID):
+                # The popover greys the star out in this case; this is the net
+                # under a stale render, so it only has to refuse, not explain.
+                LOG.warning('recommendation refused for %s: sets are already saved'
+                            % vehicle.userName)
+                return
+            entries = recommended.for_vehicle(vehicle)
+            if not entries:
+                messages.push_warning(t('recNone'))
+                return
+            set1, set2 = recommended.as_sets(entries)
+            if set1 is None and set2 is None:
+                # Every ranked loadout had a slot only experimental equipment
+                # could fill. Storing now would create an empty entry for a
+                # vehicle the player never handed to the mod.
+                messages.push_warning(t('recNone'))
+                return
+            config.store_sets(vehicle.invID, set1=set1, set2=set2,
+                              veh_cd=vehicle.intCD)
+            LOG.info('recommended sets stored for %s (%s, rank %s): set1=%s set2=%s'
+                     % (vehicle.userName, entries[0]['source'],
+                        [entry['rank'] for entry in entries], set1, set2))
+            push_data()
+            # The install run reports what it could and could not source, so
+            # this message only has to say that the set changed.
+            messages.push_info(t('recSaved', veh=vehicle.userName),
+                               priority=NotificationPriorityLevel.HIGH)
+            apply_engine.apply_saved_sets(vehicle.invID)
+        except Exception:
+            LOG.exc('_on_save_recommended failed')
 
     def _on_equip_primary(self, data=None):
         try:

@@ -113,6 +113,76 @@ def all_optional_devices():
                                          REQ_CRITERIA.EMPTY)
 
 
+def devices_by_archetype(vehicle, archetype):
+    """Every optional device of one archetype ('rammer', 'stereoscope', ...)
+    that fits this vehicle.
+
+    The equipment assistant names devices by archetype rather than by intCD -
+    it says "a rammer", not "which rammer" - so this is the join between its
+    recommendation and real items. Archetype is the key the client's own
+    easy-tank-equip screen joins on; tags are checked as well because the
+    assistant's sorting code matches plain devices by tag."""
+    try:
+        criteria = (REQ_CRITERIA.OPTIONAL_DEVICE.HAS_ANY_BY_ARCHETYPE(archetype)
+                    | REQ_CRITERIA.OPTIONAL_DEVICE.IS_COMPATIBLE_WITH_VEHICLE(vehicle))
+        found = list(_items_cache().items.getItems(
+            GUI_ITEM_TYPE.OPTIONALDEVICE, criteria=criteria).itervalues())
+        if found:
+            return found
+        criteria = (REQ_CRITERIA.OPTIONAL_DEVICE.HAS_ANY_FROM_TAGS({archetype})
+                    | REQ_CRITERIA.OPTIONAL_DEVICE.IS_COMPATIBLE_WITH_VEHICLE(vehicle))
+        return list(_items_cache().items.getItems(
+            GUI_ITEM_TYPE.OPTIONALDEVICE, criteria=criteria).itervalues())
+    except Exception:
+        LOG.exc('devices_by_archetype(%s) failed' % archetype)
+        return []
+
+
+def is_owned(item):
+    """True when the account already has this device somewhere - in the depot
+    or mounted on any vehicle. Not a promise that it can be had for free; that
+    is apply.py's job."""
+    try:
+        if item.inventoryCount > 0:
+            return True
+    except Exception:
+        pass
+    for vehicle in owned_vehicles():
+        try:
+            if vehicle.optDevices.setupLayouts.containsIntCD(item.intCD):
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def recommended_presets(vehicle):
+    """The equipment assistant's two recommendations for a vehicle, as
+    (source, sourceVehicleCD, [VehicleLoadout]) pairs - or an empty tuple.
+
+    This is the WoT Plus "most used devices" data. Two independent gates sit in
+    front of it in the client: the subscription, and a prebattle-type check that
+    only passes for the random/squad context. Both are the client's own
+    business; an empty result simply means "no recommendation to show"."""
+    try:
+        return _wot_plus().getOptDeviceAssistPresets(vehicle) or ()
+    except Exception:
+        LOG.exc('recommended_presets failed')
+        return ()
+
+
+def most_popular_loadout(vehicle):
+    """The single most-used loadout, read straight from the client's local
+    config. Unlike recommended_presets() this path has no prebattle gate, so it
+    still answers when the player is in a context the assistant panel hides
+    itself in."""
+    try:
+        return _wot_plus().getMostPopularOptDevicesLoadout(vehicle)
+    except Exception:
+        LOG.exc('most_popular_loadout failed')
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Setup layouts
 # ---------------------------------------------------------------------------
@@ -302,12 +372,58 @@ def standard_variant_of(vehicle, special_item):
 
 def _is_standard_variant(item, archetype, vehicle):
     try:
-        if not item.isRegular or item.descriptor.archetype != archetype:
+        return item.isRegular and _same_archetype(item, archetype, vehicle)
+    except Exception:
+        return False
+
+
+def _same_archetype(item, archetype, vehicle):
+    try:
+        if item.descriptor.archetype != archetype:
             return False
         fits, _ = item.descriptor.checkCompatibilityWithVehicle(vehicle.descriptor)
         return fits
     except Exception:
         return False
+
+
+def plain_bounty_variant_of(vehicle, special_item):
+    """The non-upgraded bounty sibling of an UPGRADED bounty device, or None.
+
+    Both are trophy devices of the same archetype and differ only in level. It
+    is the LAST fallback, not the first - see downgrade_candidates_of()."""
+    try:
+        if not (special_item.isTrophy and special_item.isUpgraded):
+            return None
+        archetype = special_item.descriptor.archetype
+        if not archetype:
+            return None
+        for item in all_optional_devices().itervalues():
+            if (item.isTrophy and item.isUpgradable
+                    and _same_archetype(item, archetype, vehicle)):
+                return item
+        return None
+    except Exception:
+        LOG.exc('plain_bounty_variant_of failed')
+        return None
+
+
+def downgrade_candidates_of(vehicle, special_item):
+    """What a special device that cannot be sourced may fall back to, STRONGEST
+    first:
+
+        upgraded bounty  ->  standard  ->  plain bounty
+
+    The standard device comes before the level 1 bounty one on purpose. It looks
+    like the bigger step down, but a standard device gets the slot's category
+    bonus and a level 1 bounty device does not, so the boosted standard device
+    is the better of the two in the slot it ends up in.
+
+    For everything but an upgraded bounty device this is exactly one entry, the
+    standard variant - the behaviour this has always had."""
+    candidates = [standard_variant_of(vehicle, special_item),
+                  plain_bounty_variant_of(vehicle, special_item)]
+    return [item for item in candidates if item is not None]
 
 
 def _credit_price(item):

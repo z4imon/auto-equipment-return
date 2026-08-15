@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Varustuse eemaldamine…",
     "cmDemountDone": "AutoEquip: sõidukilt %(veh)s eemaldati %(count)d varustust",
 
+    "recTitle": "Soovitatud varustus",
+    "recNone": "AutoEquip: sellele sõidukile pole varustuse soovitust",
+    "recSaved": "AutoEquip: soovitatud varustus salvestatud sõidukile %(veh)s",
+    "recUnavailable1": "Esimene soovitus pole saadaval",
+    "recUnavailable2": "Teine soovitus pole saadaval",
+    "recAlreadySaved": "Selle rakendamiseks kustuta esmalt salvestatud varustus",
+
     "errSetupSwitchFailed": "Konfiguratsioonile %(setup)d ei õnnestunud lülituda (kood %(code)s)",
     "errUnknownItem": "Pesa %(slot)d: tundmatu ese %(cd)s",
     "reasonPaidDemount": "eemaldamine ei oleks tasuta",

@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Notiek aprīkojuma noņemšana…",
     "cmDemountDone": "AutoEquip: no tehnikas %(veh)s noņemts aprīkojums: %(count)d",
 
+    "recTitle": "Ieteicamais aprīkojums",
+    "recNone": "AutoEquip: šai tehnikai nav aprīkojuma ieteikuma",
+    "recSaved": "AutoEquip: ieteicamais aprīkojums saglabāts tehnikai %(veh)s",
+    "recUnavailable1": "Pirmais ieteikums nav pieejams",
+    "recUnavailable2": "Otrais ieteikums nav pieejams",
+    "recAlreadySaved": "Lai to lietotu, vispirms izdzēsiet saglabāto aprīkojumu",
+
     "errSetupSwitchFailed": "Neizdevās pārslēgties uz %(setup)d. konfigurāciju (kods %(code)s)",
     "errUnknownItem": "%(slot)d. slots: nezināms priekšmets %(cd)s",
     "reasonPaidDemount": "noņemšana nebūtu bez maksas",

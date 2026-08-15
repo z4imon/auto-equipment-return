@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Demontuji vybavení…",
     "cmDemountDone": "AutoEquip: z vozidla %(veh)s demontováno %(count)d kus(ů) vybavení",
 
+    "recTitle": "Doporučené vybavení",
+    "recNone": "AutoEquip: pro toto vozidlo není k dispozici doporučení vybavení",
+    "recSaved": "AutoEquip: doporučené vybavení uloženo pro %(veh)s",
+    "recUnavailable1": "První doporučení není k dispozici",
+    "recUnavailable2": "Druhé doporučení není k dispozici",
+    "recAlreadySaved": "Nejprve smažte uložené vybavení, abyste mohli použít toto",
+
     "errSetupSwitchFailed": "Nepodařilo se přepnout na konfiguraci %(setup)d (kód %(code)s)",
     "errUnknownItem": "Slot %(slot)d: neznámý předmět %(cd)s",
     "reasonPaidDemount": "demontáž by nebyla zdarma",

@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Demonterar utrustning…",
     "cmDemountDone": "AutoEquip: %(count)d utrustning(ar) demonterade från %(veh)s",
 
+    "recTitle": "Rekommenderad utrustning",
+    "recNone": "AutoEquip: ingen utrustningsrekommendation för det här fordonet",
+    "recSaved": "AutoEquip: rekommenderad utrustning sparad för %(veh)s",
+    "recUnavailable1": "Första rekommendationen är inte tillgänglig",
+    "recUnavailable2": "Andra rekommendationen är inte tillgänglig",
+    "recAlreadySaved": "Ta bort den sparade utrustningen först för att använda detta",
+
     "errSetupSwitchFailed": "Kunde inte växla till konfiguration %(setup)d (kod %(code)s)",
     "errUnknownItem": "Plats %(slot)d: okänt föremål %(cd)s",
     "reasonPaidDemount": "demonteringen skulle inte vara gratis",

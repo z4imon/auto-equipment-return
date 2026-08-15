@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Baue Equipment aus…",
     "cmDemountDone": "AutoEquip: %(count)d Teil(e) von %(veh)s ausgebaut",
 
+    "recTitle": "Empfohlenes Equipment",
+    "recNone": "AutoEquip: keine Equipment-Empfehlung für dieses Fahrzeug",
+    "recSaved": "AutoEquip: empfohlenes Equipment für %(veh)s gespeichert",
+    "recUnavailable1": "Erste Empfehlung nicht verfügbar",
+    "recUnavailable2": "Zweite Empfehlung nicht verfügbar",
+    "recAlreadySaved": "Gespeichertes Equipment zuerst löschen, um dies zu übernehmen",
+
     "errSetupSwitchFailed": "Setup %(setup)d nicht umschaltbar (Code %(code)s)",
     "errUnknownItem": "Slot %(slot)d: unbekanntes Item %(cd)s",
     "reasonPaidDemount": "Ausbau wäre kostenpflichtig",

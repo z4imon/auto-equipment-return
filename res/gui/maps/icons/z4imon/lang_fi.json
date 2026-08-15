@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Irrotetaan varusteita…",
     "cmDemountDone": "AutoEquip: %(count)d varustetta irrotettu ajoneuvosta %(veh)s",
 
+    "recTitle": "Suositeltu varustus",
+    "recNone": "AutoEquip: tälle ajoneuvolle ei ole varustussuositusta",
+    "recSaved": "AutoEquip: suositeltu varustus tallennettu ajoneuvolle %(veh)s",
+    "recUnavailable1": "Ensimmäinen suositus ei ole saatavilla",
+    "recUnavailable2": "Toinen suositus ei ole saatavilla",
+    "recAlreadySaved": "Poista tallennettu varustus ensin ottaaksesi tämän käyttöön",
+
     "errSetupSwitchFailed": "Kokoonpanoon %(setup)d ei voitu vaihtaa (koodi %(code)s)",
     "errUnknownItem": "Paikka %(slot)d: tuntematon esine %(cd)s",
     "reasonPaidDemount": "irrottaminen ei olisi ilmaista",

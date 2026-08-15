@@ -252,8 +252,9 @@ function buildSetBlock(label, slots, missingText) {
 // so, and a bin that would do nothing must not look clickable.
 function buildDeleteButton() {
     const hasSaved = !!(gData.saved1 || gData.saved2);
-    const btn = el("div", "z4ae-sets-delete" + (hasSaved ? "" : " z4ae-sets-delete-disabled"));
-    const icon = el("div", "z4ae-sets-delete-icon");
+    const btn = el("div", "z4ae-corner-btn z4ae-sets-delete"
+                        + (hasSaved ? "" : " z4ae-corner-btn-disabled"));
+    const icon = el("div", "z4ae-corner-icon z4ae-sets-delete-icon");
     bg(icon, BIN_ICON);
     btn.appendChild(icon);
     if (hasSaved) {
@@ -263,6 +264,81 @@ function buildDeleteButton() {
         });
     }
     return btn;
+}
+
+// Star in the top-right corner of the saved-sets area: stores WoT Plus'
+// equipment recommendation as this vehicle's sets and installs it.
+// Hovering shows what would be stored, because this overwrites whatever the
+// player saved before and a click should never be a surprise.
+// Dimmed and inert when the client has no recommendation for the tank - the
+// data does not cover every vehicle.
+function buildRecommendButton() {
+    const entries = gData.recommended || [];
+    // Only offered while nothing is saved yet: applying it overwrites both sets,
+    // and a saved set is the player's own decision, not something a single
+    // mis-click should undo. The bin right below is the way back.
+    const hasSaved = !!(gData.saved1 || gData.saved2);
+    // Three states, not two: no data at all (dead), data that cannot be applied
+    // (dimmed but still hoverable, because the preview is where it says why),
+    // and a usable recommendation.
+    const usable = entries.some(function (e) { return e.slots && e.slots.length; });
+    const active = usable && !hasSaved;
+    let modifier = "";
+    if (!entries.length) modifier = " z4ae-corner-btn-disabled";
+    else if (!active) modifier = " z4ae-corner-btn-inactive";
+    const btn = el("div", "z4ae-corner-btn z4ae-sets-recommend" + modifier);
+    const icon = el("div", "z4ae-corner-icon z4ae-sets-recommend-icon");
+    icon.appendChild(rowIconSvg("star"));
+    btn.appendChild(icon);
+    if (entries.length) btn.appendChild(buildRecommendPreview(entries, hasSaved));
+    if (active) {
+        btn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            cmd("onSaveRecommended");
+        });
+    }
+    return btn;
+}
+
+// The hover preview. Pure CSS visibility (:hover on the button) - no JS state
+// to get out of step with a re-render.
+function buildRecommendPreview(entries, hasSaved) {
+    const pop = el("div", "z4ae-rec-popup");
+    const head = el("div", "z4ae-rec-head");
+    head.textContent = String(ui("recTitle", "Empfohlenes Equipment")).toUpperCase();
+    pop.appendChild(head);
+    entries.forEach(function (entry, index) {
+        const block = el("div", "z4ae-rec-block");
+        const lab = el("div", "z4ae-set-label");
+        // The entries arrive in set order, so entry N fills set N - naming them
+        // after the sets is what tells the player what the click overwrites.
+        let text = String(ui(index === 0 ? "set1" : "set2", "Set " + (index + 1))).toUpperCase();
+        if (entry.percent) text += "  " + entry.percent + " %";
+        lab.textContent = text;
+        block.appendChild(lab);
+        if (entry.slots && entry.slots.length) {
+            block.appendChild(buildSlotRow(entry.slots));
+        } else {
+            // No ranked loadout could be built without a hole. Say which set is
+            // affected - "not available" on its own would leave the player
+            // guessing whether the other one still works.
+            const miss = el("div", "z4ae-set-missing");
+            miss.textContent = ui(index === 0 ? "recUnavailable1" : "recUnavailable2",
+                                  index === 0 ? "Erste Empfehlung nicht verfügbar"
+                                              : "Zweite Empfehlung nicht verfügbar");
+            block.appendChild(miss);
+        }
+        pop.appendChild(block);
+    });
+    if (hasSaved) {
+        // The star is greyed out for a reason the sets above cannot show: there
+        // is already something saved, and applying would overwrite it.
+        const note = el("div", "z4ae-rec-note");
+        note.textContent = ui("recAlreadySaved",
+                              "Gespeichertes Equipment zuerst löschen, um dies zu übernehmen");
+        pop.appendChild(note);
+    }
+    return pop;
 }
 
 // One menu row, exact copy of the native MenuItem markup:
@@ -339,6 +415,7 @@ function buildPopover() {
     } else {
         sets.appendChild(buildSetBlock(ui("set2", "Set 2"), null, ui("noSetup2", "Kein zweites Loadout verfügbar")));
     }
+    sets.appendChild(buildRecommendButton());
     sets.appendChild(buildDeleteButton());
     content.appendChild(sets);
 

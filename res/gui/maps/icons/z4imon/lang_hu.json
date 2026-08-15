@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Felszerelés leszerelése…",
     "cmDemountDone": "AutoEquip: %(count)d felszerelés leszerelve a(z) %(veh)s járműről",
 
+    "recTitle": "Ajánlott felszerelés",
+    "recNone": "AutoEquip: nincs felszerelési ajánlás ehhez a járműhöz",
+    "recSaved": "AutoEquip: ajánlott felszerelés elmentve ehhez: %(veh)s",
+    "recUnavailable1": "Az első ajánlás nem érhető el",
+    "recUnavailable2": "A második ajánlás nem érhető el",
+    "recAlreadySaved": "Előbb töröld a mentett felszerelést, hogy ezt alkalmazhasd",
+
     "errSetupSwitchFailed": "Nem sikerült a(z) %(setup)d. konfigurációra váltani (kód: %(code)s)",
     "errUnknownItem": "%(slot)d. hely: ismeretlen tárgy %(cd)s",
     "reasonPaidDemount": "a leszerelés nem lenne ingyenes",

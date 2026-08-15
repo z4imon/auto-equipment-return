@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Skidanje opreme…",
     "cmDemountDone": "AutoEquip: s vozila %(veh)s skinuto je %(count)d dijelova opreme",
 
+    "recTitle": "Preporučena oprema",
+    "recNone": "AutoEquip: nema preporuke opreme za ovo vozilo",
+    "recSaved": "AutoEquip: preporučena oprema spremljena za %(veh)s",
+    "recUnavailable1": "Prva preporuka nije dostupna",
+    "recUnavailable2": "Druga preporuka nije dostupna",
+    "recAlreadySaved": "Najprije izbrišite spremljenu opremu da biste primijenili ovo",
+
     "errSetupSwitchFailed": "Nije se moglo prebaciti na konfiguraciju %(setup)d (kôd %(code)s)",
     "errUnknownItem": "Utor %(slot)d: nepoznat predmet %(cd)s",
     "reasonPaidDemount": "skidanje ne bi bilo besplatno",

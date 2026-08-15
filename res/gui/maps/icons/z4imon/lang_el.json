@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Αφαίρεση εξοπλισμού…",
     "cmDemountDone": "AutoEquip: αφαιρέθηκαν %(count)d εξοπλισμοί από το %(veh)s",
 
+    "recTitle": "Προτεινόμενος εξοπλισμός",
+    "recNone": "AutoEquip: δεν υπάρχει πρόταση εξοπλισμού για αυτό το όχημα",
+    "recSaved": "AutoEquip: ο προτεινόμενος εξοπλισμός αποθηκεύτηκε για το %(veh)s",
+    "recUnavailable1": "Η πρώτη πρόταση δεν είναι διαθέσιμη",
+    "recUnavailable2": "Η δεύτερη πρόταση δεν είναι διαθέσιμη",
+    "recAlreadySaved": "Διαγράψτε πρώτα τον αποθηκευμένο εξοπλισμό για να το εφαρμόσετε",
+
     "errSetupSwitchFailed": "Δεν ήταν δυνατή η μετάβαση στη διαμόρφωση %(setup)d (κωδικός %(code)s)",
     "errUnknownItem": "Υποδοχή %(slot)d: άγνωστο αντικείμενο %(cd)s",
     "reasonPaidDemount": "η αφαίρεση δεν θα ήταν δωρεάν",

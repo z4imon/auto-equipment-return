@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Жабдық шешілуде…",
     "cmDemountDone": "AutoEquip: %(veh)s машинасынан %(count)d жабдық шешілді",
 
+    "recTitle": "Ұсынылған жабдық",
+    "recNone": "AutoEquip: бұл техника үшін жабдық ұсынысы жоқ",
+    "recSaved": "AutoEquip: %(veh)s үшін ұсынылған жабдық сақталды",
+    "recUnavailable1": "Бірінші ұсыныс қолжетімсіз",
+    "recUnavailable2": "Екінші ұсыныс қолжетімсіз",
+    "recAlreadySaved": "Мұны қолдану үшін алдымен сақталған жабдықты жойыңыз",
+
     "errSetupSwitchFailed": "%(setup)d конфигурациясына ауысу мүмкін болмады (коды %(code)s)",
     "errUnknownItem": "%(slot)d ұясы: белгісіз зат %(cd)s",
     "reasonPaidDemount": "шешу тегін болмайды",

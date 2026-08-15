@@ -155,10 +155,11 @@ def _plan_already_applied(vehicle, plan):
 
 def _downgraded_plan(plan, vehicle, veh_inv_id, options, outcome):
     """Swaps special devices (trophy, bounty/modernized, deluxe) that cannot be
-    sourced for free with their standard counterpart - but only when THAT one
-    is free to obtain itself, otherwise the normal skip flow reports the
-    special device. isRegular is the same "plain standard device" test used to
-    pick the replacement, so every special category is covered symmetrically.
+    sourced for free with a cheaper counterpart - but only when THAT one is free
+    to obtain itself, otherwise the normal skip flow reports the special device.
+    inventory.downgrade_candidates_of() orders the alternatives by how strong
+    they actually are in the slot, so an upgraded bounty device falls back to
+    the standard device first and only then to the plain bounty one.
 
     This runs BEFORE the no-op check on purpose: with the standard variant
     already mounted the resolved plan matches the vehicle and nothing happens,
@@ -177,13 +178,16 @@ def _downgrade_layout(wanted, vehicle, veh_inv_id, options, outcome):
             continue
         if _is_free_to_obtain(vehicle, veh_inv_id, item, options):
             continue
-        standard = inventory.standard_variant_of(vehicle, item)
-        if standard is None or standard.intCD in resolved:
-            continue
-        if not _is_free_to_obtain(vehicle, veh_inv_id, standard, options):
-            continue
-        resolved[slot_idx] = standard.intCD
-        outcome.note_downgrade(item.userName, standard.userName)
+        # Strongest first, which is not the same as closest: the standard
+        # device is slot-boosted, a level 1 bounty device is not.
+        for replacement in inventory.downgrade_candidates_of(vehicle, item):
+            if replacement.intCD in resolved:
+                continue
+            if not _is_free_to_obtain(vehicle, veh_inv_id, replacement, options):
+                continue
+            resolved[slot_idx] = replacement.intCD
+            outcome.note_downgrade(item.userName, replacement.userName)
+            break
     return resolved
 
 

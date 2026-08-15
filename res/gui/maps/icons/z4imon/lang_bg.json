@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Сваляне на оборудването…",
     "cmDemountDone": "AutoEquip: от %(veh)s са свалени %(count)d оборудвания",
 
+    "recTitle": "Препоръчано оборудване",
+    "recNone": "AutoEquip: няма препоръка за оборудване за тази машина",
+    "recSaved": "AutoEquip: препоръчаното оборудване е запазено за %(veh)s",
+    "recUnavailable1": "Първата препоръка не е налична",
+    "recUnavailable2": "Втората препоръка не е налична",
+    "recAlreadySaved": "Първо изтрийте запазеното оборудване, за да приложите това",
+
     "errSetupSwitchFailed": "Неуспешно превключване към конфигурация %(setup)d (код %(code)s)",
     "errUnknownItem": "Слот %(slot)d: непознат предмет %(cd)s",
     "reasonPaidDemount": "свалянето няма да е безплатно",

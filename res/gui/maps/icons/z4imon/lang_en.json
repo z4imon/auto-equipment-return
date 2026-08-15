@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Demounting equipment…",
     "cmDemountDone": "AutoEquip: %(count)d item(s) demounted from %(veh)s",
 
+    "recTitle": "Recommended equipment",
+    "recNone": "AutoEquip: no equipment recommendation for this vehicle",
+    "recSaved": "AutoEquip: recommended equipment saved for %(veh)s",
+    "recUnavailable1": "First recommendation not available",
+    "recUnavailable2": "Second recommendation not available",
+    "recAlreadySaved": "Delete the saved equipment first to apply this",
+
     "errSetupSwitchFailed": "Setup %(setup)d could not be switched (code %(code)s)",
     "errUnknownItem": "Slot %(slot)d: unknown item %(cd)s",
     "reasonPaidDemount": "removal would not be free",

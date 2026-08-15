@@ -24,6 +24,13 @@
     "cmDemountWaiting": "Снятие оборудования…",
     "cmDemountDone": "AutoEquip: с машины %(veh)s снято оборудования: %(count)d",
 
+    "recTitle": "Рекомендуемое оборудование",
+    "recNone": "AutoEquip: для этой машины нет рекомендаций по оборудованию",
+    "recSaved": "AutoEquip: рекомендуемое оборудование сохранено для %(veh)s",
+    "recUnavailable1": "Первая рекомендация недоступна",
+    "recUnavailable2": "Вторая рекомендация недоступна",
+    "recAlreadySaved": "Сначала удалите сохранённое оборудование, чтобы применить это",
+
     "errSetupSwitchFailed": "Не удалось переключиться на конфигурацию %(setup)d (код %(code)s)",
     "errUnknownItem": "Слот %(slot)d: неизвестный предмет %(cd)s",
     "reasonPaidDemount": "снятие не будет бесплатным",
