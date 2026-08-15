@@ -44,15 +44,13 @@
 
     "batchNoTargets": "AutoEquip: nincs kedvenc jármű a jelenlegi körhinta-szűrőben",
     "batchNoSavedSets": "AutoEquip: a(z) %(count)d kedvenc jármű egyikének sincs mentett készlete",
-    "batchReady": "AutoEquip: %(total)d elsődleges jármű közül %(ready)d harckész",
-    "batchIncomplete": "Hiányos: %(vehicles)s",
-    "batchMoreIncomplete": "… és még %(count)d",
-    "batchMissingInline": "Hiányzik: %(items)s",
+    "batchSummary": "AutoEquip: %(processed)d kedvenc jármű feldolgozva, %(installed)d tárgy felszerelve",
     "batchDonated": "%(count)d tárgy leszerelve más járművekről",
-    "batchDowngraded": "Downgrade: %(count)d típus lecserélve elérhető változatra",
     "batchSkippedNoSets": "%(count)d jármű kihagyva (nincs mentett készlet)",
     "batchVehicleError": "%(veh)s: %(err)s",
     "batchMoreErrors": "… és még %(count)d hiba (lásd a naplót)",
+    "batchMissingHeader": "AutoEquip: nincs elég felszerelés az összes kedvenc járműhöz!",
+    "batchMissingListHeader": "Hiányzik:",
     "batchMissingLine": "%(count)d× %(name)s",
 
     "noSubscription": "Az Auto Equipment Return ki van kapcsolva: nem található aktív WoT Plus előfizetés.",

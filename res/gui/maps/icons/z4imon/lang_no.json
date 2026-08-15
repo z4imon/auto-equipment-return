@@ -44,15 +44,13 @@
 
     "batchNoTargets": "AutoEquip: ingen favorittkjøretøy i det gjeldende karusellfilteret",
     "batchNoSavedSets": "AutoEquip: ingen av de %(count)d favorittkjøretøyene har lagrede sett",
-    "batchReady": "AutoEquip: %(ready)d av %(total)d primærkjøretøy er kampklare",
-    "batchIncomplete": "Ufullstendige: %(vehicles)s",
-    "batchMoreIncomplete": "… og %(count)d til",
-    "batchMissingInline": "Mangler: %(items)s",
+    "batchSummary": "AutoEquip: %(processed)d favorittkjøretøy behandlet, %(installed)d gjenstander montert",
     "batchDonated": "%(count)d gjenstander demontert fra andre kjøretøy",
-    "batchDowngraded": "Downgrade: %(count)d type(r) erstattet med en tilgjengelig variant",
     "batchSkippedNoSets": "%(count)d kjøretøy hoppet over (ingen lagrede sett)",
     "batchVehicleError": "%(veh)s: %(err)s",
     "batchMoreErrors": "… og %(count)d feil til (se loggen)",
+    "batchMissingHeader": "AutoEquip: ikke nok utstyr til alle favorittkjøretøyene!",
+    "batchMissingListHeader": "Mangler:",
     "batchMissingLine": "%(count)d× %(name)s",
 
     "noSubscription": "Auto Equipment Return er deaktivert: fant ingen aktivt WoT Plus-abonnement.",

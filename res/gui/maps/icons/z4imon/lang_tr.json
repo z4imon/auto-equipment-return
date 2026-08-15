@@ -44,15 +44,13 @@
 
     "batchNoTargets": "AutoEquip: geçerli karusel filtresinde favori araç yok",
     "batchNoSavedSets": "AutoEquip: %(count)d favori aracın hiçbirinde kayıtlı set yok",
-    "batchReady": "AutoEquip: %(total)d birincil aracın %(ready)d tanesi savaşa hazır",
-    "batchIncomplete": "Eksik: %(vehicles)s",
-    "batchMoreIncomplete": "… ve %(count)d tane daha",
-    "batchMissingInline": "Eksik olanlar: %(items)s",
+    "batchSummary": "AutoEquip: %(processed)d favori araç işlendi, %(installed)d nesne takıldı",
     "batchDonated": "Diğer araçlardan %(count)d nesne söküldü",
-    "batchDowngraded": "Downgrade: %(count)d tür mevcut bir varyantla değiştirildi",
     "batchSkippedNoSets": "%(count)d araç atlandı (kayıtlı set yok)",
     "batchVehicleError": "%(veh)s: %(err)s",
     "batchMoreErrors": "… ve %(count)d hata daha (günlüğe bak)",
+    "batchMissingHeader": "AutoEquip: tüm favori araçlar için yeterli ekipman yok!",
+    "batchMissingListHeader": "Eksik:",
     "batchMissingLine": "%(count)d× %(name)s",
 
     "noSubscription": "Auto Equipment Return devre dışı: etkin bir WoT Plus aboneliği bulunamadı.",

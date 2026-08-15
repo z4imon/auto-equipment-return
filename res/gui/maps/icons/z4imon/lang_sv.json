@@ -44,15 +44,13 @@
 
     "batchNoTargets": "AutoEquip: inga favoritfordon i det aktuella karusellfiltret",
     "batchNoSavedSets": "AutoEquip: inget av de %(count)d favoritfordonen har sparade uppsättningar",
-    "batchReady": "AutoEquip: %(ready)d av %(total)d primärfordon är stridsklara",
-    "batchIncomplete": "Ofullständiga: %(vehicles)s",
-    "batchMoreIncomplete": "… och %(count)d till",
-    "batchMissingInline": "Saknas: %(items)s",
+    "batchSummary": "AutoEquip: %(processed)d favoritfordon behandlade, %(installed)d föremål monterade",
     "batchDonated": "%(count)d föremål demonterade från andra fordon",
-    "batchDowngraded": "Downgrade: %(count)d typ(er) ersatta med en tillgänglig variant",
     "batchSkippedNoSets": "%(count)d fordon överhoppade (inga sparade uppsättningar)",
     "batchVehicleError": "%(veh)s: %(err)s",
     "batchMoreErrors": "… och %(count)d fel till (se loggen)",
+    "batchMissingHeader": "AutoEquip: inte tillräckligt med utrustning för alla favoritfordon!",
+    "batchMissingListHeader": "Saknas:",
     "batchMissingLine": "%(count)d× %(name)s",
 
     "noSubscription": "Auto Equipment Return är inaktiverad: ingen aktiv WoT Plus-prenumeration hittades.",
