@@ -64,7 +64,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip: den automatiska monteringen har stängts av så att bläddring bland andra fordon inte råkar flytta runt din utrustning. Du kan slå på den igen när som helst via reglaget i menyn.",
 
-    "importModDisplayName": "Auto Equipment Return av Z4imon – import",
+    "cleanupLabel": "Montera av utrustning som inte finns i det sparade setet",
+    "cleanupScopeAll": "Alla stridsvagnar med ett sparat set",
+    "cleanupScopePrimary": "Endast primära stridsvagnar (denna hangar)",
+    "cleanupButtonText": "Montera av",
+    "cleanupTooltip": "{HEADER}Montera av utrustning som inte finns i det sparade setet{/HEADER}{BODY}Tar av all utrustning från varje stridsvagn som inte sitter i exakt den plats som dess sparade set ger den, och lägger tillbaka den i förrådet.\n\nFrämst för nedgraderad utrustning: när en trofédel inte gick att få tag på monterade modden standardversionen i stället. Den finns inte i det sparade setet och tas därför av här.\n\nStridsvagnar utan sparat set rörs inte, och inget tas av som skulle kosta krediter, guld eller ett demonteringskit.{/BODY}",
+    "cleanupNothing": "AutoEquip: ingen utrustning utanför de sparade seten hittades",
+    "cleanupDone": "AutoEquip: %(count)d del(ar) avmonterade från %(vehicles)d stridsvagn(ar)",
+    "cleanupToDepot": "Tillbaka i förrådet: %(items)s",
+    "cleanupKept": "Kvar (avmontering skulle inte vara gratis): %(items)s",
+    "cleanupMoreItems": "… och %(count)d till",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "Ditt konto-ID: %(accountId)s",
     "importDropdownLabel": "Importera sparade konfigurationer från kurzdors auto equipment return",
     "importOwnDropdownLabel": "Importera sparade konfigurationer från ett annat av dina konton",

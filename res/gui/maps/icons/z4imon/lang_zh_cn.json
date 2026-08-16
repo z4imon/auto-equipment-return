@@ -64,7 +64,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip：已关闭自动安装，以免浏览其他车辆时意外挪动你的设备。你可以随时通过菜单中的开关重新启用。",
 
-    "importModDisplayName": "Auto Equipment Return by Z4imon – 导入",
+    "cleanupLabel": "拆卸不在已保存方案中的设备",
+    "cleanupScopeAll": "所有有保存方案的坦克",
+    "cleanupScopePrimary": "仅主力坦克（本车库）",
+    "cleanupButtonText": "拆卸",
+    "cleanupTooltip": "{HEADER}拆卸不在已保存方案中的设备{/HEADER}{BODY}从每辆坦克上拆下所有未处于其保存方案所指定槽位的设备，并放回仓库。\n\n主要针对降级设备：当悬赏设备无法获得时，Mod 会改装普通版本。它不在保存方案里，因此会在这里被拆下。\n\n没有保存方案的坦克不会被动，也不会拆卸任何需要花费银币、金币或拆卸套件的设备。{/BODY}",
+    "cleanupNothing": "AutoEquip：未发现保存方案之外的设备",
+    "cleanupDone": "AutoEquip：从 %(vehicles)d 辆坦克上拆下了 %(count)d 件设备",
+    "cleanupToDepot": "已放回仓库：%(items)s",
+    "cleanupKept": "保留（拆卸需要付费）：%(items)s",
+    "cleanupMoreItems": "… 以及其他 %(count)d 件",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "你的账号 ID：%(accountId)s",
     "importDropdownLabel": "从 kurzdor 的 auto equipment return 导入已保存的配置",
     "importOwnDropdownLabel": "从你的另一个账号导入已保存的配置",

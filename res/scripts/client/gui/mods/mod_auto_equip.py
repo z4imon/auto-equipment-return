@@ -10,10 +10,11 @@ next to it, one module per job:
     auto_equip.rpc         raw inventory calls to the server
     auto_equip.apply       restoring saved sets onto vehicles
     auto_equip.save        snapshotting the current setups
+    auto_equip.cleanup     stripping devices no saved set asks for
     auto_equip.recommended WoT Plus' equipment recommendation -> saveable sets
     auto_equip.gameface    the hangar popover
     auto_equip.carousel_menu  the carousel right-click entry
-    auto_equip.importer    the ModsSettingsAPI import panel
+    auto_equip.importer    the ModsSettingsAPI settings panel
     auto_equip.i18n        player-visible strings
     auto_equip.messages    system messages and the hangar veil
 """

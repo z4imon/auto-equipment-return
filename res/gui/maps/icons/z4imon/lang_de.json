@@ -64,7 +64,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip: Automatisches Einbauen wurde deaktiviert, damit beim Ansehen anderer Fahrzeuge nicht versehentlich Equipment hin- und hergetauscht wird. Über den Schalter im Menü wieder aktivierbar.",
 
-    "importModDisplayName": "Auto Equipment Return by Z4imon – Import",
+    "cleanupLabel": "Falsch eingebautes Equipment ausbauen",
+    "cleanupScopeAll": "Alle Panzer mit gespeichertem Set",
+    "cleanupScopePrimary": "Nur Primärpanzer (dieser Hangar)",
+    "cleanupButtonText": "Ausbauen",
+    "cleanupTooltip": "{HEADER}Falsch eingebautes Equipment ausbauen{/HEADER}{BODY}Nimmt von jedem Panzer alles Equipment ab, das nicht genau auf dem Platz sitzt, den sein gespeichertes Set dafür vorsieht, und legt es zurück ins Depot.\n\nVor allem für gedowngradetes Equipment: War ein erbeutetes Teil beim Einbau nicht verfügbar, hat die Mod stattdessen das Standard-Teil eingebaut. Das steht nicht im gespeicherten Set und kommt hier wieder herunter.\n\nPanzer ohne gespeichertes Set werden nicht angefasst, und es wird nichts ausgebaut, was Credits, Gold oder einen Demontagesatz kosten würde.{/BODY}",
+    "cleanupNothing": "AutoEquip: Kein falsch eingebautes Equipment gefunden",
+    "cleanupDone": "AutoEquip: %(count)d Teil(e) von %(vehicles)d Panzer(n) ausgebaut",
+    "cleanupToDepot": "Zurück im Depot: %(items)s",
+    "cleanupKept": "Nicht ausgebaut (wäre kostenpflichtig): %(items)s",
+    "cleanupMoreItems": "… und %(count)d weitere",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "Deine Account-ID: %(accountId)s",
     "importDropdownLabel": "Gespeicherte Setups von Kurzdors Auto Equipment Return importieren",
     "importOwnDropdownLabel": "Gespeicherte Setups von einem deiner anderen Accounts importieren",

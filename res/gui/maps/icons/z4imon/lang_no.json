@@ -64,7 +64,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip: automatisk montering er slått av slik at det å bla gjennom andre kjøretøy ikke flytter utstyret ditt ved et uhell. Du kan slå den på igjen når som helst med bryteren i menyen.",
 
-    "importModDisplayName": "Auto Equipment Return av Z4imon – import",
+    "cleanupLabel": "Demonter utstyr som ikke er i det lagrede settet",
+    "cleanupScopeAll": "Alle stridsvogner med et lagret sett",
+    "cleanupScopePrimary": "Bare primære stridsvogner (denne hangaren)",
+    "cleanupButtonText": "Demonter",
+    "cleanupTooltip": "{HEADER}Demonter utstyr som ikke er i det lagrede settet{/HEADER}{BODY}Tar av alt utstyr fra hver stridsvogn som ikke sitter i nøyaktig den plassen dens lagrede sett gir det, og legger det tilbake i lageret.\n\nFørst og fremst for nedgradert utstyr: da en trofedel ikke var tilgjengelig, monterte modden standardversjonen i stedet. Den står ikke i det lagrede settet og tas derfor av her.\n\nStridsvogner uten lagret sett røres ikke, og ingenting tas av som ville koste kreditter, gull eller et demonteringssett.{/BODY}",
+    "cleanupNothing": "AutoEquip: fant ikke utstyr utenfor de lagrede settene",
+    "cleanupDone": "AutoEquip: %(count)d del(er) tatt av %(vehicles)d stridsvogn(er)",
+    "cleanupToDepot": "Tilbake i lageret: %(items)s",
+    "cleanupKept": "Beholdt (demontering ville ikke være gratis): %(items)s",
+    "cleanupMoreItems": "… og %(count)d til",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "Konto-ID-en din: %(accountId)s",
     "importDropdownLabel": "Importer lagrede konfigurasjoner fra kurzdors auto equipment return",
     "importOwnDropdownLabel": "Importer lagrede konfigurasjoner fra en annen av kontoene dine",

@@ -64,7 +64,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip: automātiskā uzstādīšana tika izslēgta, lai citu tehniku pārlūkošana nejauši nepārvietotu tavu aprīkojumu. To jebkurā brīdī var atkal ieslēgt ar slēdzi izvēlnē.",
 
-    "importModDisplayName": "Auto Equipment Return, autors Z4imon – imports",
+    "cleanupLabel": "Noņemt aprīkojumu, kas nav saglabātajā komplektā",
+    "cleanupScopeAll": "Visas tehnikas ar saglabātu komplektu",
+    "cleanupScopePrimary": "Tikai galvenā tehnika (šis angars)",
+    "cleanupButtonText": "Noņemt",
+    "cleanupTooltip": "{HEADER}Noņemt aprīkojumu, kas nav saglabātajā komplektā{/HEADER}{BODY}Noņem no katras tehnikas visu aprīkojumu, kas neatrodas tieši tajā slotā, ko tam paredz saglabātais komplekts, un atgriež to noliktavā.\n\nGalvenokārt aizstātajam aprīkojumam: ja balvas detaļa nebija pieejama, mods uzstādīja standarta versiju. Tā nav saglabātajā komplektā, tāpēc šeit tiek noņemta.\n\nTehnika bez saglabāta komplekta netiek aiztikta, un nekas netiek noņemts, ja tas maksātu kredītus, zeltu vai demontāžas komplektu.{/BODY}",
+    "cleanupNothing": "AutoEquip: netika atrasts aprīkojums ārpus saglabātajiem komplektiem",
+    "cleanupDone": "AutoEquip: noņemtas %(count)d detaļas no %(vehicles)d tehnikām",
+    "cleanupToDepot": "Atpakaļ noliktavā: %(items)s",
+    "cleanupKept": "Atstāts (noņemšana nebūtu bezmaksas): %(items)s",
+    "cleanupMoreItems": "… un vēl %(count)d",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "Tavs konta ID: %(accountId)s",
     "importDropdownLabel": "Importēt saglabātās konfigurācijas no kurzdor auto equipment return",
     "importOwnDropdownLabel": "Importēt saglabātās konfigurācijas no cita sava konta",

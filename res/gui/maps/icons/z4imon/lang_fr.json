@@ -64,7 +64,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip : l'installation automatique a été désactivée afin que la consultation des autres véhicules ne déplace pas accidentellement vos équipements. Vous pouvez la réactiver à tout moment depuis le menu.",
 
-    "importModDisplayName": "Auto Equipment Return par Z4imon – Importation",
+    "cleanupLabel": "Démonter les équipements absents du set enregistré",
+    "cleanupScopeAll": "Tous les chars avec un set enregistré",
+    "cleanupScopePrimary": "Chars principaux uniquement (ce hangar)",
+    "cleanupButtonText": "Démonter",
+    "cleanupTooltip": "{HEADER}Démonter les équipements absents du set enregistré{/HEADER}{BODY}Retire de chaque char tout équipement qui ne se trouve pas exactement à l’emplacement que son set enregistré lui attribue, et le remet dans le dépôt.\n\nSurtout pour les équipements rétrogradés : si un équipement de prime n'était pas disponible, le mod a monté la version standard à la place. Celle-ci n'est pas dans le set enregistré, elle est donc retirée ici.\n\nLes chars sans set enregistré ne sont pas touchés, et rien n'est retiré qui coûterait des crédits, de l'or ou un kit de démontage.{/BODY}",
+    "cleanupNothing": "AutoEquip : aucun équipement absent des sets enregistrés",
+    "cleanupDone": "AutoEquip : %(count)d équipement(s) retiré(s) de %(vehicles)d char(s)",
+    "cleanupToDepot": "De retour au dépôt : %(items)s",
+    "cleanupKept": "Conservé (le retrait serait payant) : %(items)s",
+    "cleanupMoreItems": "… et %(count)d de plus",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "Votre identifiant de compte : %(accountId)s",
     "importDropdownLabel": "Importer les configurations enregistrées d'auto equipment return de kurzdor",
     "importOwnDropdownLabel": "Importer les configurations enregistrées d'un autre de vos comptes",

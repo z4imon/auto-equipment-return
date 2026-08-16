@@ -64,7 +64,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip: automaatne paigaldus lülitati välja, et teiste sõidukite sirvimine ei liigutaks kogemata sinu varustust. Saad selle menüüs oleva lülitiga igal ajal uuesti sisse lülitada.",
 
-    "importModDisplayName": "Auto Equipment Return autorilt Z4imon – import",
+    "cleanupLabel": "Eemalda varustus, mida salvestatud komplektis pole",
+    "cleanupScopeAll": "Kõik tankid, millel on salvestatud komplekt",
+    "cleanupScopePrimary": "Ainult põhitankid (see angaar)",
+    "cleanupButtonText": "Eemalda",
+    "cleanupTooltip": "{HEADER}Eemalda varustus, mida salvestatud komplektis pole{/HEADER}{BODY}Eemaldab igalt tankilt kogu varustuse, mis ei ole täpselt selles pesas, mille tema salvestatud komplekt sellele annab, ja paneb selle lattu tagasi.\n\nEelkõige asendatud varustuse jaoks: kui tasuvarustust polnud saada, paigaldas mood selle asemel tavaversiooni. Seda salvestatud komplektis pole, seega eemaldatakse see siin.\n\nSalvestatud komplektita tanke ei puudutata ja midagi ei eemaldata, kui see maksaks krediite, kulda või eemalduskomplekti.{/BODY}",
+    "cleanupNothing": "AutoEquip: salvestatud komplektidest väljaspool varustust ei leitud",
+    "cleanupDone": "AutoEquip: %(count)d osa eemaldatud %(vehicles)d tankilt",
+    "cleanupToDepot": "Tagasi laos: %(items)s",
+    "cleanupKept": "Jäeti alles (eemaldamine poleks tasuta): %(items)s",
+    "cleanupMoreItems": "… ja veel %(count)d",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "Sinu konto ID: %(accountId)s",
     "importDropdownLabel": "Impordi salvestatud konfiguratsioonid kurzdori auto equipment returnist",
     "importOwnDropdownLabel": "Impordi salvestatud konfiguratsioonid mõnelt oma teiselt kontolt",

@@ -51,7 +51,9 @@ def set_refresh_callback(callback):
     _refresh_callback = callback
 
 
-def _notify_refresh():
+def notify_refresh():
+    """Redraws the popover. Public because the cleanup run empties slots behind
+    its back."""
     if _refresh_callback is None:
         return
     try:
@@ -137,9 +139,12 @@ def _normalize_layout(saved_cds, capacity):
     return cds + [0] * (capacity - len(cds))
 
 
-def _build_plan(vehicle, saved):
+def build_plan(vehicle, saved):
     """[(setup index, wanted layout)] for the setups this vehicle actually
-    has. Sets that were never saved are simply not part of the plan."""
+    has. Sets that were never saved are simply not part of the plan.
+
+    This is the RAW saved layout - no downgrades applied. cleanup.py depends on
+    that: a downgraded standard device is precisely what it wants to find."""
     capacity = inventory.slot_capacity(vehicle)
     available = inventory.setup_indices(vehicle)
     wanted_per_setup = ((0, saved.get('set1')), (1, saved.get('set2')))
@@ -249,7 +254,7 @@ def apply_to_vehicle(veh_inv_id, options, callback=None):
             return
 
         original_setup_idx = inventory.active_setup_index(vehicle)
-        plan = _build_plan(vehicle, saved)
+        plan = build_plan(vehicle, saved)
         if not plan:
             return
         if options.force_downgrade or config.is_downgrade_enabled():
@@ -270,7 +275,7 @@ def apply_to_vehicle(veh_inv_id, options, callback=None):
             if not keep_going:
                 break
 
-        yield _restore_active_setup(veh_inv_id, original_setup_idx)
+        yield restore_active_setup(veh_inv_id, original_setup_idx)
 
         if options.push_summary and outcome.has_anything_to_report():
             messages.push_lines(_summary_lines(outcome),
@@ -530,8 +535,9 @@ def _drop_unaffordable(vehicle, current, final, capacity, outcome, ledger):
 
 @adisp_async
 @adisp_process
-def _restore_active_setup(veh_inv_id, original_setup_idx, callback=None):
-    """Puts the vehicle back on the setup that was active before the run."""
+def restore_active_setup(veh_inv_id, original_setup_idx, callback=None):
+    """Puts the vehicle back on the setup that was active before the run.
+    Public because cleanup.py switches setups for the same reason."""
     try:
         vehicle = inventory.vehicle_by_inv_id(veh_inv_id)
         if vehicle is None or original_setup_idx is None:
@@ -543,7 +549,7 @@ def _restore_active_setup(veh_inv_id, original_setup_idx, callback=None):
             LOG.warning('could not restore active setup %s on %s'
                         % (original_setup_idx, veh_inv_id))
     except Exception:
-        LOG.exc('_restore_active_setup failed')
+        LOG.exc('restore_active_setup failed')
     finally:
         if callback is not None:
             callback(None)
@@ -575,7 +581,7 @@ def apply_saved_sets(veh_inv_id):
     if _busy:
         return
     _busy = True
-    _notify_refresh()
+    notify_refresh()
     inventory.reset_donor_search_stats()
     try:
         yield apply_to_vehicle(veh_inv_id, RunOptions())
@@ -584,7 +590,7 @@ def apply_saved_sets(veh_inv_id):
     finally:
         inventory.log_donor_search_stats('apply_saved_sets(%s)' % veh_inv_id)
         _busy = False
-        _notify_refresh()
+        notify_refresh()
 
 
 def on_vehicle_changed():
@@ -596,7 +602,7 @@ def on_vehicle_changed():
         if vehicle is None or vehicle.invID == _last_inv_id:
             return
         _last_inv_id = vehicle.invID
-        _notify_refresh()
+        notify_refresh()
         if not config.is_auto_enabled() or not config.has_saved_sets(vehicle.invID):
             return
         # Let the selection settle first, then start - unless the player
@@ -652,7 +658,7 @@ def equip_primary_vehicles():
                          excluded_donor_inv_ids=set(v.invID for v in with_sets))
 
     _busy = True
-    _notify_refresh()
+    notify_refresh()
     inventory.reset_donor_search_stats()
     veil_shown = messages.show_waiting()
     totals = _BatchTotals()
@@ -678,7 +684,7 @@ def equip_primary_vehicles():
         if veil_shown:
             messages.hide_waiting()
         _busy = False
-        _notify_refresh()
+        notify_refresh()
 
 
 class _BatchTotals(object):
@@ -730,7 +736,11 @@ def _disable_auto_install_after_batch():
     browses through their OTHER vehicles right after a batch: each selection
     re-triggers a run, which can pull a device straight back off a Primary
     vehicle. Turning it off protects the freshly equipped fleet - and is only
-    announced when it actually changed something."""
+    announced when it actually changed something.
+
+    The cleanup run deliberately does NOT do this: it hands equipment back to
+    the depot, and the normal per-vehicle install is what should redistribute
+    it."""
     if not config.is_auto_enabled():
         return
     config.set_auto_enabled(False)

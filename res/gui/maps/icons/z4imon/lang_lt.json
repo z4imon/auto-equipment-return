@@ -64,7 +64,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip: automatinis montavimas išjungtas, kad naršant kitas technikas įranga netyčia nebūtų perkelta. Bet kada gali jį vėl įjungti meniu jungikliu.",
 
-    "importModDisplayName": "Auto Equipment Return, sukūrė Z4imon – importas",
+    "cleanupLabel": "Nuimti įrangą, kurios nėra išsaugotame rinkinyje",
+    "cleanupScopeAll": "Visi tankai su išsaugotu rinkiniu",
+    "cleanupScopePrimary": "Tik pagrindiniai tankai (šis angaras)",
+    "cleanupButtonText": "Nuimti",
+    "cleanupTooltip": "{HEADER}Nuimti įrangą, kurios nėra išsaugotame rinkinyje{/HEADER}{BODY}Nuima nuo kiekvieno tanko visą įrangą, kuri nėra būtent toje vietoje, kurią jai skiria išsaugotas rinkinys, ir grąžina ją į sandėlį.\n\nVisų pirma pakeistai įrangai: kai trofėjinės dalies nepavyko gauti, modas įdėjo standartinę versiją. Jos nėra išsaugotame rinkinyje, todėl ji nuimama čia.\n\nTankai be išsaugoto rinkinio neliečiami, ir niekas nenuimama, jei tai kainuotų kreditų, aukso ar išmontavimo rinkinį.{/BODY}",
+    "cleanupNothing": "AutoEquip: įrangos už išsaugotų rinkinių ribų nerasta",
+    "cleanupDone": "AutoEquip: nuimta %(count)d dalių nuo %(vehicles)d tankų",
+    "cleanupToDepot": "Grįžo į sandėlį: %(items)s",
+    "cleanupKept": "Palikta (nuėmimas nebūtų nemokamas): %(items)s",
+    "cleanupMoreItems": "… ir dar %(count)d",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "Tavo paskyros ID: %(accountId)s",
     "importDropdownLabel": "Importuoti įrašytas konfigūracijas iš kurzdor auto equipment return",
     "importOwnDropdownLabel": "Importuoti įrašytas konfigūracijas iš kitos savo paskyros",

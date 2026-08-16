@@ -64,7 +64,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip: automatyczny montaż został wyłączony, aby przeglądanie innych pojazdów przypadkiem nie przenosiło wyposażenia. Możesz go w każdej chwili włączyć ponownie w menu.",
 
-    "importModDisplayName": "Auto Equipment Return autorstwa Z4imon – import",
+    "cleanupLabel": "Zdemontuj wyposażenie spoza zapisanego zestawu",
+    "cleanupScopeAll": "Wszystkie czołgi z zapisanym zestawem",
+    "cleanupScopePrimary": "Tylko czołgi główne (ten hangar)",
+    "cleanupButtonText": "Zdemontuj",
+    "cleanupTooltip": "{HEADER}Zdemontuj wyposażenie spoza zapisanego zestawu{/HEADER}{BODY}Zdejmuje z każdego czołgu całe wyposażenie, które nie znajduje się dokładnie w gnieździe przypisanym mu w zapisanym zestawie, i odkłada je do magazynu.\n\nPrzede wszystkim dla wyposażenia zastępczego: jeśli zdobyczna część nie była dostępna, mod zamontował wersję standardową. Tej nie ma w zapisanym zestawie, więc zostanie tu zdjęta.\n\nCzołgi bez zapisanego zestawu pozostają nietknięte i nic nie zostanie zdjęte, jeśli kosztowałoby to kredyty, złoto lub zestaw demontażowy.{/BODY}",
+    "cleanupNothing": "AutoEquip: nie znaleziono wyposażenia spoza zapisanych zestawów",
+    "cleanupDone": "AutoEquip: zdjęto %(count)d elementów z %(vehicles)d czołgów",
+    "cleanupToDepot": "Z powrotem w magazynie: %(items)s",
+    "cleanupKept": "Pozostawiono (demontaż nie byłby darmowy): %(items)s",
+    "cleanupMoreItems": "… i %(count)d więcej",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "Twój identyfikator konta: %(accountId)s",
     "importDropdownLabel": "Importuj zapisane konfiguracje z auto equipment return autorstwa kurzdora",
     "importOwnDropdownLabel": "Importuj zapisane konfiguracje z innego swojego konta",

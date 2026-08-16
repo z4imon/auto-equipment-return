@@ -64,7 +64,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip: Auto-install has been turned off so browsing other vehicles doesn't accidentally shuffle equipment around. Re-enable it any time via the toggle in the menu.",
 
-    "importModDisplayName": "Auto Equipment Return by Z4imon – Import",
+    "cleanupLabel": "Demount equipment that is not in the saved set",
+    "cleanupScopeAll": "All vehicles with a saved set",
+    "cleanupScopePrimary": "Primary vehicles only (this hangar)",
+    "cleanupButtonText": "Demount",
+    "cleanupTooltip": "{HEADER}Demount equipment that is not in the saved set{/HEADER}{BODY}Takes off every device that is not sitting in exactly the slot its vehicle’s saved set gives it, and puts it back in the depot.\n\nMainly for downgraded equipment: when a bounty device could not be sourced, the mod fitted the standard one instead. That device is not in the saved set, so it comes off here.\n\nVehicles with nothing saved are left alone, and nothing is removed that would cost credits, gold or a demount kit.{/BODY}",
+    "cleanupNothing": "AutoEquip: nothing found that the saved sets do not name",
+    "cleanupDone": "AutoEquip: %(count)d device(s) taken off %(vehicles)d vehicle(s)",
+    "cleanupToDepot": "Back in the depot: %(items)s",
+    "cleanupKept": "Left on (removal would not be free): %(items)s",
+    "cleanupMoreItems": "… and %(count)d more",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "Your account ID: %(accountId)s",
     "importDropdownLabel": "Import saved configs from kurzdor's auto equipment return",
     "importOwnDropdownLabel": "Import saved configs from another of your accounts",

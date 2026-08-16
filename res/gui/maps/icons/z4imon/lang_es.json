@@ -64,7 +64,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip: la instalación automática se ha desactivado para que consultar otros vehículos no mueva tu equipamiento por accidente. Puedes volver a activarla cuando quieras desde el menú.",
 
-    "importModDisplayName": "Auto Equipment Return de Z4imon – Importación",
+    "cleanupLabel": "Desmontar el equipamiento que no está en el set guardado",
+    "cleanupScopeAll": "Todos los tanques con un set guardado",
+    "cleanupScopePrimary": "Solo tanques principales (este hangar)",
+    "cleanupButtonText": "Desmontar",
+    "cleanupTooltip": "{HEADER}Desmontar el equipamiento que no está en el set guardado{/HEADER}{BODY}Retira de cada tanque todo el equipamiento que no está exactamente en la ranura que su set guardado le asigna, y lo devuelve al depósito.\n\nSobre todo para el equipamiento rebajado: si una pieza de recompensa no estaba disponible, el mod montó la versión estándar. Esa no está en el set guardado, así que se retira aquí.\n\nLos tanques sin set guardado no se tocan, y no se retira nada que costara créditos, oro o un kit de desmontaje.{/BODY}",
+    "cleanupNothing": "AutoEquip: no se encontró equipamiento fuera de los sets guardados",
+    "cleanupDone": "AutoEquip: %(count)d pieza(s) retirada(s) de %(vehicles)d tanque(s)",
+    "cleanupToDepot": "De vuelta en el depósito: %(items)s",
+    "cleanupKept": "Conservado (retirarlo no sería gratis): %(items)s",
+    "cleanupMoreItems": "… y %(count)d más",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "Tu ID de cuenta: %(accountId)s",
     "importDropdownLabel": "Importar configuraciones guardadas de auto equipment return de kurzdor",
     "importOwnDropdownLabel": "Importar configuraciones guardadas de otra de tus cuentas",
