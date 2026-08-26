@@ -24,7 +24,7 @@ from adisp import adisp_async, adisp_process
 from gui.Scaleform.daapi.view.lobby.hangar.hangar_cm_handlers import VehicleContextMenuHandler
 from gui.shared.notifications import NotificationPriorityLevel
 
-from . import config, inventory, messages, rpc
+from . import config, inventory, messages, metrics, rpc
 from . import apply as apply_engine
 from .i18n import t
 from .log import LOG
@@ -147,6 +147,8 @@ def demount_free_equipment(veh_inv_id):
         return
 
     _busy = True
+    metrics.start_run('carousel_demount', 'context_menu')
+    metrics.set_vehicle(vehicle)
     original_setup_idx = inventory.active_setup_index(vehicle)
     removed = 0
     veil_shown = messages.show_waiting(messages.WAITING_KEY_OPERATION,
@@ -161,6 +163,7 @@ def demount_free_equipment(veh_inv_id):
     except Exception:
         LOG.exc('demount_free_equipment failed')
     finally:
+        metrics.end_run(vehicles_planned=1, vehicles_touched=1 if removed else 0)
         _busy = False
         if veil_shown:
             messages.hide_waiting(messages.WAITING_KEY_OPERATION)

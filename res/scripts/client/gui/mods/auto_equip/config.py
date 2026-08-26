@@ -8,6 +8,7 @@ the same PC never mixes up saved sets. File layout:
 
     {"autoEquipEnabled": true,
      "downgradeEnabled": false,
+     "metricsEnabled": true,
      "sets": {"<vehicle invID>": {"set1": [intCD, intCD, intCD] or null,
                                   "set2": [intCD, intCD, intCD] or null,
                                   "vehicleCD": intCD or null}}}
@@ -33,6 +34,7 @@ from .log import LOG
 _DEFAULTS = {
     'autoEquipEnabled': True,   # install saved sets automatically on vehicle selection
     'downgradeEnabled': False,  # replace unavailable special devices with their standard variant
+    'metricsEnabled': True,     # write run/operation timings to metrics/*.csv
 }
 
 _EMPTY_ENTRY = {'set1': None, 'set2': None, 'vehicleCD': None}
@@ -111,6 +113,7 @@ def load_for_account(account_id):
             _settings = {
                 'autoEquipEnabled': bool(data.get('autoEquipEnabled', True)),
                 'downgradeEnabled': bool(data.get('downgradeEnabled', False)),
+                'metricsEnabled': bool(data.get('metricsEnabled', True)),
             }
             _sets = _clean_sets(data.get('sets', {}))
         else:
@@ -143,6 +146,7 @@ def save():
             json.dump({
                 'autoEquipEnabled': bool(_settings['autoEquipEnabled']),
                 'downgradeEnabled': bool(_settings['downgradeEnabled']),
+                'metricsEnabled': bool(_settings['metricsEnabled']),
                 'sets': _sets,
             }, handle, indent=4)
     except Exception:
@@ -180,6 +184,20 @@ def set_downgrade_enabled(enabled):
     _settings['downgradeEnabled'] = bool(enabled)
     save()
     return _settings['downgradeEnabled']
+
+
+def is_metrics_enabled():
+    """Whether runs are timed into metrics/*.csv. Not gated on _mod_disabled:
+    a disabled mod does no runs, so there is nothing to measure either way, and
+    keeping the two independent means turning measuring off never looks like
+    turning the mod off."""
+    return bool(_settings.get('metricsEnabled', True))
+
+
+def set_metrics_enabled(enabled):
+    _settings['metricsEnabled'] = bool(enabled)
+    save()
+    return _settings['metricsEnabled']
 
 
 # ---------------------------------------------------------------------------

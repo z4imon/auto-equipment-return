@@ -24,7 +24,7 @@ from adisp import adisp_async, adisp_process
 from CurrentVehicle import g_currentVehicle
 from gui.shared.notifications import NotificationPriorityLevel
 
-from . import config, inventory, messages, rpc
+from . import config, inventory, messages, metrics, rpc
 from .i18n import t
 from .log import LOG
 
@@ -87,6 +87,10 @@ class RunOutcome(object):
         self.donated = []       # (device name, donor vehicle name)
         self.downgraded = []    # (special device name, standard device name)
         self.missing = []       # devices that could not be sourced for free
+        # True when the run gave up before working through the whole plan -
+        # the player selected another vehicle, or the vehicle vanished. Its
+        # timings describe a partial run and must be readable as such.
+        self.interrupted = False
 
     def has_anything_to_report(self):
         return bool(self.installed or self.skipped or self.errors or self.donated)
@@ -248,6 +252,7 @@ def apply_to_vehicle(veh_inv_id, options, callback=None):
                      % vehicle.userName)
             return
 
+        metrics.set_vehicle(vehicle)
         original_setup_idx = inventory.active_setup_index(vehicle)
         plan = _build_plan(vehicle, saved)
         if not plan:
@@ -264,10 +269,12 @@ def apply_to_vehicle(veh_inv_id, options, callback=None):
         ledger = DepotLedger()
         for setup_idx, wanted in plan:
             if _run_interrupted(veh_inv_id, options):
+                outcome.interrupted = True
                 break
             keep_going = yield _apply_setup(veh_inv_id, setup_idx, wanted,
                                             options, outcome, ledger)
             if not keep_going:
+                outcome.interrupted = True
                 break
 
         yield _restore_active_setup(veh_inv_id, original_setup_idx)
@@ -569,22 +576,44 @@ def _summary_lines(outcome):
 # ---------------------------------------------------------------------------
 
 @adisp_process
-def apply_saved_sets(veh_inv_id):
-    """Single-vehicle run, used by the selection trigger."""
+def apply_saved_sets(veh_inv_id, trigger='selection'):
+    """Single-vehicle run, used by the selection trigger. `trigger` only names
+    what set the run off, for the metrics row."""
     global _busy
     if _busy:
         return
     _busy = True
     _notify_refresh()
     inventory.reset_donor_search_stats()
+    metrics.start_run('single', trigger)
+    outcome = None
     try:
-        yield apply_to_vehicle(veh_inv_id, RunOptions())
+        outcome = yield apply_to_vehicle(veh_inv_id, RunOptions())
     except Exception:
         LOG.exc('apply_saved_sets failed')
     finally:
         inventory.log_donor_search_stats('apply_saved_sets(%s)' % veh_inv_id)
+        metrics.end_run(**_single_run_totals(outcome))
         _busy = False
         _notify_refresh()
+
+
+def _single_run_totals(outcome):
+    """The metrics row for a one-vehicle run, read off the RunOutcome that run
+    already produced. A vehicle counts as touched when it has something to
+    report - which is exactly when the run made server calls for it."""
+    if outcome is None:
+        return {'vehicles_planned': 1, 'vehicles_touched': 0}
+    return {
+        'vehicles_planned': 1,
+        'vehicles_touched': 1 if outcome.has_anything_to_report() else 0,
+        'installed': outcome.installed,
+        'donor_demounts': len(outcome.donated),
+        'downgrades': len(outcome.downgraded),
+        'skipped': len(outcome.skipped),
+        'errors': len(outcome.errors),
+        'interrupted': outcome.interrupted,
+    }
 
 
 def on_vehicle_changed():
@@ -654,6 +683,7 @@ def equip_primary_vehicles():
     _busy = True
     _notify_refresh()
     inventory.reset_donor_search_stats()
+    metrics.start_run('batch', 'button')
     veil_shown = messages.show_waiting()
     totals = _BatchTotals()
     try:
@@ -675,6 +705,7 @@ def equip_primary_vehicles():
     finally:
         inventory.log_donor_search_stats(
             'equip_primary_vehicles(%d vehicle(s))' % totals.processed)
+        metrics.end_run(vehicles_planned=len(with_sets), **totals.metrics_row())
         if veil_shown:
             messages.hide_waiting()
         _busy = False
@@ -691,11 +722,20 @@ class _BatchTotals(object):
         self.downgraded = []
         self.errors = []
         self.missing_counts = {}    # device name -> number of vehicles missing it
+        # Only for the metrics row - the player-facing summary does not use them.
+        self.touched = 0
+        self.skipped = 0
+        self.interrupted = False
 
     def add(self, vehicle, outcome):
         self.processed += 1
         self.installed += outcome.installed
         self.donated += len(outcome.donated)
+        self.skipped += len(outcome.skipped)
+        if outcome.has_anything_to_report():
+            self.touched += 1
+        if outcome.interrupted:
+            self.interrupted = True
         for note in outcome.downgraded:
             if note not in self.downgraded:
                 self.downgraded.append(note)
@@ -717,6 +757,19 @@ class _BatchTotals(object):
         if len(self.errors) > _MAX_SUMMARY_ERRORS:
             lines.append(t('batchMoreErrors', count=len(self.errors) - _MAX_SUMMARY_ERRORS))
         return lines
+
+    def metrics_row(self):
+        """What end_run() wants, straight out of the sums this class already
+        keeps for the summary message."""
+        return {
+            'vehicles_touched': self.touched,
+            'installed': self.installed,
+            'donor_demounts': self.donated,
+            'downgrades': len(self.downgraded),
+            'skipped': self.skipped,
+            'errors': len(self.errors),
+            'interrupted': self.interrupted,
+        }
 
     def missing_lines(self):
         lines = [t('batchMissingHeader'), t('batchMissingListHeader')]

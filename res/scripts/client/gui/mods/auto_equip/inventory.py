@@ -8,8 +8,6 @@ Gui items are recreated on every cache sync, so nothing here is ever cached:
 each helper re-fetches what it needs.
 """
 
-import time
-
 from gui.shared.gui_items import GUI_ITEM_TYPE
 from gui.shared.utils.requesters import REQ_CRITERIA
 from helpers import dependency
@@ -17,7 +15,7 @@ from post_progression_common import TankSetupGroupsId
 from skeletons.gui.game_control import IWotPlusController
 from skeletons.gui.shared import IItemsCache
 
-from . import config, hangar
+from . import config, hangar, metrics
 from .log import LOG
 
 OPT_DEVICE_GROUP = TankSetupGroupsId.OPTIONAL_DEVICES_AND_BOOSTERS
@@ -249,21 +247,30 @@ def locate_device_on_vehicle(vehicle, device_cd):
 # Every lookup walks the player's whole vehicle list, so this is where a slow
 # run actually spends its time. The counters let one aggregate line be logged
 # per run instead of per-vehicle spam.
+#
+# Timed on metrics.now() rather than time.time(): under Windows the latter
+# resolves to about 15.6 ms, so a scan that takes 3 ms reads as either 0 or
+# 15.6 - which is how these counters could report 0.000s for real work.
 # ---------------------------------------------------------------------------
 
-_donor_search_seconds = 0.0
+_donor_search_ms = 0.0
 _donor_search_count = 0
 
 
 def reset_donor_search_stats():
-    global _donor_search_seconds, _donor_search_count
-    _donor_search_seconds = 0.0
+    global _donor_search_ms, _donor_search_count
+    _donor_search_ms = 0.0
     _donor_search_count = 0
+
+
+def donor_search_stats():
+    """(milliseconds spent, number of lookups) since the last reset."""
+    return _donor_search_ms, _donor_search_count
 
 
 def log_donor_search_stats(context):
     LOG.info('%s: spent %.3fs scanning other vehicles for donors (%d lookup%s)'
-             % (context, _donor_search_seconds, _donor_search_count,
+             % (context, _donor_search_ms / 1000.0, _donor_search_count,
                 '' if _donor_search_count == 1 else 's'))
 
 
@@ -311,13 +318,15 @@ def find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids=None):
 
     Mode-locked loaners are never donors: their equipment cannot be released,
     so picking one only produces a failed demount and a skipped install."""
-    global _donor_search_seconds, _donor_search_count
-    started = time.time()
+    global _donor_search_ms, _donor_search_count
+    started = metrics.now()
     try:
         return _find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids)
     finally:
-        _donor_search_seconds += time.time() - started
+        spent = metrics.elapsed_ms(started)
+        _donor_search_ms += spent
         _donor_search_count += 1
+        metrics.note_client_op('donor_search', spent, device_cd=device_cd)
 
 
 def _find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids):

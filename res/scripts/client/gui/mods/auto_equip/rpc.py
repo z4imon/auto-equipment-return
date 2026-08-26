@@ -18,6 +18,7 @@ import BigWorld
 
 from adisp import adisp_async
 
+from . import metrics
 from .inventory import OPT_DEVICE_GROUP
 from .log import LOG
 
@@ -37,22 +38,51 @@ def is_success(code):
 
 @adisp_async
 def pause(seconds, callback=None):
-    BigWorld.callback(seconds, lambda: callback(None))
+    """The settle pause between operations. Booked on its own metrics counter:
+    it is neither server time nor our own work, and a run that turns out to be
+    mostly OP_PAUSE is a very different problem from one that is mostly latency."""
+    started = metrics.now()
+
+    def done():
+        metrics.note_pause(metrics.elapsed_ms(started))
+        callback(None)
+
+    BigWorld.callback(seconds, done)
 
 
-def _retry_on_cooldown(fire, callback, attempt=0):
+def _retry_on_cooldown(op, fields, fire, callback):
     """Runs an RPC and re-issues it while the server answers RES_COOLDOWN.
     `fire(done)` must issue the call and report back via done(code, result).
     The pause grows per attempt (0.1/0.2/0.3/0.4s); after that the cooldown
-    result is passed through to the caller unchanged."""
-    def done(code, result):
-        if code == _RES_COOLDOWN and attempt < _COOLDOWN_RETRIES:
-            delay = 0.1 * (attempt + 1)
-            LOG.info('server cooldown, retrying in %.1fs (attempt %d)' % (delay, attempt + 1))
-            BigWorld.callback(delay, lambda: _retry_on_cooldown(fire, callback, attempt + 1))
-        else:
+    result is passed through to the caller unchanged.
+
+    This is also where every server call in the mod is timed - all three RPCs
+    funnel through here, so one measuring point covers them all. The reported
+    duration is server time ONLY: the retry sleeps are subtracted out and
+    reported as backoff_ms, otherwise the run summary would count them twice,
+    once as server time and once as backoff.
+
+    `state` is a dict because Python 2 closures cannot rebind an outer name."""
+    started = metrics.now()
+    state = {'retries': 0, 'backoff_ms': 0.0}
+
+    def attempt():
+        def done(code, result):
+            if code == _RES_COOLDOWN and state['retries'] < _COOLDOWN_RETRIES:
+                delay = 0.1 * (state['retries'] + 1)
+                state['retries'] += 1
+                state['backoff_ms'] += delay * 1000.0
+                LOG.info('server cooldown, retrying in %.1fs (attempt %d)'
+                         % (delay, state['retries']))
+                BigWorld.callback(delay, attempt)
+                return
+            metrics.note_op(op, metrics.elapsed_ms(started) - state['backoff_ms'],
+                            code=code, retries=state['retries'],
+                            backoff_ms=state['backoff_ms'], **fields)
             callback(result)
-    fire(done)
+        fire(done)
+
+    attempt()
 
 
 @adisp_async
@@ -66,7 +96,8 @@ def change_setup_index(veh_inv_id, setup_idx, callback=None):
         except Exception:
             LOG.exc('change_setup_index RPC failed')
             done(-1, -1)
-    _retry_on_cooldown(fire, callback)
+    _retry_on_cooldown('change_setup', {'veh_inv_id': veh_inv_id,
+                                        'setup_idx': setup_idx}, fire, callback)
 
 
 @adisp_async
@@ -84,7 +115,16 @@ def equip_device(veh_inv_id, device_cd, slot_idx, all_setups, finance_operation,
         except Exception:
             LOG.exc('equip_device RPC failed')
             done(-1, (-1, None))
-    _retry_on_cooldown(fire, callback)
+    # Three different jobs share one server call, and they cost the player very
+    # different things - so they get three different op names. 'demount' sends
+    # the device to the depot (all_setups), 'unslot' only frees the slot in the
+    # active setup because the device stays mounted in the other one.
+    if device_cd:
+        op = 'equip'
+    else:
+        op = 'demount' if all_setups else 'unslot'
+    _retry_on_cooldown(op, {'veh_inv_id': veh_inv_id, 'slot_idx': slot_idx,
+                            'device_cd': device_cd}, fire, callback)
 
 
 @adisp_async
@@ -108,4 +148,7 @@ def apply_setup_layout(veh_inv_id, device_cds, callback=None):
         except Exception:
             LOG.exc('apply_setup_layout RPC failed')
             done(-1, (-1, 'rpc failed'))
-    _retry_on_cooldown(fire, callback)
+    # n_slots is how many slots this ONE command set - the number that shows
+    # whether a later build really replaced single calls with batched ones.
+    _retry_on_cooldown('layout', {'veh_inv_id': veh_inv_id,
+                                  'n_slots': len(cds)}, fire, callback)

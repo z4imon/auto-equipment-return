@@ -16,6 +16,7 @@ next to it, one module per job:
     auto_equip.importer    the ModsSettingsAPI import panel
     auto_equip.i18n        player-visible strings
     auto_equip.messages    system messages and the hangar veil
+    auto_equip.metrics     run and operation timings, written to metrics/*.csv
 """
 
 import os
@@ -43,8 +44,11 @@ def init():
 
 def fini():
     try:
-        from .auto_equip import gameface
+        from .auto_equip import gameface, metrics
         gameface.fini()
+        # A run cut short by the client closing still has its operations in
+        # memory; this is the last chance to get them onto disk.
+        metrics.flush()
     except Exception:
         LOG.exc('mod_auto_equip.fini() failed')
     _carousel_menu('fini')
