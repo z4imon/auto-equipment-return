@@ -41,6 +41,24 @@ def has_wot_plus():
         return False
 
 
+def easy_equip_config():
+    """(enabled, minimum vehicle level) for the client's quick-equip feature, or
+    (False, None) when it cannot be read.
+
+    Recorded for the metrics row, NOT used as a gate. `minVehicleLevel` is what
+    the client checks before showing its own button (easy_tank_equip_helpers.
+    isAvailableForVehicle); whether the SERVER enforces it on the command is not
+    visible from the client source, so the mod tries the command and falls back
+    when it is refused rather than refusing on its behalf."""
+    try:
+        from skeletons.gui.game_control import IEasyTankEquipController
+        config_ = dependency.instance(IEasyTankEquipController).config
+        return bool(config_.enabled), int(config_.minVehicleLevel)
+    except Exception:
+        LOG.exc('could not read the easy-tank-equip config')
+        return False, None
+
+
 def is_free_to_demount(item):
     """True only if demounting this device is guaranteed to cost nothing.
     Removable devices (binoculars & co.) always demount for free; everything

@@ -24,7 +24,7 @@ from adisp import adisp_async, adisp_process
 from CurrentVehicle import g_currentVehicle
 from gui.shared.notifications import NotificationPriorityLevel
 
-from . import config, inventory, messages, metrics, rpc
+from . import config, experiment, inventory, messages, metrics, rpc
 from .i18n import t
 from .log import LOG
 
@@ -267,6 +267,7 @@ def apply_to_vehicle(veh_inv_id, options, callback=None):
             veil_shown = messages.show_waiting()
 
         ledger = DepotLedger()
+        yield _prefetch_devices(vehicle, plan, options, outcome, ledger)
         for setup_idx, wanted in plan:
             if _run_interrupted(veh_inv_id, options):
                 outcome.interrupted = True
@@ -291,6 +292,146 @@ def apply_to_vehicle(veh_inv_id, options, callback=None):
             messages.hide_waiting()
         if callback is not None:
             callback(outcome)
+
+
+@adisp_async
+@adisp_process
+def _prefetch_devices(vehicle, plan, options, outcome, ledger, callback=None):
+    """Fetches everything the WHOLE plan still needs, in one concurrent burst,
+    before any setup is touched.
+
+    This is the largest single block of a run: pulling devices off other
+    vehicles was 33% of the measured time, 2.65 calls of about 290ms each, and
+    every one of them waited for the one before it. They are independent - each
+    addresses a different vehicle - and the server has never once rate-limited a
+    demount, so they can all go out together.
+
+    Two properties make this safe, and both were learned the hard way:
+
+      * ALL READS HAPPEN BEFORE ALL WRITES. The earlier attempt at batching
+        planned the second setup after the first had been written, read a stale
+        items cache, and fetched the same device twice from a donor that no
+        longer had it. Planning the whole vehicle up front cannot do that - and
+        it is also what lets a device wanted by BOTH setups be fetched once
+        instead of twice.
+      * IT IS PURELY OPPORTUNISTIC. Whatever it does not manage - a device with
+        no donor, one that would cost money, one whose donor keeps it in the
+        inactive setup, a call the server turns down - is simply not credited to
+        the ledger, and the normal per-slot path then sources it exactly as it
+        did before, reporting it exactly as it did before. If this step does
+        nothing at all, the run is the one that shipped.
+
+    Donors that would need a setup switch are left to the serial path on
+    purpose: change_setup IS rate-limited (27-48% of calls came back
+    RES_COOLDOWN), and mixing one into the burst would drag the whole batch into
+    a cooldown.
+    """
+    try:
+        borrows = _plan_prefetch(vehicle, plan, options, ledger)
+        if not borrows:
+            return
+
+        LOG.info('prefetch: taking %d device(s) off %d donor(s) at once: %s'
+                 % (len(borrows), len(set(b[0].invID for b in borrows)),
+                    [(b[0].userName, b[2].userName) for b in borrows]))
+        steps = [rpc.equip_device(donor.invID, 0, slot_idx, True,
+                                  not item.isRemovable,
+                                  meta={'device_cd': device_cd,
+                                        'device_name': item.userName,
+                                        'setup_idx': setup_idx,
+                                        'veh_name': donor.userName,
+                                        'batch_size': len(borrows)})
+                 for donor, device_cd, item, setup_idx, slot_idx in borrows]
+        results = yield rpc.gather(steps)
+
+        for borrow, result in zip(borrows, results):
+            donor, device_cd, item = borrow[0], borrow[1], borrow[2]
+            code = result[0] if result else -1
+            if rpc.is_success(code):
+                ledger.freed_one(device_cd)
+                outcome.donated.append((item.userName, donor.userName))
+            else:
+                # Not reported as an error: the per-slot path tries this device
+                # again on its own and reports whatever it finds there.
+                LOG.info('prefetch: %s from %s did not come off (code %s) - '
+                         'leaving it to the per-slot path'
+                         % (item.userName, donor.userName, code))
+        yield rpc.pause(rpc.OP_PAUSE)
+    except Exception:
+        LOG.exc('_prefetch_devices failed')
+    finally:
+        if callback is not None:
+            callback(None)
+
+
+def _plan_prefetch(vehicle, plan, options, ledger):
+    """[(donor, device cd, item, setup index, slot index)] for everything this
+    burst may fetch. No server calls, and every slot index is read here, before
+    the first command goes out - so none of them can be read from a vehicle that
+    another command in the same burst has already changed."""
+    borrows = []
+    donors_seen = {}
+    for device_cd, item in _devices_to_fetch(vehicle, plan, ledger):
+        donor = _fetchable_donor(vehicle, device_cd, options)
+        if donor is None:
+            continue
+        setup_idx, slot_idx = inventory.locate_device_on_vehicle(donor, device_cd)
+        if slot_idx is None:
+            continue
+        # Two devices from the same donor are fine - separate slots do not move
+        # each other - but the same SLOT must never be addressed twice.
+        taken = donors_seen.setdefault(donor.invID, set())
+        if slot_idx in taken:
+            continue
+        taken.add(slot_idx)
+        borrows.append((donor, device_cd, item, setup_idx, slot_idx))
+    return borrows
+
+
+def _devices_to_fetch(vehicle, plan, ledger):
+    """[(device cd, item)] the plan needs and the account cannot serve yet.
+
+    Deduplicated across setups: one physical device can sit in both loadouts, so
+    a device named by both is fetched once. At most six slots are involved, so
+    at most six devices."""
+    seen = set()
+    found = []
+    for _setup_idx, layout in plan:
+        for device_cd in layout:
+            if not device_cd or device_cd in seen:
+                continue
+            seen.add(device_cd)
+            if inventory.vehicle_has_device(vehicle, device_cd):
+                continue
+            if ledger.count(device_cd) > 0:
+                continue
+            item = inventory.device_by_cd(device_cd)
+            if item is not None:
+                found.append((device_cd, item))
+    return found
+
+
+def _fetchable_donor(vehicle, device_cd, options):
+    """A donor this burst may take from, or None.
+
+    Stricter than find_donor_vehicle: the device has to sit in the ACTIVE setup
+    of the donor. Anything else needs a change_setup first, and that is the one
+    command the server rate-limits."""
+    try:
+        item = inventory.device_by_cd(device_cd)
+        if item is None or not inventory.is_free_to_demount(item):
+            return None
+        donor = inventory.find_donor_vehicle(device_cd, vehicle.invID,
+                                             options.excluded_donor_inv_ids)
+        if donor is None:
+            return None
+        setup_idx, _slot_idx = inventory.locate_device_on_vehicle(donor, device_cd)
+        if setup_idx != inventory.active_setup_index(donor):
+            return None
+        return donor
+    except Exception:
+        LOG.exc('_fetchable_donor failed')
+        return None
 
 
 @adisp_async
@@ -638,6 +779,10 @@ def on_vehicle_changed():
             return
         _last_inv_id = vehicle.invID
         _notify_refresh()
+        # An armed experiment owns this selection: it moves equipment around on
+        # purpose, and an install run on top of it would fight it.
+        if experiment.run_if_pending(vehicle.invID):
+            return
         if not config.is_auto_enabled() or not config.has_saved_sets(vehicle.invID):
             return
         # Let the selection settle first, then start - unless the player

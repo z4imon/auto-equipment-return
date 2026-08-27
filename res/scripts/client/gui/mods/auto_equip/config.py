@@ -35,6 +35,9 @@ _DEFAULTS = {
     'autoEquipEnabled': True,   # install saved sets automatically on vehicle selection
     'downgradeEnabled': False,  # replace unavailable special devices with their standard variant
     'metricsEnabled': True,     # write run/operation timings to metrics/*.csv
+    # Arms experiment.py once. Set it by hand, start the client, select a tank -
+    # it disarms itself before the first server call, so it can never fire twice.
+    'probeLayoutDemount': False,
 }
 
 _EMPTY_ENTRY = {'set1': None, 'set2': None, 'vehicleCD': None}
@@ -114,6 +117,7 @@ def load_for_account(account_id):
                 'autoEquipEnabled': bool(data.get('autoEquipEnabled', True)),
                 'downgradeEnabled': bool(data.get('downgradeEnabled', False)),
                 'metricsEnabled': bool(data.get('metricsEnabled', True)),
+                'probeLayoutDemount': bool(data.get('probeLayoutDemount', False)),
             }
             _sets = _clean_sets(data.get('sets', {}))
         else:
@@ -147,6 +151,7 @@ def save():
                 'autoEquipEnabled': bool(_settings['autoEquipEnabled']),
                 'downgradeEnabled': bool(_settings['downgradeEnabled']),
                 'metricsEnabled': bool(_settings['metricsEnabled']),
+                'probeLayoutDemount': bool(_settings['probeLayoutDemount']),
                 'sets': _sets,
             }, handle, indent=4)
     except Exception:
@@ -198,6 +203,19 @@ def set_metrics_enabled(enabled):
     _settings['metricsEnabled'] = bool(enabled)
     save()
     return _settings['metricsEnabled']
+
+
+def is_layout_probe_armed():
+    """Whether the one-shot experiment in experiment.py should run. Not gated on
+    _mod_disabled: the probe is a deliberate manual act, and silently ignoring it
+    would look like the probe answering 'no'."""
+    return bool(_settings.get('probeLayoutDemount', False))
+
+
+def set_layout_probe_armed(armed):
+    _settings['probeLayoutDemount'] = bool(armed)
+    save()
+    return _settings['probeLayoutDemount']
 
 
 # ---------------------------------------------------------------------------

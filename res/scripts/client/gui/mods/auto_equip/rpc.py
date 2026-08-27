@@ -44,6 +44,40 @@ def is_success(code):
 
 
 @adisp_async
+def gather(steps, callback=None):
+    """Fires several async steps AT ONCE and answers when the last one has,
+    with their results in the order the steps were given.
+
+    Nothing in the client serialises a server command: Account.__doCmd hands out
+    a fresh requestID per call, parks the callback in a dict under it, and the
+    base-entity RPC returns immediately. Responses come back through
+    onCmdResponse(requestID) and are matched by that id, not by order. Waiting
+    for one before sending the next is our own doing, not the client's.
+
+    Only worth it for commands the server does not rate-limit. Measured over two
+    sessions: change_setup came back RES_COOLDOWN on 27-48% of calls, but not one
+    of 238 demounts ever did.
+
+    `pending` is a list because Python 2 closures cannot rebind an outer name."""
+    results = [None] * len(steps)
+    if not steps:
+        callback(results)
+        return
+    pending = [len(steps)]
+
+    def done(index, result):
+        results[index] = result
+        pending[0] -= 1
+        if pending[0] == 0:
+            callback(results)
+
+    for index, step in enumerate(steps):
+        # index=index binds the value now; without it every closure would see
+        # the last one.
+        step(lambda result, index=index: done(index, result))
+
+
+@adisp_async
 def pause(seconds, callback=None):
     """The settle pause between operations. Booked on its own metrics counter:
     it is neither server time nor our own work, and a run that turns out to be
@@ -141,6 +175,55 @@ def equip_device(veh_inv_id, device_cd, slot_idx, all_setups, finance_operation,
               'device_cd': device_cd}
     fields.update(meta or {})
     _retry_on_cooldown(op, fields, fire, callback)
+
+
+@adisp_async
+def easy_tank_equip(veh_inv_id, free_demount_cds, layout_cds, meta=None, callback=None):
+    """CMD_EASY_TANK_EQUIP_APPLY: demounts SEVERAL devices and applies a whole
+    layout in ONE command. The client's own "quick equip" button uses it.
+
+    This is the only command that can take more than one optional device off a
+    vehicle. CMD_EQUIP_OPTDEV does one per call, and CMD_EQUIP_OPT_DEVS_SEQUENCE
+    refuses to demount at all ("Demount of optional device must be performed in
+    other command"), so this is the only way to batch.
+
+    `free_demount_cds` are the devices to take off, addressed by intCD rather
+    than by slot. THE CALLER OWNS THE MONEY GUARANTEE for every one of them:
+    the native processor gates this list behind FreeToDemountValidator, which is
+    the same isFreeToDemount() rule inventory.py wraps, and there is no flag on
+    the wire that would make the server refuse a paid one.
+
+    The demount-kit list is hardcoded empty and not exposed as a parameter. That
+    is deliberate: kits are consumed silently and irreversibly, and a list that
+    cannot be filled cannot be filled by accident.
+
+    `layout_cds` is the resulting layout and, exactly like apply_setup_layout,
+    it BUYS whatever is not in the depot. Same guard applies: verify every new
+    device is obtainable before naming it here.
+
+    Reports (code, error)."""
+    free_cds = [int(cd) for cd in free_demount_cds]
+    layout = [int(cd) for cd in layout_cds]
+
+    def fire(done):
+        def on_response(code, error='', extra=None):
+            done(code, (code, error))
+        try:
+            data = (veh_inv_id,
+                    [],             # demount kits: never, structurally
+                    free_cds,
+                    layout,
+                    None,           # shells - not ours to touch
+                    None,           # consumables - not ours to touch
+                    None)           # style - not ours to touch
+            BigWorld.player().inventory.easyTankEquipApply(data, on_response)
+        except Exception:
+            LOG.exc('easy_tank_equip RPC failed')
+            done(-1, (-1, 'rpc failed'))
+
+    fields = {'veh_inv_id': veh_inv_id, 'n_slots': len(layout)}
+    fields.update(meta or {})
+    _retry_on_cooldown('easy_equip', fields, fire, callback)
 
 
 @adisp_async

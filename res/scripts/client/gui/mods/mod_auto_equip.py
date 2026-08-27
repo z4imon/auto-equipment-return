@@ -17,6 +17,7 @@ next to it, one module per job:
     auto_equip.i18n        player-visible strings
     auto_equip.messages    system messages and the hangar veil
     auto_equip.metrics     run and operation timings, written to metrics/*.csv
+    auto_equip.experiment  a one-shot, opt-in probe of one server behaviour
 """
 
 import os

@@ -42,11 +42,11 @@ from .log import LOG
 
 # Bump when the columns change; a file whose header no longer matches is rotated
 # aside rather than continued with mismatched columns.
-SCHEMA = 1
+SCHEMA = 2
 
 # Names the build these rows came from. CHANGE THIS with every optimisation that
 # is meant to be measured - it is the only thing separating before from after.
-VARIANT = 'optimization1'
+VARIANT = 'optimization3'
 
 _MAX_BUFFERED_ROWS = 5000
 _MAX_FILE_BYTES = 10 * 1024 * 1024
@@ -65,7 +65,7 @@ RUN_COLUMNS = (
 OP_COLUMNS = (
     'schema', 'ts', 'run_id', 'seq', 'kind', 'op',
     'veh_inv_id', 'veh_name', 'veh_tier', 'setup_idx', 'slot_idx',
-    'device_cd', 'device_name', 'n_slots',
+    'device_cd', 'device_name', 'n_slots', 'batch_size',
     'duration_ms', 'code', 'retries', 'backoff_ms',
 )
 
@@ -251,6 +251,9 @@ def _append_op(op, duration_ms, code, retries, backoff_ms, fields):
         'device_cd': fields.get('device_cd'),
         'device_name': fields.get('device_name'),
         'n_slots': fields.get('n_slots'),
+        # How many commands went out together with this one. 1 means it waited
+        # its turn; anything higher is a concurrent batch.
+        'batch_size': fields.get('batch_size', 1),
         'duration_ms': duration_ms,
         'code': code,
         'retries': retries,
