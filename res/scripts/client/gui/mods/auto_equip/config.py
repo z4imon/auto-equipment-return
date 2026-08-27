@@ -35,6 +35,10 @@ _DEFAULTS = {
     'autoEquipEnabled': True,   # install saved sets automatically on vehicle selection
     'downgradeEnabled': False,  # replace unavailable special devices with their standard variant
     'metricsEnabled': True,     # write run/operation timings to metrics/*.csv
+    # Leave every vehicle on set 1 and never switch a donor back. Off restores
+    # the old behaviour: donors return to their own setup and the vehicle ends
+    # on whichever setup it started on.
+    'alwaysSelectSetup1': True,
     # Arms experiment.py once. Set it by hand, start the client, select a tank -
     # it disarms itself before the first server call, so it can never fire twice.
     'probeLayoutDemount': False,
@@ -203,6 +207,23 @@ def set_metrics_enabled(enabled):
     _settings['metricsEnabled'] = bool(enabled)
     save()
     return _settings['metricsEnabled']
+
+
+def is_always_setup1():
+    """Whether a run leaves the vehicle on set 1 and skips the donor's switch
+    back. Both halves hang on this one flag because they are the same trade:
+    fewer CMD_SWITCH_LAYOUT calls in exchange for vehicles ending on a setup
+    the player did not pick.
+
+    Not gated on _mod_disabled: a disabled mod performs no runs, so there is no
+    setup to leave anyone on."""
+    return bool(_settings.get('alwaysSelectSetup1', True))
+
+
+def set_always_setup1(enabled):
+    _settings['alwaysSelectSetup1'] = bool(enabled)
+    save()
+    return _settings['alwaysSelectSetup1']
 
 
 def is_layout_probe_armed():

@@ -28,6 +28,10 @@ from . import config, experiment, inventory, messages, metrics, rpc
 from .i18n import t
 from .log import LOG
 
+# Setup index of "Equipment set 1" - the one a finished run leaves the vehicle
+# on. _build_plan maps the saved 'set1' onto it, and the UI counts from 1.
+PRIMARY_SETUP = 0
+
 _MAX_SUMMARY_ERRORS = 8
 
 # One apply run at a time - the popover reflects this, and the vehicle-
@@ -152,6 +156,40 @@ def _build_plan(vehicle, saved):
             if saved_cds is not None and setup_idx in available]
 
 
+def _ordered_plan(plan):
+    """The order the setups are written in.
+
+    With 'always set 1' on, the highest setup goes first so the run ENDS on set
+    1 and needs no switch to get there. A vehicle already sitting on set 2 -
+    which is what a donor now looks like - is written where it stands and then
+    switched down once, instead of being switched up, written, and switched back.
+
+    Off, the plan keeps its natural order and the old restore puts the vehicle
+    back where it started."""
+    if not config.is_always_setup1():
+        return plan
+    return sorted(plan, key=lambda entry: -entry[0])
+
+
+def _final_setup_idx(plan, original_setup_idx):
+    """Which setup the vehicle is left on, or None to leave it where the run
+    ended.
+
+    _ordered_plan puts set 1 last, but that alone does not guarantee the vehicle
+    ends there: _apply_setup returns before switching when a setup already holds
+    what the plan wants. So the target is stated explicitly.
+
+    It is only claimed when set 1 was actually part of the run. A vehicle whose
+    set 1 was never saved would otherwise be switched down for nothing - and
+    that lone switch is exactly the throttled call this change exists to
+    avoid."""
+    if not config.is_always_setup1():
+        return original_setup_idx
+    if any(setup_idx == PRIMARY_SETUP for setup_idx, _wanted in plan):
+        return PRIMARY_SETUP
+    return None
+
+
 def _plan_already_applied(vehicle, plan):
     return all(inventory.setup_device_cds(vehicle, setup_idx) == wanted
                for setup_idx, wanted in plan)
@@ -266,6 +304,7 @@ def apply_to_vehicle(veh_inv_id, options, callback=None):
         if options.show_veil:
             veil_shown = messages.show_waiting()
 
+        plan = _ordered_plan(plan)
         ledger = DepotLedger()
         yield _prefetch_devices(vehicle, plan, options, outcome, ledger)
         for setup_idx, wanted in plan:
@@ -278,7 +317,8 @@ def apply_to_vehicle(veh_inv_id, options, callback=None):
                 outcome.interrupted = True
                 break
 
-        yield _restore_active_setup(veh_inv_id, original_setup_idx)
+        yield _restore_active_setup(veh_inv_id,
+                                    _final_setup_idx(plan, original_setup_idx))
 
         if options.push_summary and outcome.has_anything_to_report():
             messages.push_lines(_summary_lines(outcome),
@@ -631,7 +671,7 @@ def _borrow_from_donor(veh_inv_id, device_cd, item, options, outcome, ledger, ca
         # The next cache read is the target vehicle's own layout, which a donor
         # demount cannot have touched.
 
-        if must_switch:
+        if must_switch and not config.is_always_setup1():
             # Nothing below reads donor state, so no pause is needed.
             code = yield rpc.change_setup_index(donor.invID, donor_original_idx)
             if not rpc.is_success(code):
@@ -690,18 +730,19 @@ def _drop_unaffordable(vehicle, current, final, capacity, outcome, ledger):
 
 @adisp_async
 @adisp_process
-def _restore_active_setup(veh_inv_id, original_setup_idx, callback=None):
-    """Puts the vehicle back on the setup that was active before the run."""
+def _restore_active_setup(veh_inv_id, target_setup_idx, callback=None):
+    """Leaves the vehicle on `target_setup_idx`. None means "wherever the run
+    ended" - see _final_setup_idx, which picks the target."""
     try:
         vehicle = inventory.vehicle_by_inv_id(veh_inv_id)
-        if vehicle is None or original_setup_idx is None:
+        if vehicle is None or target_setup_idx is None:
             return
-        if inventory.active_setup_index(vehicle) == original_setup_idx:
+        if inventory.active_setup_index(vehicle) == target_setup_idx:
             return
-        code = yield rpc.change_setup_index(vehicle.invID, original_setup_idx)
+        code = yield rpc.change_setup_index(vehicle.invID, target_setup_idx)
         if not rpc.is_success(code):
-            LOG.warning('could not restore active setup %s on %s'
-                        % (original_setup_idx, veh_inv_id))
+            LOG.warning('could not leave %s on setup %s'
+                        % (veh_inv_id, target_setup_idx))
     except Exception:
         LOG.exc('_restore_active_setup failed')
     finally:

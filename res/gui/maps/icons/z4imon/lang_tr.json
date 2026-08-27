@@ -2,6 +2,7 @@
     "title": "Ekipman setleri",
     "autoLabel": "Otomatik takma",
     "downgradeLabel": "Yerine koymayı etkinleştir",
+    "alwaysSetup1Label": "Her zaman Set 1'i seç",
     "set1": "Set 1",
     "set2": "Set 2",
     "save1": "Set 1'i kaydet",

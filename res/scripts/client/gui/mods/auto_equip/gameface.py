@@ -125,6 +125,7 @@ def _build_data():
         'vehicleInvID': 0,
         'enabled': config.is_auto_enabled(),
         'downgrade': config.is_downgrade_enabled(),
+        'alwaysSetup1': config.is_always_setup1(),
         'hasSetup2': False,
         'saved1': None,
         'saved2': None,
@@ -230,11 +231,11 @@ def _unsubscribe_from_vehicle():
 
 class AutoEquipViewModel(ViewModel):
     __slots__ = ('onJsLog', 'onToggleEnabled', 'onToggleDowngrade',
-                 'onSaveSet', 'onDeleteSets', 'onSaveRecommended',
-                 'onEquipPrimary')
+                 'onToggleAlwaysSetup1', 'onSaveSet', 'onDeleteSets',
+                 'onSaveRecommended', 'onEquipPrimary')
 
     def __init__(self):
-        super(AutoEquipViewModel, self).__init__(properties=2, commands=7)
+        super(AutoEquipViewModel, self).__init__(properties=2, commands=8)
 
     def getDataJson(self):
         return self._getString(0)
@@ -255,6 +256,7 @@ class AutoEquipViewModel(ViewModel):
         self.onJsLog = self._addCommand('onJsLog')
         self.onToggleEnabled = self._addCommand('onToggleEnabled')
         self.onToggleDowngrade = self._addCommand('onToggleDowngrade')
+        self.onToggleAlwaysSetup1 = self._addCommand('onToggleAlwaysSetup1')
         self.onSaveSet = self._addCommand('onSaveSet')
         self.onDeleteSets = self._addCommand('onDeleteSets')
         self.onSaveRecommended = self._addCommand('onSaveRecommended')
@@ -290,6 +292,7 @@ class AutoEquipView(ViewComponent):
             (self.viewModel.onJsLog, self._on_js_log),
             (self.viewModel.onToggleEnabled, self._on_toggle_enabled),
             (self.viewModel.onToggleDowngrade, self._on_toggle_downgrade),
+            (self.viewModel.onToggleAlwaysSetup1, self._on_toggle_always_setup1),
             (self.viewModel.onSaveSet, self._on_save_set),
             (self.viewModel.onDeleteSets, self._on_delete_sets),
             (self.viewModel.onSaveRecommended, self._on_save_recommended),
@@ -324,6 +327,13 @@ class AutoEquipView(ViewComponent):
             push_data()
         except Exception:
             LOG.exc('_on_toggle_downgrade failed')
+
+    def _on_toggle_always_setup1(self, data=None):
+        try:
+            config.set_always_setup1(not config.is_always_setup1())
+            push_data()
+        except Exception:
+            LOG.exc('_on_toggle_always_setup1 failed')
 
     def _on_save_set(self, data=None):
         try:

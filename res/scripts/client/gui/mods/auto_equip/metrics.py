@@ -42,18 +42,18 @@ from .log import LOG
 
 # Bump when the columns change; a file whose header no longer matches is rotated
 # aside rather than continued with mismatched columns.
-SCHEMA = 2
+SCHEMA = 3
 
 # Names the build these rows came from. CHANGE THIS with every optimisation that
 # is meant to be measured - it is the only thing separating before from after.
-VARIANT = 'optimization3'
+VARIANT = 'optimization4'
 
 _MAX_BUFFERED_ROWS = 5000
 _MAX_FILE_BYTES = 10 * 1024 * 1024
 
 RUN_COLUMNS = (
     'schema', 'ts', 'run_id', 'variant', 'mod_version', 'kind', 'trigger',
-    'fleet_size', 'auto_enabled', 'downgrade_enabled',
+    'fleet_size', 'auto_enabled', 'downgrade_enabled', 'always_setup1',
     'vehicles_planned', 'vehicles_touched', 'installed',
     'demounted_depot', 'demounted_slot_only', 'donor_demounts', 'downgrades',
     'skipped', 'errors', 'interrupted',
@@ -292,6 +292,7 @@ def end_run(**totals):
             'trigger': run.trigger,
             'auto_enabled': _setting(config.is_auto_enabled),
             'downgrade_enabled': _setting(config.is_downgrade_enabled),
+            'always_setup1': _setting(config.is_always_setup1),
             'total_ms': total_ms,
             'server_ms': run.server_ms,
             'backoff_ms': run.backoff_ms,

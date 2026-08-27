@@ -2,6 +2,7 @@
     "title": "Utrustningsuppsättningar",
     "autoLabel": "Automatisk montering",
     "downgradeLabel": "Aktivera ersättning",
+    "alwaysSetup1Label": "Välj alltid Uppsättning 1",
     "set1": "Uppsättning 1",
     "set2": "Uppsättning 2",
     "save1": "Spara uppsättning 1",

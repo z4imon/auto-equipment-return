@@ -2,6 +2,7 @@
     "title": "Varustesarjat",
     "autoLabel": "Automaattinen asennus",
     "downgradeLabel": "Salli korvaaminen",
+    "alwaysSetup1Label": "Valitse aina Sarja 1",
     "set1": "Sarja 1",
     "set2": "Sarja 2",
     "save1": "Tallenna sarja 1",

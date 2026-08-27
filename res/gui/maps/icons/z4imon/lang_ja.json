@@ -2,6 +2,7 @@
     "title": "装備セット",
     "autoLabel": "自動装着",
     "downgradeLabel": "代替装備を有効化",
+    "alwaysSetup1Label": "常にセット 1 を選択",
     "set1": "セット 1",
     "set2": "セット 2",
     "save1": "セット 1 を保存",
