@@ -29,7 +29,14 @@ from .log import LOG
 OP_PAUSE = 0.01
 
 _RES_COOLDOWN = -5      # AccountCommands.RES_COOLDOWN
-_COOLDOWN_RETRIES = 4
+
+# How long to wait before each retry. The first wait used to be 0.1s, and the
+# baseline run showed what that costs: of 38 throttled calls, 27 needed a second
+# retry and 5 a third, so the 0.1s attempt was usually thrown away. A retry is
+# not free - it is a full round trip of ~370ms - so waiting 0.3s once is both
+# faster and gentler than waiting 0.1s and then 0.2s. Every throttled call in
+# that run was a setup switch; nothing else is rate-limited.
+_COOLDOWN_DELAYS = (0.3, 0.3, 0.4, 0.5)
 
 
 def is_success(code):
@@ -68,8 +75,8 @@ def _retry_on_cooldown(op, fields, fire, callback):
 
     def attempt():
         def done(code, result):
-            if code == _RES_COOLDOWN and state['retries'] < _COOLDOWN_RETRIES:
-                delay = 0.1 * (state['retries'] + 1)
+            if code == _RES_COOLDOWN and state['retries'] < len(_COOLDOWN_DELAYS):
+                delay = _COOLDOWN_DELAYS[state['retries']]
                 state['retries'] += 1
                 state['backoff_ms'] += delay * 1000.0
                 LOG.info('server cooldown, retrying in %.1fs (attempt %d)'
@@ -101,10 +108,17 @@ def change_setup_index(veh_inv_id, setup_idx, callback=None):
 
 
 @adisp_async
-def equip_device(veh_inv_id, device_cd, slot_idx, all_setups, finance_operation, callback=None):
+def equip_device(veh_inv_id, device_cd, slot_idx, all_setups, finance_operation,
+                 meta=None, callback=None):
     """Installs one device into one slot, or demounts it when device_cd is 0.
     Reports (code, extra). Never passes useDemountKit - demount kits must not
-    be spent."""
+    be spent.
+
+    `meta` is for the metrics row only and changes nothing about the call. Pass
+    the device that is actually being MOVED and the setup it sits in: on a
+    demount the wire argument is 0 by definition, so without this the record
+    would say nothing about which device left, and the slot index alone does
+    not say which setup it addressed."""
     def fire(done):
         def on_response(code, extra=None):
             done(code, (code, extra))
@@ -123,12 +137,14 @@ def equip_device(veh_inv_id, device_cd, slot_idx, all_setups, finance_operation,
         op = 'equip'
     else:
         op = 'demount' if all_setups else 'unslot'
-    _retry_on_cooldown(op, {'veh_inv_id': veh_inv_id, 'slot_idx': slot_idx,
-                            'device_cd': device_cd}, fire, callback)
+    fields = {'veh_inv_id': veh_inv_id, 'slot_idx': slot_idx,
+              'device_cd': device_cd}
+    fields.update(meta or {})
+    _retry_on_cooldown(op, fields, fire, callback)
 
 
 @adisp_async
-def apply_setup_layout(veh_inv_id, device_cds, callback=None):
+def apply_setup_layout(veh_inv_id, device_cds, meta=None, callback=None):
     """Applies the WHOLE optional-device layout of the ACTIVE setup in one
     command (CMD_EQUIP_OPT_DEVS_SEQUENCE) - the native tank-setup confirm flow.
     It is the only server path that accepts a device currently mounted in the
@@ -150,5 +166,6 @@ def apply_setup_layout(veh_inv_id, device_cds, callback=None):
             done(-1, (-1, 'rpc failed'))
     # n_slots is how many slots this ONE command set - the number that shows
     # whether a later build really replaced single calls with batched ones.
-    _retry_on_cooldown('layout', {'veh_inv_id': veh_inv_id,
-                                  'n_slots': len(cds)}, fire, callback)
+    fields = {'veh_inv_id': veh_inv_id, 'n_slots': len(cds)}
+    fields.update(meta or {})
+    _retry_on_cooldown('layout', fields, fire, callback)

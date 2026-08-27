@@ -46,7 +46,7 @@ SCHEMA = 1
 
 # Names the build these rows came from. CHANGE THIS with every optimisation that
 # is meant to be measured - it is the only thing separating before from after.
-VARIANT = 'baseline'
+VARIANT = 'optimization1'
 
 _MAX_BUFFERED_ROWS = 5000
 _MAX_FILE_BYTES = 10 * 1024 * 1024
@@ -363,7 +363,10 @@ def flush():
 # ---------------------------------------------------------------------------
 
 def metrics_dir():
-    return os.path.join(config.account_files_dir(), 'metrics')
+    """One folder per VARIANT, so a measured change never appends its rows to
+    the build before it. Renaming the variant IS the archiving step - there is
+    no separate move to forget."""
+    return os.path.join(config.account_files_dir(), 'metrics', VARIANT)
 
 
 def _path(name):

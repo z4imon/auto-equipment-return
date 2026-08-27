@@ -408,15 +408,19 @@ def _clear_slot(vehicle, setup_idx, slot_idx, device_cd, outcome, ledger, callba
         other_setups = [idx for idx in inventory.setup_indices(vehicle) if idx != setup_idx]
         stays_on_vehicle = any(inventory.vehicle_has_device(vehicle, device_cd, setup_idx=idx)
                                for idx in other_setups)
+        meta = {'device_cd': device_cd, 'device_name': item.userName,
+                'setup_idx': setup_idx}
         if stays_on_vehicle:
             # Still mounted in the other setup, so this is free by definition.
-            code, extra = yield rpc.equip_device(vehicle.invID, 0, slot_idx, False, False)
+            code, extra = yield rpc.equip_device(vehicle.invID, 0, slot_idx,
+                                                 False, False, meta=meta)
         else:
             if not inventory.is_free_to_demount(item):
                 outcome.note_skipped(item.userName, t('reasonPaidDemount'), also_missing=False)
                 return
             code, extra = yield rpc.equip_device(vehicle.invID, 0, slot_idx,
-                                                 True, not item.isRemovable)
+                                                 True, not item.isRemovable,
+                                                 meta=meta)
         if not rpc.is_success(code):
             outcome.errors.append(t('errDemountFailed', name=item.userName,
                                     code=code, ext=extra))
@@ -464,12 +468,16 @@ def _borrow_from_donor(veh_inv_id, device_cd, item, options, outcome, ledger, ca
                 outcome.skipped.append(
                     (item.userName, t('reasonDonorSetupSwitchFailed', donor=donor.userName)))
                 return
-            yield rpc.pause(rpc.OP_PAUSE)
+            # No pause: the demount below fires straight at the server with a
+            # slot index that was read BEFORE the switch. Nothing between here
+            # and there touches the items cache, so there is nothing to settle.
 
         LOG.info('demounting %s from %s (setup %d slot %d)'
                  % (item.name, donor.userName, donor_setup_idx, donor_slot_idx))
-        code, extra = yield rpc.equip_device(donor.invID, 0, donor_slot_idx,
-                                             True, not item.isRemovable)
+        code, extra = yield rpc.equip_device(
+            donor.invID, 0, donor_slot_idx, True, not item.isRemovable,
+            meta={'device_cd': device_cd, 'device_name': item.userName,
+                  'setup_idx': donor_setup_idx, 'veh_name': donor.userName})
         obtained = rpc.is_success(code)
         if obtained:
             outcome.donated.append((item.userName, donor.userName))
@@ -477,7 +485,10 @@ def _borrow_from_donor(veh_inv_id, device_cd, item, options, outcome, ledger, ca
         else:
             outcome.errors.append(t('errDonorDemountFailed', name=item.userName,
                                     donor=donor.userName, code=code, ext=extra))
-        yield rpc.pause(rpc.OP_PAUSE)
+        # No pause either: what this demount changed is the DEPOT count, and the
+        # depot is read from the ledger precisely because the cache lags behind.
+        # The next cache read is the target vehicle's own layout, which a donor
+        # demount cannot have touched.
 
         if must_switch:
             # Nothing below reads donor state, so no pause is needed.
@@ -503,7 +514,8 @@ def _install_layout(vehicle, setup_idx, final, capacity, outcome, ledger, callba
             return
 
         changes = sum(1 for i in range(capacity) if final[i] and final[i] != current[i])
-        code, error = yield rpc.apply_setup_layout(vehicle.invID, final)
+        code, error = yield rpc.apply_setup_layout(vehicle.invID, final,
+                                                   meta={'setup_idx': setup_idx})
         if rpc.is_success(code):
             outcome.installed += changes
         else:
