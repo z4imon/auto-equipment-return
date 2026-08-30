@@ -2,6 +2,7 @@
     "title": "Conjuntos de equipamiento",
     "autoLabel": "Instalación automática",
     "downgradeLabel": "Activar sustitución",
+    "alwaysSetup1Label": "Seleccionar siempre el Conjunto 1",
     "set1": "Conjunto 1",
     "set2": "Conjunto 2",
     "save1": "Guardar conjunto 1",

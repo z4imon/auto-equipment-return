@@ -2,6 +2,7 @@
     "title": "Felszereléskészletek",
     "autoLabel": "Automatikus felszerelés",
     "downgradeLabel": "Csere engedélyezése",
+    "alwaysSetup1Label": "Mindig az 1. készlet kiválasztása",
     "set1": "1. készlet",
     "set2": "2. készlet",
     "save1": "1. készlet mentése",

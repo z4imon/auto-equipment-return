@@ -234,8 +234,8 @@ def _clear_slot(veh_inv_id, setup_idx, slot_idx, callback=None):
                      % item.userName)
             return
 
-        code, extra = yield rpc.equip_device(vehicle.invID, 0, slot_idx,
-                                             True, not item.isRemovable)
+        code, extra = yield rpc.equip_device(
+            vehicle.invID, 0, slot_idx, True, not item.isRemovable)
         if not rpc.is_success(code):
             LOG.warning('carousel demount: %s failed (code %s, %s)'
                         % (item.userName, code, extra))

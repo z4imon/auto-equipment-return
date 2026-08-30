@@ -2,6 +2,7 @@
     "title": "Configurations d'équipements",
     "autoLabel": "Installation automatique",
     "downgradeLabel": "Activer le remplacement",
+    "alwaysSetup1Label": "Toujours sélectionner Config. 1",
     "set1": "Config. 1",
     "set2": "Config. 2",
     "save1": "Enregistrer la config. 1",

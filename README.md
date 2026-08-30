@@ -39,6 +39,7 @@ next to the customization button.
   and off
 - **Enable downgrade:** If turned on installs the standard equipment when the bounty or bond
   one is not available for free
+- **Always select set 1:** If turned on the mod automatically switches to set 1 after the equipment was installed. Turn it off if you want every tank put back on the set it was on before
 - **Save set 1** / **Save set 2** / **Save both sets:** saves the equipment
   currently mounted on the selected tank
 - **Equip all primary vehicles:** equips all your filtered primary vehicles
@@ -46,6 +47,15 @@ next to the customization button.
 
 **Demount equipment** is added to the right-click menu of every tank in the carousel.
 It removes everything that can be demounted for free and leaves the rest mounted.
+
+**Demount equipment that is not in the saved set** is in the mod's ModsSettingsAPI
+settings panel. Pick the scope — all tanks with a saved set, or only the primary
+tanks of the current hangar — and press *Demount*. It takes off every device that
+is not sitting in exactly the slot its tank's saved set gives it and puts it back
+in the depot. This is mainly for downgraded equipment: when a bounty device could
+not be found, the mod installs the standard one instead, and that one is not what
+the saved set asks for. Tanks without a saved set are never touched, and nothing
+is removed that would cost credits, gold or a demount kit.
 
 ## Installation
 - Download the mod from the official WoT Mods webside

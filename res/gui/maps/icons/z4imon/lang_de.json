@@ -2,6 +2,7 @@
     "title": "Equipment-Sets",
     "autoLabel": "Automatisch einbauen",
     "downgradeLabel": "Downgrade aktivieren",
+    "alwaysSetup1Label": "Immer Set 1 auswählen",
     "set1": "Set 1",
     "set2": "Set 2",
     "save1": "Set 1 speichern",

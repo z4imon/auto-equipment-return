@@ -431,6 +431,11 @@ function buildPopover() {
     content.appendChild(buildCheckboxRow(ui("downgradeLabel", "Enable Downgrade"), !!gData.downgrade, function () {
         cmd("onToggleDowngrade");
     }));
+    // always end on set 1: also stops donors being switched back, which is the
+    // one server call the game reliably rate-limits
+    content.appendChild(buildCheckboxRow(ui("alwaysSetup1Label", "Always select setup 1"), !!gData.alwaysSetup1, function () {
+        cmd("onToggleAlwaysSetup1");
+    }));
 
     // actions as menu rows
     content.appendChild(buildMenuRow(ui("save1", "Set 1 speichern"), "save", function () {

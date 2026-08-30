@@ -2,6 +2,7 @@
     "title": "Equipment Sets",
     "autoLabel": "Auto-install",
     "downgradeLabel": "Enable downgrade",
+    "alwaysSetup1Label": "Always select set 1",
     "set1": "Set 1",
     "set2": "Set 2",
     "save1": "Save set 1",
