@@ -4,6 +4,7 @@
 
 import { ModelObserver } from "../../libs/model.js";
 import { MediaContext } from "../../libs/media.js";
+import { playSound } from "../../libs/sound.js";
 
 const TAG = "[AutoEquip][JS] ";
 const model = ModelObserver("AutoEquipView");
@@ -53,6 +54,36 @@ function el(tag, cls) {
     return e;
 }
 function bg(node, url) { node.style.backgroundImage = "url(" + url + ")"; }
+
+// --------------------------------------------------------------------------
+// Sounds
+// --------------------------------------------------------------------------
+// Names read out of the client, not guessed. The React UI resolves a sound in
+// two steps: a default scheme (soundConfig) that the hangar view overrides for
+// single targets (soundsOverrides):
+//   default          click -> "play",  mouse-enter -> "highlight"
+//   vehicle-menu-widget:button   click -> "yes1", expand -> "gui_vehicle_menu_open"
+// "expand" exists ONLY as that override and only on the closed -> open edge;
+// there is no counterpart on closing, so closing is just the click sound.
+const SND_HOVER = "highlight";
+const SND_CLICK = "play";
+const SND_MENU_BTN = "yes1";
+const SND_MENU_OPEN = "gui_vehicle_menu_open";
+
+function snd(name) {
+    try { playSound(name); } catch (e) { warn("playSound(" + name + ") failed: " + e); }
+}
+
+// Hover + click sounds for one element, the way the native ui-kit wires them
+// (HeadlessButton, HeadlessCheckbox, the vehicle-menu MenuItem all do exactly
+// this). `enabled` false stays silent — a disabled native control plays
+// nothing, not even on hover.
+function addSounds(node, enabled, clickSound) {
+    if (!enabled) return node;
+    node.addEventListener("mouseenter", function () { snd(SND_HOVER); });
+    node.addEventListener("click", function () { snd(clickSound || SND_CLICK); });
+    return node;
+}
 
 function parseModelJson(key, fallback) {
     try {
@@ -112,19 +143,25 @@ function setButtonHover(hovered) {
 
 // Close any open native vehicle-menu popup by re-clicking its opened toggle
 // button — the native MenuButton onClick calls close() when already open.
+// Returns whether a click was actually handed to a native button: that button
+// plays the menu click sound itself, so ours must stay quiet then.
 function closeNativeMenus() {
     const opened = document.querySelectorAll(SEL.openedMenuButton);
+    let clicked = false;
     for (let i = 0; i < opened.length; i++) {
         try {
             opened[i].dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+            clicked = true;
         } catch (e) {
             try {
                 const ev = document.createEvent("MouseEvents");
                 ev.initEvent("click", true, true);
                 opened[i].dispatchEvent(ev);
+                clicked = true;
             } catch (e2) { warn("closeNativeMenus failed: " + e2); }
         }
     }
+    return clicked;
 }
 
 function injectButton() {
@@ -148,10 +185,18 @@ function injectButton() {
         // that container. Close native menus first, while gPopoverOpen is
         // still false — the synthetic click bubbles through our document
         // listener too, which must not close the popover we open right after.
-        if (!gPopoverOpen) closeNativeMenus();
+        const closedNative = gPopoverOpen ? false : closeNativeMenus();
+        // Natively only ever ONE click sound is heard: the old menu closes
+        // silently through the outside-click handler. We close it by faking a
+        // click on its button instead, and that button plays the sound — so
+        // adding ours on top would double it.
+        if (!closedNative) snd(SND_MENU_BTN);
         togglePopover();
     });
-    btn.addEventListener("mouseenter", function () { setButtonHover(true); });
+    btn.addEventListener("mouseenter", function () {
+        snd(SND_HOVER);
+        setButtonHover(true);
+    });
     btn.addEventListener("mouseleave", function () { setButtonHover(false); });
 
     // Native buttons render left-to-right as crew, vehicle, customization
@@ -263,6 +308,7 @@ function buildDeleteButton() {
             cmd("onDeleteSets");
         });
     }
+    addSounds(btn, hasSaved);
     return btn;
 }
 
@@ -297,6 +343,9 @@ function buildRecommendButton() {
             cmd("onSaveRecommended");
         });
     }
+    // Only the state that actually does something: the dimmed star is a
+    // hover preview, and previewing is not an action.
+    addSounds(btn, active);
     return btn;
 }
 
@@ -361,6 +410,7 @@ function buildMenuRow(label, iconName, onClick, disabled) {
             onClick();
         });
     }
+    addSounds(inner, !disabled && !!onClick);
     item.appendChild(inner);
     return item;
 }
@@ -384,6 +434,7 @@ function buildCheckboxRow(label, checked, onClick) {
         e.stopPropagation();
         onClick();
     });
+    addSounds(row, true);
     return row;
 }
 
@@ -492,12 +543,17 @@ function renderPopover() {
 // Open/close like the native MenuButton: the button slides up (translateY) and
 // switches to the "opened" background while its menu is shown.
 function setPopoverOpen(open) {
+    const wasOpen = gPopoverOpen;
     gPopoverOpen = open;
     if (gButton && gButton.classList) {
         gButton.classList.toggle("z4ae-menu-btn-opened", open);
     }
     applyButtonBackground();
     renderPopover();
+    // The native button plays this from an effect on the closed -> open edge,
+    // i.e. after the menu is on screen and only when it really opened —
+    // renderPopover() bailing out must not leave a sound behind.
+    if (open && !wasOpen && gPopoverOpen) snd(SND_MENU_OPEN);
 }
 
 function togglePopover() {
