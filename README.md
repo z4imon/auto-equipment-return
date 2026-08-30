@@ -39,6 +39,9 @@ next to the customization button.
   and off
 - **Enable downgrade:** If turned on installs the standard equipment when the bounty or bond
   one is not available for free
+- **Always select set 1:** If turned on every tank is left on set 1 after a run, and
+  tanks that equipment was borrowed from keep whichever set they were switched to. Turn it off if you want every tank put back on
+  the set it was on before
 - **Save set 1** / **Save set 2** / **Save both sets:** saves the equipment
   currently mounted on the selected tank
 - **Equip all primary vehicles:** equips all your filtered primary vehicles

@@ -88,7 +88,7 @@ def pause(seconds, callback=None):
 def _retry_on_cooldown(fire, callback):
     """Runs an RPC and re-issues it while the server answers RES_COOLDOWN.
     `fire(done)` must issue the call and report back via done(code, result).
-    The pause grows per attempt (0.1/0.2/0.3/0.4s); after that the cooldown
+    Waits _COOLDOWN_DELAYS[n] before attempt n; once those run out the cooldown
     result is passed through to the caller unchanged.
 
     `state` is a dict because Python 2 closures cannot rebind an outer name."""

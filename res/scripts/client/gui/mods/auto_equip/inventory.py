@@ -273,11 +273,6 @@ def reset_donor_search_stats():
     _donor_search_count = 0
 
 
-def donor_search_stats():
-    """(milliseconds spent, number of lookups) since the last reset."""
-    return _donor_search_ms, _donor_search_count
-
-
 def log_donor_search_stats(context):
     LOG.info('%s: spent %.3fs scanning other vehicles for donors (%d lookup%s)'
              % (context, _donor_search_ms / 1000.0, _donor_search_count,
