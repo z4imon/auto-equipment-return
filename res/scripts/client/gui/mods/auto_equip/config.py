@@ -151,7 +151,7 @@ def save():
                 'downgradeEnabled': bool(_settings['downgradeEnabled']),
                 'alwaysSelectSetup1': bool(_settings['alwaysSelectSetup1']),
                 'sets': _sets,
-            }, handle, indent=4)
+            }, handle, separators=(',', ':'))
     except Exception:
         LOG.exc('save() failed')
 
