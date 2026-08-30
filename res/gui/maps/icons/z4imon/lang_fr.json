@@ -50,6 +50,14 @@
     "summarySkipped": "Ignoré : %(name)s — %(reason)s",
     "summaryError": "Erreur : %(err)s",
 
+    "confirmPaidHeader": "Le démontage ne serait pas gratuit",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "Le montage est gratuit, le démontage ultérieur ne l'est pas. Monter quand même ?",
+    "confirmPaidMore": "… et %(count)d de plus",
+    "confirmPaidInstall": "Monter",
+    "confirmPaidCancel": "Annuler",
+    "confirmPaidFallback": "La confirmation n'a pas pu être affichée, rien n'a été monté. Monte l'équipement à la main si tu le veux.",
+
     "batchNoTargets": "AutoEquip : aucun véhicule favori dans le filtre actuel du carrousel",
     "batchNoSavedSets": "AutoEquip : aucun des %(count)d véhicules favoris n'a de configuration enregistrée",
     "batchSummary": "AutoEquip : %(processed)d véhicule(s) favori(s) traité(s), %(installed)d équipement(s) installé(s)",

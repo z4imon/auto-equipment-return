@@ -50,6 +50,14 @@
     "summarySkipped": "Παραλείφθηκε: %(name)s — %(reason)s",
     "summaryError": "Σφάλμα: %(err)s",
 
+    "confirmPaidHeader": "Η αφαίρεση δεν θα ήταν δωρεάν",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "Η τοποθέτηση είναι δωρεάν, η μετέπειτα αφαίρεση όχι. Να τοποθετηθεί παρόλα αυτά;",
+    "confirmPaidMore": "… και %(count)d ακόμη",
+    "confirmPaidInstall": "Τοποθέτηση",
+    "confirmPaidCancel": "Άκυρο",
+    "confirmPaidFallback": "Το μήνυμα επιβεβαίωσης δεν μπόρεσε να εμφανιστεί, δεν τοποθετήθηκε τίποτα. Τοποθετήστε τον εξοπλισμό χειροκίνητα αν τον θέλετε.",
+
     "batchNoTargets": "AutoEquip: δεν υπάρχουν αγαπημένα οχήματα στο τρέχον φίλτρο του καρουζέλ",
     "batchNoSavedSets": "AutoEquip: κανένα από τα %(count)d αγαπημένα οχήματα δεν έχει αποθηκευμένα σετ",
     "batchSummary": "AutoEquip: επεξεργάστηκαν %(processed)d αγαπημένα οχήματα, τοποθετήθηκαν %(installed)d αντικείμενα",

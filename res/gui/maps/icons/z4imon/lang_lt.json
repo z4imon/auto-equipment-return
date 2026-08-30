@@ -50,6 +50,14 @@
     "summarySkipped": "Praleista: %(name)s — %(reason)s",
     "summaryError": "Klaida: %(err)s",
 
+    "confirmPaidHeader": "Nuėmimas nebūtų nemokamas",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "Uždėti nieko nekainuoja, o vėliau nuimti – kainuoja. Vis tiek uždėti?",
+    "confirmPaidMore": "… ir dar %(count)d",
+    "confirmPaidInstall": "Uždėti",
+    "confirmPaidCancel": "Atšaukti",
+    "confirmPaidFallback": "Patvirtinimo nepavyko parodyti, nieko neuždėta. Jei norite įrangos, uždėkite ją rankiniu būdu.",
+
     "batchNoTargets": "AutoEquip: dabartiniame karuselės filtre nėra mėgstamų technikų",
     "batchNoSavedSets": "AutoEquip: nė viena iš %(count)d mėgstamų technikų neturi įrašytų rinkinių",
     "batchSummary": "AutoEquip: apdorota mėgstamų technikų: %(processed)d, sumontuota daiktų: %(installed)d",

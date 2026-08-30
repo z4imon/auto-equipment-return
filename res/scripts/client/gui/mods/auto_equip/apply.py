@@ -96,12 +96,24 @@ class RunOptions(object):
     batch run over all Primary vehicles."""
 
     def __init__(self, watch_selection=True, force_downgrade=False,
-                 show_veil=True, push_summary=True, excluded_donor_inv_ids=None):
+                 show_veil=True, push_summary=True, excluded_donor_inv_ids=None,
+                 allowed_paid_install_cds=None, only_install_cds=None):
         self.watch_selection = watch_selection
         self.force_downgrade = force_downgrade
         self.show_veil = show_veil
         self.push_summary = push_summary
         self.excluded_donor_inv_ids = excluded_donor_inv_ids
+        # Devices, by intCD, the player has explicitly confirmed for THIS run.
+        # Anything outside this set that could not be taken off again for free
+        # is held back and asked about instead - see _paid_install_blocked.
+        self.allowed_paid_install_cds = allowed_paid_install_cds or frozenset()
+        # None means "the whole plan". A set narrows the run to those devices
+        # and leaves every other slot exactly as it stands - what a confirmed
+        # follow-up run needs, because the run that asked already did
+        # everything it could everywhere else. Repeating it would re-decide
+        # downgrades and re-borrow from donors, and the donor it would raid is
+        # a vehicle the batch just finished equipping.
+        self.only_install_cds = only_install_cds
 
 
 class RunOutcome(object):
@@ -114,6 +126,12 @@ class RunOutcome(object):
         self.donated = []       # (device name, donor vehicle name)
         self.downgraded = []    # (special device name, standard device name)
         self.missing = []       # devices that could not be sourced for free
+        # (device cd, device name) this run refused to install because
+        # taking the device off again would cost money. Deliberately NOT part
+        # of `skipped`: these are not reported in the run summary but asked
+        # about in a confirmation notification, and doing both would name the
+        # same device twice in two different messages.
+        self.needs_confirm = []
         # True when the run gave up before working through the whole plan -
         # the player selected another vehicle, or the vehicle vanished. Its
         # timings describe a partial run and must be readable as such.
@@ -126,6 +144,13 @@ class RunOutcome(object):
         self.skipped.append((device_name, reason))
         if also_missing:
             self.missing.append(device_name)
+
+    def note_needs_confirm(self, device_cd, device_name):
+        """Deduplicated per device: one physical device can be named by both
+        setups, and the player should be asked about it once."""
+        if any(cd == device_cd for cd, _name in self.needs_confirm):
+            return
+        self.needs_confirm.append((device_cd, device_name))
 
     def note_downgrade(self, special_name, standard_name):
         note = (special_name, standard_name)
@@ -274,6 +299,35 @@ def _is_free_to_obtain(vehicle, veh_inv_id, item, options):
     except Exception:
         LOG.exc('_is_free_to_obtain failed')
         return False
+
+
+def _paid_install_blocked(vehicle, device_cd, options, ledger):
+    """The gui item the player has to confirm before it is bolted on, or None
+    when this install needs no confirmation.
+
+    The MONEY GUARANTEE has two halves. The first is never to SPEND anything,
+    and every other guard in this module serves it. This is the second: never
+    to strand a device on a vehicle the player cannot get it back off for free.
+
+    Only one source can do that, which is why the check is this narrow. A donor
+    borrow and the prefetch burst both demand is_free_to_demount() before they
+    touch anything, and a device already sitting on THIS vehicle is stuck here
+    either way. What is left is precisely "it is lying in the depot": mounting
+    it costs nothing, and taking it off again does."""
+    if device_cd in options.allowed_paid_install_cds:
+        return None
+    item = inventory.device_by_cd(device_cd)
+    if item is None:
+        return None     # _prepare_slot reports the unknown item itself
+    if inventory.vehicle_has_device(vehicle, device_cd):
+        return None     # already on this vehicle - nothing new is risked
+    if ledger.count(device_cd) <= 0:
+        return None     # not in the depot, so the donor path will source it -
+                        # and that path is free-demount gated and reports its
+                        # own skip
+    if inventory.is_free_to_demount(item):
+        return None
+    return item
 
 
 # ---------------------------------------------------------------------------
@@ -431,7 +485,7 @@ def _plan_prefetch(vehicle, plan, options, ledger):
     another command in the same burst has already changed."""
     borrows = []
     donors_seen = {}
-    for device_cd, item in _devices_to_fetch(vehicle, plan, ledger):
+    for device_cd, item in _devices_to_fetch(vehicle, plan, options, ledger):
         donor = _fetchable_donor(vehicle, device_cd, options)
         if donor is None:
             continue
@@ -448,8 +502,12 @@ def _plan_prefetch(vehicle, plan, options, ledger):
     return borrows
 
 
-def _devices_to_fetch(vehicle, plan, ledger):
+def _devices_to_fetch(vehicle, plan, options, ledger):
     """[(device cd, item)] the plan needs and the account cannot serve yet.
+
+    A narrowed run (options.only_install_cds) asks for nothing here: its device
+    is in the depot by definition, and fetching anything else would strip a
+    donor for a slot this run is not going to touch.
 
     Deduplicated across setups: one physical device can sit in both loadouts, so
     a device named by both is fetched once. At most six slots are involved, so
@@ -461,6 +519,9 @@ def _devices_to_fetch(vehicle, plan, ledger):
             if not device_cd or device_cd in seen:
                 continue
             seen.add(device_cd)
+            if options.only_install_cds is not None \
+                    and device_cd not in options.only_install_cds:
+                continue
             if inventory.vehicle_has_device(vehicle, device_cd):
                 continue
             if ledger.count(device_cd) > 0:
@@ -506,6 +567,13 @@ def _apply_setup(veh_inv_id, setup_idx, wanted, options, outcome, ledger, callba
             keep_going = False
             return
         if inventory.setup_device_cds(vehicle, setup_idx) == wanted:
+            return
+
+        if options.only_install_cds is not None and not any(
+                cd in options.only_install_cds for cd in wanted):
+            # A narrowed run has no business in this setup - and change_setup is
+            # the one command the server actually throttles, so this bail has to
+            # happen BEFORE the switch below, not inside the slot loop.
             return
 
         # Installs always land in the ACTIVE setup, so switch there first.
@@ -557,6 +625,26 @@ def _prepare_slot(veh_inv_id, setup_idx, slot_idx, wanted, final,
         wanted_cd = final[slot_idx]
         if current_cd == wanted_cd:
             return
+
+        if options.only_install_cds is not None \
+                and wanted_cd not in options.only_install_cds:
+            # Not part of this run. The 0 makes phase 3 send the slot's current
+            # content back, so the slot is left untouched.
+            final[slot_idx] = 0
+            return
+
+        if wanted_cd:
+            blocked = _paid_install_blocked(vehicle, wanted_cd, options, ledger)
+            if blocked is not None:
+                # Asked BEFORE the clear below on purpose: the slot's current
+                # occupant has to stay put, or declining the question would
+                # leave the player with an empty slot instead of the device
+                # they had. The 0 is the same "could not serve this slot"
+                # signal a failed donor borrow writes, and phase 3 turns it
+                # back into the current content.
+                outcome.note_needs_confirm(wanted_cd, blocked.userName)
+                final[slot_idx] = 0
+                return
 
         if current_cd and current_cd not in wanted:
             cleared = yield _clear_slot(vehicle, setup_idx, slot_idx, current_cd,
@@ -735,10 +823,21 @@ def _keep_what_could_not_be_replaced(current, final, capacity):
     WHOLESALE with RES_FAILURE, so one unobtainable device would cost the whole
     setup - and with the donor already stripped, nothing gets installed at all.
     Sending the current content back is a no-op for that slot and lets the rest
-    of the layout through. Same rule _prepare_slot applies on a failed clear."""
+    of the layout through. Same rule _prepare_slot applies on a failed clear.
+
+    One exception, and it is the reason this used to be able to build a broken
+    layout: not if `final` already names that device somewhere else. A device
+    that MOVES to another slot leaves its old slot empty here, so putting it
+    back would send the same device in two slots at once - and that layout is
+    rejected as a whole, exactly like the empty-slot case above. Leaving the
+    old slot empty is safe in that case because the device is not leaving the
+    vehicle at all, it is only being repositioned."""
     for slot_idx in range(capacity):
-        if not final[slot_idx] and current[slot_idx]:
-            final[slot_idx] = current[slot_idx]
+        if final[slot_idx] or not current[slot_idx]:
+            continue
+        if current[slot_idx] in final:
+            continue
+        final[slot_idx] = current[slot_idx]
 
 
 def _drop_unaffordable(vehicle, current, final, capacity, outcome, ledger):
@@ -784,6 +883,30 @@ def restore_active_setup(veh_inv_id, target_setup_idx, callback=None):
             callback(None)
 
 
+def _ask_about_paid_installs(runs):
+    """Hands everything the run(s) held back to the notification centre, as ONE
+    question. `runs` is [(vehicle inv id, outcome)].
+
+    confirm is imported here rather than at module level: accepting the question
+    starts a run, so confirm imports THIS module, and closing that cycle at load
+    time would leave whichever module the client imported first half-built."""
+    items = []
+    for veh_inv_id, outcome in runs:
+        if outcome is None or not outcome.needs_confirm:
+            continue
+        vehicle = inventory.vehicle_by_inv_id(veh_inv_id)
+        veh_name = vehicle.userName if vehicle is not None else unicode(veh_inv_id)
+        for device_cd, device_name in outcome.needs_confirm:
+            items.append((veh_inv_id, veh_name, device_cd, device_name))
+    if not items:
+        return
+    try:
+        from . import confirm
+        confirm.ask(items)
+    except Exception:
+        LOG.exc('could not ask about %d paid install(s)' % len(items))
+
+
 def _summary_lines(outcome):
     lines = []
     if outcome.installed:
@@ -813,7 +936,8 @@ def apply_saved_sets(veh_inv_id):
     notify_refresh()
     inventory.reset_donor_search_stats()
     try:
-        yield apply_to_vehicle(veh_inv_id, RunOptions())
+        outcome = yield apply_to_vehicle(veh_inv_id, RunOptions())
+        _ask_about_paid_installs([(veh_inv_id, outcome)])
     except Exception:
         LOG.exc('apply_saved_sets failed')
     finally:
@@ -902,6 +1026,7 @@ def equip_primary_vehicles():
                             warning=bool(totals.errors))
         if totals.missing_counts:
             messages.push_error(u'<br/>'.join(totals.missing_lines()))
+        _ask_about_paid_installs(totals.confirm_runs)
         _disable_auto_install_after_batch()
         LOG.info('equip_primary_vehicles: done - processed=%d installed=%d missing=%s'
                  % (totals.processed, totals.installed, totals.missing_counts))
@@ -910,6 +1035,74 @@ def equip_primary_vehicles():
     finally:
         inventory.log_donor_search_stats(
             'equip_primary_vehicles(%d vehicle(s))' % totals.processed)
+        if veil_shown:
+            messages.hide_waiting()
+        _busy = False
+        notify_refresh()
+
+
+@adisp_process
+def apply_confirmed(items):
+    """Re-runs the vehicles from one confirmation notification, this time
+    permitting exactly the devices the player confirmed.
+
+    `items` is [(vehicle inv id, device cd)]. The run is NARROWED to those
+    devices (only_install_cds), which is what keeps it from re-deciding the
+    downgrades of the run that asked and from borrowing off the very Primary
+    vehicles a batch run just equipped - it does not carry that run's options,
+    so the only safe thing is to touch nothing it did not ask about.
+
+    It deliberately does NOT ask again either: every device a run holds back
+    goes into the SAME notification, so one accept covers all of them and a
+    second question could only repeat itself. Anything still held back
+    afterwards is a bug, and is logged as one."""
+    global _busy
+    if _busy or _other_run_busy():
+        messages.push_warning(t('alreadyRunning'))
+        return
+
+    permitted = {}
+    for veh_inv_id, device_cd in items:
+        permitted.setdefault(int(veh_inv_id), set()).add(int(device_cd))
+    if not permitted:
+        return
+
+    _busy = True
+    notify_refresh()
+    inventory.reset_donor_search_stats()
+    veil_shown = messages.show_waiting()
+    # One vehicle gets its own detailed summary. Several can only have come
+    # from the batch run, whose aggregated wording is the one that fits then.
+    single = len(permitted) == 1
+    totals = _BatchTotals()
+    try:
+        LOG.info('apply_confirmed: %d vehicle(s), %d confirmed device(s)'
+                 % (len(permitted), sum(len(cds) for cds in permitted.values())))
+        for veh_inv_id, device_cds in permitted.iteritems():
+            # watch_selection off: the player answered a notification, which
+            # says nothing about which vehicle is in the hangar right now.
+            outcome = yield apply_to_vehicle(
+                veh_inv_id,
+                RunOptions(watch_selection=False, show_veil=False,
+                           push_summary=single,
+                           allowed_paid_install_cds=frozenset(device_cds),
+                           only_install_cds=frozenset(device_cds)))
+            if outcome is None:
+                continue
+            if outcome.needs_confirm:
+                LOG.warning('apply_confirmed: %s still held back %s'
+                            % (veh_inv_id, [n for _cd, n in outcome.needs_confirm]))
+            vehicle = inventory.vehicle_by_inv_id(veh_inv_id)
+            if not single and vehicle is not None:
+                totals.add(vehicle, outcome)
+        if not single:
+            messages.push_lines(totals.summary_lines(0),
+                                warning=bool(totals.errors))
+    except Exception:
+        LOG.exc('apply_confirmed failed')
+    finally:
+        inventory.log_donor_search_stats(
+            'apply_confirmed(%d vehicle(s))' % len(permitted))
         if veil_shown:
             messages.hide_waiting()
         _busy = False
@@ -926,6 +1119,10 @@ class _BatchTotals(object):
         self.downgraded = []
         self.errors = []
         self.missing_counts = {}    # device name -> number of vehicles missing it
+        # [(vehicle inv id, outcome)] for the vehicles that held a device back
+        # for confirmation. Collected rather than asked per vehicle so a batch
+        # over the whole garage produces one question, not twenty.
+        self.confirm_runs = []
 
     def add(self, vehicle, outcome):
         self.processed += 1
@@ -938,6 +1135,8 @@ class _BatchTotals(object):
             self.errors.append(t('batchVehicleError', veh=vehicle.userName, err=error))
         for name in outcome.missing:
             self.missing_counts[name] = self.missing_counts.get(name, 0) + 1
+        if outcome.needs_confirm:
+            self.confirm_runs.append((vehicle.invID, outcome))
 
     def summary_lines(self, without_sets):
         lines = [t('batchSummary', processed=self.processed, installed=self.installed)]

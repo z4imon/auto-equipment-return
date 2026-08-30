@@ -50,6 +50,14 @@
     "summarySkipped": "Hoppet over: %(name)s — %(reason)s",
     "summaryError": "Feil: %(err)s",
 
+    "confirmPaidHeader": "Demonteringen ville ikke være gratis",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "Montering er gratis, senere demontering er det ikke. Montere likevel?",
+    "confirmPaidMore": "… og %(count)d flere",
+    "confirmPaidInstall": "Monter",
+    "confirmPaidCancel": "Avbryt",
+    "confirmPaidFallback": "Bekreftelsen kunne ikke vises, ingenting ble montert. Monter utstyret manuelt hvis du vil ha det på.",
+
     "batchNoTargets": "AutoEquip: ingen favorittkjøretøy i det gjeldende karusellfilteret",
     "batchNoSavedSets": "AutoEquip: ingen av de %(count)d favorittkjøretøyene har lagrede sett",
     "batchSummary": "AutoEquip: %(processed)d favorittkjøretøy behandlet, %(installed)d gjenstander montert",

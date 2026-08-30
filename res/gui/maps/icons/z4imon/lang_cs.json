@@ -50,6 +50,14 @@
     "summarySkipped": "Přeskočeno: %(name)s — %(reason)s",
     "summaryError": "Chyba: %(err)s",
 
+    "confirmPaidHeader": "Demontáž by nebyla zdarma",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "Montáž je zdarma, pozdější demontáž nikoli. Přesto nasadit?",
+    "confirmPaidMore": "… a %(count)d dalších",
+    "confirmPaidInstall": "Nasadit",
+    "confirmPaidCancel": "Zrušit",
+    "confirmPaidFallback": "Potvrzovací dotaz nešlo zobrazit, nic nebylo nasazeno. Pokud vybavení chcete, nasaďte je ručně.",
+
     "batchNoTargets": "AutoEquip: v aktuálním filtru karuselu nejsou žádná oblíbená vozidla",
     "batchNoSavedSets": "AutoEquip: žádné z %(count)d oblíbených vozidel nemá uložené sady",
     "batchSummary": "AutoEquip: zpracováno %(processed)d oblíbených vozidel, namontováno %(installed)d kus(ů)",
