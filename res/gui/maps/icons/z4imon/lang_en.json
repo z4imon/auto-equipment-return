@@ -50,6 +50,14 @@
     "summarySkipped": "Skipped: %(name)s — %(reason)s",
     "summaryError": "Error: %(err)s",
 
+    "confirmPaidHeader": "Removal would not be free",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "Mounting is free, taking it off again is not. Install anyway?",
+    "confirmPaidMore": "… and %(count)d more",
+    "confirmPaidInstall": "Install",
+    "confirmPaidCancel": "Cancel",
+    "confirmPaidFallback": "The confirmation could not be shown, so nothing was installed. Mount the equipment by hand if you want it on.",
+
     "batchNoTargets": "AutoEquip: no Primary vehicles in the current carousel filter",
     "batchNoSavedSets": "AutoEquip: none of the %(count)d Primary vehicles has saved sets",
     "batchSummary": "AutoEquip: %(processed)d Primary vehicle(s) processed, %(installed)d item(s) installed",

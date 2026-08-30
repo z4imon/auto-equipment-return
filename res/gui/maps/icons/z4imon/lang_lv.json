@@ -50,6 +50,14 @@
     "summarySkipped": "Izlaists: %(name)s — %(reason)s",
     "summaryError": "Kļūda: %(err)s",
 
+    "confirmPaidHeader": "Noņemšana nebūtu bez maksas",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "Uzlikšana ir bez maksas, vēlāka noņemšana nav. Tomēr uzlikt?",
+    "confirmPaidMore": "… un vēl %(count)d",
+    "confirmPaidInstall": "Uzlikt",
+    "confirmPaidCancel": "Atcelt",
+    "confirmPaidFallback": "Apstiprinājumu nevarēja parādīt, nekas netika uzlikts. Ja vēlies aprīkojumu, uzliec to manuāli.",
+
     "batchNoTargets": "AutoEquip: pašreizējā karuseļa filtrā nav iecienīto tehniku",
     "batchNoSavedSets": "AutoEquip: nevienai no %(count)d iecienītajām tehnikām nav saglabātu komplektu",
     "batchSummary": "AutoEquip: apstrādātas iecienītās tehnikas: %(processed)d, uzstādīti priekšmeti: %(installed)d",

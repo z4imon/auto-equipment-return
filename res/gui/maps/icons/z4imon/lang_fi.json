@@ -50,6 +50,14 @@
     "summarySkipped": "Ohitettu: %(name)s — %(reason)s",
     "summaryError": "Virhe: %(err)s",
 
+    "confirmPaidHeader": "Irrottaminen ei olisi ilmaista",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "Asentaminen on ilmaista, myöhempi irrottaminen ei. Asennetaanko silti?",
+    "confirmPaidMore": "… ja %(count)d muuta",
+    "confirmPaidInstall": "Asenna",
+    "confirmPaidCancel": "Peruuta",
+    "confirmPaidFallback": "Vahvistusta ei voitu näyttää, mitään ei asennettu. Asenna varusteet käsin, jos haluat ne.",
+
     "batchNoTargets": "AutoEquip: nykyisessä karusellisuodattimessa ei ole suosikkiajoneuvoja",
     "batchNoSavedSets": "AutoEquip: yhdelläkään %(count)d suosikkiajoneuvosta ei ole tallennettuja sarjoja",
     "batchSummary": "AutoEquip: %(processed)d suosikkiajoneuvoa käsitelty, %(installed)d esinettä asennettu",

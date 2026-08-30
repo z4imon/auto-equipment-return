@@ -50,6 +50,14 @@
     "summarySkipped": "Пропуснато: %(name)s — %(reason)s",
     "summaryError": "Грешка: %(err)s",
 
+    "confirmPaidHeader": "Свалянето няма да е безплатно",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "Монтирането е безплатно, свалянето по-късно — не. Да се монтира ли въпреки това?",
+    "confirmPaidMore": "… и още %(count)d",
+    "confirmPaidInstall": "Монтирай",
+    "confirmPaidCancel": "Отказ",
+    "confirmPaidFallback": "Потвърждението не можа да бъде показано, нищо не беше монтирано. Монтирайте оборудването ръчно, ако го искате.",
+
     "batchNoTargets": "AutoEquip: няма любими машини в текущия филтър на въртележката",
     "batchNoSavedSets": "AutoEquip: нито една от %(count)d любими машини няма запазени комплекти",
     "batchSummary": "AutoEquip: обработени са %(processed)d любими машини, поставени са %(installed)d предмета",

@@ -50,6 +50,14 @@
     "summarySkipped": "Vahele jäetud: %(name)s — %(reason)s",
     "summaryError": "Viga: %(err)s",
 
+    "confirmPaidHeader": "Eemaldamine ei oleks tasuta",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "Paigaldamine on tasuta, hilisem eemaldamine mitte. Kas paigaldada siiski?",
+    "confirmPaidMore": "… ja veel %(count)d",
+    "confirmPaidInstall": "Paigalda",
+    "confirmPaidCancel": "Tühista",
+    "confirmPaidFallback": "Kinnitusküsimust ei õnnestunud kuvada, midagi ei paigaldatud. Paigalda varustus käsitsi, kui soovid seda.",
+
     "batchNoTargets": "AutoEquip: praeguses karusselli filtris pole lemmiksõidukeid",
     "batchNoSavedSets": "AutoEquip: ühelgi %(count)d lemmiksõidukist pole salvestatud komplekte",
     "batchSummary": "AutoEquip: töödeldi %(processed)d lemmiksõidukit, paigaldati %(installed)d eset",

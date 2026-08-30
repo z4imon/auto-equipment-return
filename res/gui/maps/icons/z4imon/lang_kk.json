@@ -50,6 +50,14 @@
     "summarySkipped": "Өткізіп жіберілді: %(name)s — %(reason)s",
     "summaryError": "Қате: %(err)s",
 
+    "confirmPaidHeader": "Шешу тегін болмайды",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "Орнату тегін, кейін шешу тегін емес. Сонда да орнатылсын ба?",
+    "confirmPaidMore": "… және тағы %(count)d",
+    "confirmPaidInstall": "Орнату",
+    "confirmPaidCancel": "Болдырмау",
+    "confirmPaidFallback": "Растау сұрағын көрсету мүмкін болмады, ештеңе орнатылмады. Қажет болса, жабдықты қолмен орнатыңыз.",
+
     "batchNoTargets": "AutoEquip: ағымдағы карусель сүзгісінде таңдаулы машиналар жоқ",
     "batchNoSavedSets": "AutoEquip: %(count)d таңдаулы машинаның ешқайсысында сақталған жинақ жоқ",
     "batchSummary": "AutoEquip: %(processed)d таңдаулы машина өңделді, %(installed)d зат орнатылды",

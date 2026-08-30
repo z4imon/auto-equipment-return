@@ -50,6 +50,14 @@
     "summarySkipped": "Atlandı: %(name)s — %(reason)s",
     "summaryError": "Hata: %(err)s",
 
+    "confirmPaidHeader": "Sökme işlemi ücretsiz olmayacaktı",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "Takmak ücretsiz, sonradan sökmek değil. Yine de takılsın mı?",
+    "confirmPaidMore": "… ve %(count)d tane daha",
+    "confirmPaidInstall": "Tak",
+    "confirmPaidCancel": "İptal",
+    "confirmPaidFallback": "Onay mesajı gösterilemedi, hiçbir şey takılmadı. İstiyorsan donanımı elle tak.",
+
     "batchNoTargets": "AutoEquip: geçerli karusel filtresinde favori araç yok",
     "batchNoSavedSets": "AutoEquip: %(count)d favori aracın hiçbirinde kayıtlı set yok",
     "batchSummary": "AutoEquip: %(processed)d favori araç işlendi, %(installed)d nesne takıldı",

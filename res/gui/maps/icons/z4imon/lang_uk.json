@@ -50,6 +50,14 @@
     "summarySkipped": "Пропущено: %(name)s — %(reason)s",
     "summaryError": "Помилка: %(err)s",
 
+    "confirmPaidHeader": "Зняття не буде безкоштовним",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "Встановлення безкоштовне, а зняття потім — ні. Усе одно встановити?",
+    "confirmPaidMore": "… і ще %(count)d",
+    "confirmPaidInstall": "Встановити",
+    "confirmPaidCancel": "Скасувати",
+    "confirmPaidFallback": "Запит підтвердження не вдалося показати, нічого не встановлено. Встановіть обладнання вручну, якщо воно потрібне.",
+
     "batchNoTargets": "AutoEquip: у поточному фільтрі каруселі немає улюблених машин",
     "batchNoSavedSets": "AutoEquip: жодна з %(count)d улюблених машин не має збережених наборів",
     "batchSummary": "AutoEquip: оброблено улюблених машин: %(processed)d, встановлено предметів: %(installed)d",

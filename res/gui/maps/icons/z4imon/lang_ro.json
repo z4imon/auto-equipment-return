@@ -50,6 +50,14 @@
     "summarySkipped": "Omis: %(name)s — %(reason)s",
     "summaryError": "Eroare: %(err)s",
 
+    "confirmPaidHeader": "Demontarea nu ar fi gratuită",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "Montarea este gratuită, demontarea ulterioară nu. Montezi oricum?",
+    "confirmPaidMore": "… și încă %(count)d",
+    "confirmPaidInstall": "Montează",
+    "confirmPaidCancel": "Anulează",
+    "confirmPaidFallback": "Confirmarea nu a putut fi afișată, nimic nu a fost montat. Montează echipamentul manual dacă îl vrei.",
+
     "batchNoTargets": "AutoEquip: niciun vehicul favorit în filtrul curent al caruselului",
     "batchNoSavedSets": "AutoEquip: niciunul dintre cele %(count)d vehicule favorite nu are seturi salvate",
     "batchSummary": "AutoEquip: %(processed)d vehicul(e) favorit(e) procesat(e), %(installed)d echipament(e) instalat(e)",

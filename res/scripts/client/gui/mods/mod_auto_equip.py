@@ -13,6 +13,7 @@ next to it, one module per job:
     auto_equip.cleanup     stripping devices no saved set asks for
     auto_equip.recommended WoT Plus' equipment recommendation -> saveable sets
     auto_equip.gameface    the hangar popover
+    auto_equip.confirm     the paid-install confirmation notification
     auto_equip.carousel_menu  the carousel right-click entry
     auto_equip.importer    the ModsSettingsAPI settings panel
     auto_equip.i18n        player-visible strings
@@ -31,9 +32,10 @@ from .auto_equip.log import LOG
 
 def init():
     try:
-        from .auto_equip import gameface
+        from .auto_equip import confirm, gameface
         i18n.init()
         gameface.init()
+        confirm.register()
         if os.name == 'nt':
             _start_account_load()
         LOG.info('mod_auto_equip.init() finished OK')
@@ -44,7 +46,8 @@ def init():
 
 def fini():
     try:
-        from .auto_equip import gameface
+        from .auto_equip import confirm, gameface
+        confirm.unregister()
         gameface.fini()
     except Exception:
         LOG.exc('mod_auto_equip.fini() failed')

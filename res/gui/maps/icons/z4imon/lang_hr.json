@@ -50,6 +50,14 @@
     "summarySkipped": "Preskočeno: %(name)s — %(reason)s",
     "summaryError": "Pogreška: %(err)s",
 
+    "confirmPaidHeader": "Skidanje ne bi bilo besplatno",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "Postavljanje je besplatno, kasnije skidanje nije. Postaviti ipak?",
+    "confirmPaidMore": "… i još %(count)d",
+    "confirmPaidInstall": "Postavi",
+    "confirmPaidCancel": "Odustani",
+    "confirmPaidFallback": "Potvrdu nije bilo moguće prikazati, ništa nije postavljeno. Postavi opremu ručno ako je želiš.",
+
     "batchNoTargets": "AutoEquip: u trenutnom filtru vrtuljka nema omiljenih vozila",
     "batchNoSavedSets": "AutoEquip: nijedno od %(count)d omiljenih vozila nema spremljene komplete",
     "batchSummary": "AutoEquip: obrađeno je %(processed)d omiljenih vozila, ugrađeno je %(installed)d predmeta",

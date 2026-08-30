@@ -50,6 +50,14 @@
     "summarySkipped": "スキップ: %(name)s — %(reason)s",
     "summaryError": "エラー: %(err)s",
 
+    "confirmPaidHeader": "取り外しは無料になりません",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "装着は無料ですが、後の取り外しは無料ではありません。それでも装着しますか？",
+    "confirmPaidMore": "… ほか %(count)d 件",
+    "confirmPaidInstall": "装着する",
+    "confirmPaidCancel": "キャンセル",
+    "confirmPaidFallback": "確認メッセージを表示できなかったため、何も装着されませんでした。必要な場合は手動で装着してください。",
+
     "batchNoTargets": "AutoEquip: 現在のカルーセルフィルターにお気に入り車輌がありません",
     "batchNoSavedSets": "AutoEquip: %(count)d 輌のお気に入り車輌のいずれにも保存済みセットがありません",
     "batchSummary": "AutoEquip: お気に入り車輌 %(processed)d 輌を処理し、%(installed)d 個を装着しました",

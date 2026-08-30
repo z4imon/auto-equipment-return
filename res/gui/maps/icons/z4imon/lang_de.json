@@ -50,6 +50,14 @@
     "summarySkipped": "Übersprungen: %(name)s — %(reason)s",
     "summaryError": "Fehler: %(err)s",
 
+    "confirmPaidHeader": "Ausbau wäre kostenpflichtig",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "Der Einbau ist kostenlos, der Ausbau später nicht. Trotzdem einbauen?",
+    "confirmPaidMore": "… und %(count)d weitere",
+    "confirmPaidInstall": "Einbauen",
+    "confirmPaidCancel": "Abbrechen",
+    "confirmPaidFallback": "Die Rückfrage konnte nicht angezeigt werden, es wurde nichts eingebaut. Baue die Ausrüstung von Hand ein, wenn du sie haben willst.",
+
     "batchNoTargets": "AutoEquip: Keine Primärpanzer im aktuellen Karussell-Filter",
     "batchNoSavedSets": "AutoEquip: Keiner der %(count)d Primärpanzer hat gespeicherte Sets",
     "batchSummary": "AutoEquip: %(processed)d Primärpanzer verarbeitet, %(installed)d Teil(e) eingebaut",

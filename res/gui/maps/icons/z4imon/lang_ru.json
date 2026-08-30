@@ -50,6 +50,14 @@
     "summarySkipped": "Пропущено: %(name)s — %(reason)s",
     "summaryError": "Ошибка: %(err)s",
 
+    "confirmPaidHeader": "Снятие не будет бесплатным",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "Установка бесплатна, а снятие потом — нет. Всё равно установить?",
+    "confirmPaidMore": "… и ещё %(count)d",
+    "confirmPaidInstall": "Установить",
+    "confirmPaidCancel": "Отмена",
+    "confirmPaidFallback": "Запрос подтверждения не удалось показать, ничего не установлено. Установите оборудование вручную, если оно нужно.",
+
     "batchNoTargets": "AutoEquip: в текущем фильтре карусели нет избранных машин",
     "batchNoSavedSets": "AutoEquip: ни у одной из %(count)d избранных машин нет сохранённых наборов",
     "batchSummary": "AutoEquip: обработано избранных машин: %(processed)d, установлено предметов: %(installed)d",

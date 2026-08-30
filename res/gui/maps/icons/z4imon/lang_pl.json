@@ -50,6 +50,14 @@
     "summarySkipped": "Pominięto: %(name)s — %(reason)s",
     "summaryError": "Błąd: %(err)s",
 
+    "confirmPaidHeader": "Demontaż nie byłby darmowy",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "Montaż jest darmowy, późniejszy demontaż nie. Zamontować mimo to?",
+    "confirmPaidMore": "… i %(count)d więcej",
+    "confirmPaidInstall": "Zamontuj",
+    "confirmPaidCancel": "Anuluj",
+    "confirmPaidFallback": "Nie udało się wyświetlić potwierdzenia, nic nie zostało zamontowane. Zamontuj wyposażenie ręcznie, jeśli go chcesz.",
+
     "batchNoTargets": "AutoEquip: brak ulubionych pojazdów w bieżącym filtrze karuzeli",
     "batchNoSavedSets": "AutoEquip: żaden z %(count)d ulubionych pojazdów nie ma zapisanych zestawów",
     "batchSummary": "AutoEquip: przetworzono %(processed)d ulubion(y/e) pojazd(ów), zamontowano %(installed)d element(ów)",

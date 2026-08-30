@@ -50,6 +50,14 @@
     "summarySkipped": "已跳过：%(name)s — %(reason)s",
     "summaryError": "错误：%(err)s",
 
+    "confirmPaidHeader": "拆卸不是免费的",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "安装是免费的，但之后拆卸不是。仍然安装吗？",
+    "confirmPaidMore": "… 还有 %(count)d 项",
+    "confirmPaidInstall": "安装",
+    "confirmPaidCancel": "取消",
+    "confirmPaidFallback": "无法显示确认提示，未安装任何设备。如果需要，请手动安装。",
+
     "batchNoTargets": "AutoEquip：当前车辆栏筛选条件下没有收藏车辆",
     "batchNoSavedSets": "AutoEquip：%(count)d 辆收藏车辆均无已保存的配置",
     "batchSummary": "AutoEquip：已处理 %(processed)d 辆收藏车辆，安装 %(installed)d 件设备",

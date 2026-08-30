@@ -50,6 +50,14 @@
     "summarySkipped": "Kihagyva: %(name)s — %(reason)s",
     "summaryError": "Hiba: %(err)s",
 
+    "confirmPaidHeader": "A leszerelés nem lenne ingyenes",
+    "confirmPaidLine": "%(name)s — %(veh)s",
+    "confirmPaidQuestion": "A felszerelés ingyenes, a későbbi leszerelés nem. Mégis felszereljük?",
+    "confirmPaidMore": "… és %(count)d további",
+    "confirmPaidInstall": "Felszerelés",
+    "confirmPaidCancel": "Mégse",
+    "confirmPaidFallback": "A megerősítő kérdést nem lehetett megjeleníteni, semmi sem került felszerelésre. Szereld fel kézzel, ha szeretnéd.",
+
     "batchNoTargets": "AutoEquip: nincs kedvenc jármű a jelenlegi körhinta-szűrőben",
     "batchNoSavedSets": "AutoEquip: a(z) %(count)d kedvenc jármű egyikének sincs mentett készlete",
     "batchSummary": "AutoEquip: %(processed)d kedvenc jármű feldolgozva, %(installed)d tárgy felszerelve",
