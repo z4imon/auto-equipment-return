@@ -8,6 +8,7 @@ the same PC never mixes up saved sets. File layout:
 
     {"autoEquipEnabled": true,
      "downgradeEnabled": false,
+     "alwaysSelectSetup1": true,
      "sets": {"<vehicle invID>": {"set1": [intCD, intCD, intCD] or null,
                                   "set2": [intCD, intCD, intCD] or null,
                                   "vehicleCD": intCD or null}}}
@@ -33,6 +34,10 @@ from .log import LOG
 _DEFAULTS = {
     'autoEquipEnabled': True,   # install saved sets automatically on vehicle selection
     'downgradeEnabled': False,  # replace unavailable special devices with their standard variant
+    # Leave every vehicle on set 1 and never switch a donor back. Off restores
+    # the old behaviour: donors return to their own setup and the vehicle ends
+    # on whichever setup it started on.
+    'alwaysSelectSetup1': True,
 }
 
 _EMPTY_ENTRY = {'set1': None, 'set2': None, 'vehicleCD': None}
@@ -111,6 +116,7 @@ def load_for_account(account_id):
             _settings = {
                 'autoEquipEnabled': bool(data.get('autoEquipEnabled', True)),
                 'downgradeEnabled': bool(data.get('downgradeEnabled', False)),
+                'alwaysSelectSetup1': bool(data.get('alwaysSelectSetup1', True)),
             }
             _sets = _clean_sets(data.get('sets', {}))
         else:
@@ -143,8 +149,9 @@ def save():
             json.dump({
                 'autoEquipEnabled': bool(_settings['autoEquipEnabled']),
                 'downgradeEnabled': bool(_settings['downgradeEnabled']),
+                'alwaysSelectSetup1': bool(_settings['alwaysSelectSetup1']),
                 'sets': _sets,
-            }, handle, indent=4)
+            }, handle, separators=(',', ':'))
     except Exception:
         LOG.exc('save() failed')
 
@@ -180,6 +187,23 @@ def set_downgrade_enabled(enabled):
     _settings['downgradeEnabled'] = bool(enabled)
     save()
     return _settings['downgradeEnabled']
+
+
+def is_always_setup1():
+    """Whether a run leaves the vehicle on set 1 and skips the donor's switch
+    back. Both halves hang on this one flag because they are the same trade:
+    fewer CMD_SWITCH_LAYOUT calls in exchange for vehicles ending on a setup
+    the player did not pick.
+
+    Not gated on _mod_disabled: a disabled mod performs no runs, so there is no
+    setup to leave anyone on."""
+    return bool(_settings.get('alwaysSelectSetup1', True))
+
+
+def set_always_setup1(enabled):
+    _settings['alwaysSelectSetup1'] = bool(enabled)
+    save()
+    return _settings['alwaysSelectSetup1']
 
 
 # ---------------------------------------------------------------------------

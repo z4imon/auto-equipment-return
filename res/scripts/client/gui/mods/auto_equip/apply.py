@@ -28,6 +28,10 @@ from . import config, inventory, messages, rpc
 from .i18n import t
 from .log import LOG
 
+# Setup index of "Equipment set 1" - the one a finished run leaves the vehicle
+# on. _build_plan maps the saved 'set1' onto it, and the UI counts from 1.
+PRIMARY_SETUP = 0
+
 _MAX_SUMMARY_ERRORS = 8
 
 # One apply run at a time - the popover reflects this, and the vehicle-
@@ -87,6 +91,10 @@ class RunOutcome(object):
         self.donated = []       # (device name, donor vehicle name)
         self.downgraded = []    # (special device name, standard device name)
         self.missing = []       # devices that could not be sourced for free
+        # True when the run gave up before working through the whole plan -
+        # the player selected another vehicle, or the vehicle vanished. Its
+        # timings describe a partial run and must be readable as such.
+        self.interrupted = False
 
     def has_anything_to_report(self):
         return bool(self.installed or self.skipped or self.errors or self.donated)
@@ -146,6 +154,40 @@ def _build_plan(vehicle, saved):
     return [(setup_idx, _normalize_layout(saved_cds, capacity))
             for setup_idx, saved_cds in wanted_per_setup
             if saved_cds is not None and setup_idx in available]
+
+
+def _ordered_plan(plan):
+    """The order the setups are written in.
+
+    With 'always set 1' on, the highest setup goes first so the run ENDS on set
+    1 and needs no switch to get there. A vehicle already sitting on set 2 -
+    which is what a donor now looks like - is written where it stands and then
+    switched down once, instead of being switched up, written, and switched back.
+
+    Off, the plan keeps its natural order and the old restore puts the vehicle
+    back where it started."""
+    if not config.is_always_setup1():
+        return plan
+    return sorted(plan, key=lambda entry: -entry[0])
+
+
+def _final_setup_idx(plan, original_setup_idx):
+    """Which setup the vehicle is left on, or None to leave it where the run
+    ended.
+
+    _ordered_plan puts set 1 last, but that alone does not guarantee the vehicle
+    ends there: _apply_setup returns before switching when a setup already holds
+    what the plan wants. So the target is stated explicitly.
+
+    It is only claimed when set 1 was actually part of the run. A vehicle whose
+    set 1 was never saved would otherwise be switched down for nothing - and
+    that lone switch is exactly the throttled call this change exists to
+    avoid."""
+    if not config.is_always_setup1():
+        return original_setup_idx
+    if any(setup_idx == PRIMARY_SETUP for setup_idx, _wanted in plan):
+        return PRIMARY_SETUP
+    return None
 
 
 def _plan_already_applied(vehicle, plan):
@@ -261,16 +303,21 @@ def apply_to_vehicle(veh_inv_id, options, callback=None):
         if options.show_veil:
             veil_shown = messages.show_waiting()
 
+        plan = _ordered_plan(plan)
         ledger = DepotLedger()
+        yield _prefetch_devices(vehicle, plan, options, outcome, ledger)
         for setup_idx, wanted in plan:
             if _run_interrupted(veh_inv_id, options):
+                outcome.interrupted = True
                 break
             keep_going = yield _apply_setup(veh_inv_id, setup_idx, wanted,
                                             options, outcome, ledger)
             if not keep_going:
+                outcome.interrupted = True
                 break
 
-        yield _restore_active_setup(veh_inv_id, original_setup_idx)
+        yield _restore_active_setup(veh_inv_id,
+                                    _final_setup_idx(plan, original_setup_idx))
 
         if options.push_summary and outcome.has_anything_to_report():
             messages.push_lines(_summary_lines(outcome),
@@ -284,6 +331,141 @@ def apply_to_vehicle(veh_inv_id, options, callback=None):
             messages.hide_waiting()
         if callback is not None:
             callback(outcome)
+
+
+@adisp_async
+@adisp_process
+def _prefetch_devices(vehicle, plan, options, outcome, ledger, callback=None):
+    """Fetches everything the WHOLE plan still needs, in one concurrent burst,
+    before any setup is touched.
+
+    This is the largest single block of a run: pulling devices off other
+    vehicles was 33% of the measured time, 2.65 calls of about 290ms each, and
+    every one of them waited for the one before it. They are independent - each
+    addresses a different vehicle - and the server has never once rate-limited a
+    demount, so they can all go out together.
+
+    Two properties make this safe, and both were learned the hard way:
+
+      * ALL READS HAPPEN BEFORE ALL WRITES. The earlier attempt at batching
+        planned the second setup after the first had been written, read a stale
+        items cache, and fetched the same device twice from a donor that no
+        longer had it. Planning the whole vehicle up front cannot do that - and
+        it is also what lets a device wanted by BOTH setups be fetched once
+        instead of twice.
+      * IT IS PURELY OPPORTUNISTIC. Whatever it does not manage - a device with
+        no donor, one that would cost money, one whose donor keeps it in the
+        inactive setup, a call the server turns down - is simply not credited to
+        the ledger, and the normal per-slot path then sources it exactly as it
+        did before, reporting it exactly as it did before. If this step does
+        nothing at all, the run is the one that shipped.
+
+    Donors that would need a setup switch are left to the serial path on
+    purpose: change_setup IS rate-limited (27-48% of calls came back
+    RES_COOLDOWN), and mixing one into the burst would drag the whole batch into
+    a cooldown.
+    """
+    try:
+        borrows = _plan_prefetch(vehicle, plan, options, ledger)
+        if not borrows:
+            return
+
+        LOG.info('prefetch: taking %d device(s) off %d donor(s) at once: %s'
+                 % (len(borrows), len(set(b[0].invID for b in borrows)),
+                    [(b[0].userName, b[2].userName) for b in borrows]))
+        steps = [rpc.equip_device(donor.invID, 0, slot_idx, True,
+                                  not item.isRemovable)
+                 for donor, device_cd, item, setup_idx, slot_idx in borrows]
+        results = yield rpc.gather(steps)
+
+        for borrow, result in zip(borrows, results):
+            donor, device_cd, item = borrow[0], borrow[1], borrow[2]
+            code = result[0] if result else -1
+            if rpc.is_success(code):
+                ledger.freed_one(device_cd)
+                outcome.donated.append((item.userName, donor.userName))
+            else:
+                # Not reported as an error: the per-slot path tries this device
+                # again on its own and reports whatever it finds there.
+                LOG.info('prefetch: %s from %s did not come off (code %s) - '
+                         'leaving it to the per-slot path'
+                         % (item.userName, donor.userName, code))
+        yield rpc.pause(rpc.OP_PAUSE)
+    except Exception:
+        LOG.exc('_prefetch_devices failed')
+    finally:
+        if callback is not None:
+            callback(None)
+
+
+def _plan_prefetch(vehicle, plan, options, ledger):
+    """[(donor, device cd, item, setup index, slot index)] for everything this
+    burst may fetch. No server calls, and every slot index is read here, before
+    the first command goes out - so none of them can be read from a vehicle that
+    another command in the same burst has already changed."""
+    borrows = []
+    donors_seen = {}
+    for device_cd, item in _devices_to_fetch(vehicle, plan, ledger):
+        donor = _fetchable_donor(vehicle, device_cd, options)
+        if donor is None:
+            continue
+        setup_idx, slot_idx = inventory.locate_device_on_vehicle(donor, device_cd)
+        if slot_idx is None:
+            continue
+        # Two devices from the same donor are fine - separate slots do not move
+        # each other - but the same SLOT must never be addressed twice.
+        taken = donors_seen.setdefault(donor.invID, set())
+        if slot_idx in taken:
+            continue
+        taken.add(slot_idx)
+        borrows.append((donor, device_cd, item, setup_idx, slot_idx))
+    return borrows
+
+
+def _devices_to_fetch(vehicle, plan, ledger):
+    """[(device cd, item)] the plan needs and the account cannot serve yet.
+
+    Deduplicated across setups: one physical device can sit in both loadouts, so
+    a device named by both is fetched once. At most six slots are involved, so
+    at most six devices."""
+    seen = set()
+    found = []
+    for _setup_idx, layout in plan:
+        for device_cd in layout:
+            if not device_cd or device_cd in seen:
+                continue
+            seen.add(device_cd)
+            if inventory.vehicle_has_device(vehicle, device_cd):
+                continue
+            if ledger.count(device_cd) > 0:
+                continue
+            item = inventory.device_by_cd(device_cd)
+            if item is not None:
+                found.append((device_cd, item))
+    return found
+
+
+def _fetchable_donor(vehicle, device_cd, options):
+    """A donor this burst may take from, or None.
+
+    Stricter than find_donor_vehicle: the device has to sit in the ACTIVE setup
+    of the donor. Anything else needs a change_setup first, and that is the one
+    command the server rate-limits."""
+    try:
+        item = inventory.device_by_cd(device_cd)
+        if item is None or not inventory.is_free_to_demount(item):
+            return None
+        donor = inventory.find_donor_vehicle(device_cd, vehicle.invID,
+                                             options.excluded_donor_inv_ids)
+        if donor is None:
+            return None
+        setup_idx, _slot_idx = inventory.locate_device_on_vehicle(donor, device_cd)
+        if setup_idx != inventory.active_setup_index(donor):
+            return None
+        return donor
+    except Exception:
+        LOG.exc('_fetchable_donor failed')
+        return None
 
 
 @adisp_async
@@ -403,7 +585,8 @@ def _clear_slot(vehicle, setup_idx, slot_idx, device_cd, outcome, ledger, callba
                                for idx in other_setups)
         if stays_on_vehicle:
             # Still mounted in the other setup, so this is free by definition.
-            code, extra = yield rpc.equip_device(vehicle.invID, 0, slot_idx, False, False)
+            code, extra = yield rpc.equip_device(vehicle.invID, 0, slot_idx,
+                                                 False, False)
         else:
             if not inventory.is_free_to_demount(item):
                 outcome.note_skipped(item.userName, t('reasonPaidDemount'), also_missing=False)
@@ -457,12 +640,14 @@ def _borrow_from_donor(veh_inv_id, device_cd, item, options, outcome, ledger, ca
                 outcome.skipped.append(
                     (item.userName, t('reasonDonorSetupSwitchFailed', donor=donor.userName)))
                 return
-            yield rpc.pause(rpc.OP_PAUSE)
+            # No pause: the demount below fires straight at the server with a
+            # slot index that was read BEFORE the switch. Nothing between here
+            # and there touches the items cache, so there is nothing to settle.
 
         LOG.info('demounting %s from %s (setup %d slot %d)'
                  % (item.name, donor.userName, donor_setup_idx, donor_slot_idx))
-        code, extra = yield rpc.equip_device(donor.invID, 0, donor_slot_idx,
-                                             True, not item.isRemovable)
+        code, extra = yield rpc.equip_device(
+            donor.invID, 0, donor_slot_idx, True, not item.isRemovable)
         obtained = rpc.is_success(code)
         if obtained:
             outcome.donated.append((item.userName, donor.userName))
@@ -470,9 +655,12 @@ def _borrow_from_donor(veh_inv_id, device_cd, item, options, outcome, ledger, ca
         else:
             outcome.errors.append(t('errDonorDemountFailed', name=item.userName,
                                     donor=donor.userName, code=code, ext=extra))
-        yield rpc.pause(rpc.OP_PAUSE)
+        # No pause either: what this demount changed is the DEPOT count, and the
+        # depot is read from the ledger precisely because the cache lags behind.
+        # The next cache read is the target vehicle's own layout, which a donor
+        # demount cannot have touched.
 
-        if must_switch:
+        if must_switch and not config.is_always_setup1():
             # Nothing below reads donor state, so no pause is needed.
             code = yield rpc.change_setup_index(donor.invID, donor_original_idx)
             if not rpc.is_success(code):
@@ -491,6 +679,7 @@ def _install_layout(vehicle, setup_idx, final, capacity, outcome, ledger, callba
     """Phase 3: apply the whole prepared layout in one server command."""
     try:
         current = inventory.setup_device_cds(vehicle, setup_idx)
+        _keep_what_could_not_be_replaced(current, final, capacity)
         _drop_unaffordable(vehicle, current, final, capacity, outcome, ledger)
         if current == final:
             return
@@ -508,6 +697,22 @@ def _install_layout(vehicle, setup_idx, final, capacity, outcome, ledger, callba
     finally:
         if callback is not None:
             callback(None)
+
+
+def _keep_what_could_not_be_replaced(current, final, capacity):
+    """Puts back every slot the planning phase gave up on while the slot is
+    still occupied on the server.
+
+    A failed donor borrow leaves a 0 in `final` (see _prepare_slot), but the
+    device it meant to replace is still mounted. CMD_EQUIP_OPT_DEVS_SEQUENCE
+    refuses to demount: a layout that empties an occupied slot is rejected
+    WHOLESALE with RES_FAILURE, so one unobtainable device would cost the whole
+    setup - and with the donor already stripped, nothing gets installed at all.
+    Sending the current content back is a no-op for that slot and lets the rest
+    of the layout through. Same rule _prepare_slot applies on a failed clear."""
+    for slot_idx in range(capacity):
+        if not final[slot_idx] and current[slot_idx]:
+            final[slot_idx] = current[slot_idx]
 
 
 def _drop_unaffordable(vehicle, current, final, capacity, outcome, ledger):
@@ -530,18 +735,19 @@ def _drop_unaffordable(vehicle, current, final, capacity, outcome, ledger):
 
 @adisp_async
 @adisp_process
-def _restore_active_setup(veh_inv_id, original_setup_idx, callback=None):
-    """Puts the vehicle back on the setup that was active before the run."""
+def _restore_active_setup(veh_inv_id, target_setup_idx, callback=None):
+    """Leaves the vehicle on `target_setup_idx`. None means "wherever the run
+    ended" - see _final_setup_idx, which picks the target."""
     try:
         vehicle = inventory.vehicle_by_inv_id(veh_inv_id)
-        if vehicle is None or original_setup_idx is None:
+        if vehicle is None or target_setup_idx is None:
             return
-        if inventory.active_setup_index(vehicle) == original_setup_idx:
+        if inventory.active_setup_index(vehicle) == target_setup_idx:
             return
-        code = yield rpc.change_setup_index(vehicle.invID, original_setup_idx)
+        code = yield rpc.change_setup_index(vehicle.invID, target_setup_idx)
         if not rpc.is_success(code):
-            LOG.warning('could not restore active setup %s on %s'
-                        % (original_setup_idx, veh_inv_id))
+            LOG.warning('could not leave %s on setup %s'
+                        % (veh_inv_id, target_setup_idx))
     except Exception:
         LOG.exc('_restore_active_setup failed')
     finally:

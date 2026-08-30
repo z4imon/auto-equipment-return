@@ -2,6 +2,7 @@
     "title": "Set di equipaggiamento",
     "autoLabel": "Installazione automatica",
     "downgradeLabel": "Attiva la sostituzione",
+    "alwaysSetup1Label": "Seleziona sempre il Set 1",
     "set1": "Set 1",
     "set2": "Set 2",
     "save1": "Salva il set 1",

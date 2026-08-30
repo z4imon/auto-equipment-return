@@ -2,6 +2,7 @@
     "title": "Varustuskomplektid",
     "autoLabel": "Automaatne paigaldus",
     "downgradeLabel": "Luba asendamine",
+    "alwaysSetup1Label": "Vali alati Komplekt 1",
     "set1": "Komplekt 1",
     "set2": "Komplekt 2",
     "save1": "Salvesta komplekt 1",
