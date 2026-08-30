@@ -65,7 +65,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip: automaattinen asennus kytkettiin pois päältä, jottei muiden ajoneuvojen selaaminen siirtelisi varusteitasi vahingossa. Voit ottaa sen uudelleen käyttöön milloin tahansa valikon kytkimestä.",
 
-    "importModDisplayName": "Auto Equipment Return, tekijä Z4imon – tuonti",
+    "cleanupLabel": "Irrota varusteet, joita ei ole tallennetussa sarjassa",
+    "cleanupScopeAll": "Kaikki vaunut, joilla on tallennettu sarja",
+    "cleanupScopePrimary": "Vain ensisijaiset vaunut (tämä halli)",
+    "cleanupButtonText": "Irrota",
+    "cleanupTooltip": "{HEADER}Irrota varusteet, joita ei ole tallennetussa sarjassa{/HEADER}{BODY}Irrottaa jokaisesta vaunusta kaikki varusteet, jotka eivät ole täsmälleen siinä paikassa, jonka sen tallennettu sarja niille antaa, ja palauttaa ne varastoon.\n\nEnnen kaikkea korvatuille varusteille: kun palkkiovarustetta ei ollut saatavilla, modi asensi tilalle vakioversion. Sitä ei ole tallennetussa sarjassa, joten se irrotetaan tässä.\n\nVaunuihin, joilla ei ole tallennettua sarjaa, ei kosketa, eikä mitään irroteta, jos se maksaisi krediittejä, kultaa tai irrotussarjan.{/BODY}",
+    "cleanupNothing": "AutoEquip: tallennettujen sarjojen ulkopuolisia varusteita ei löytynyt",
+    "cleanupDone": "AutoEquip: %(count)d varuste(tta) irrotettu %(vehicles)d vaunusta",
+    "cleanupToDepot": "Takaisin varastossa: %(items)s",
+    "cleanupKept": "Jätettiin paikalleen (irrotus ei olisi ilmaista): %(items)s",
+    "cleanupMoreItems": "… ja %(count)d muuta",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "Tilitunnuksesi: %(accountId)s",
     "importDropdownLabel": "Tuo tallennetut kokoonpanot kurzdorin auto equipment returnista",
     "importOwnDropdownLabel": "Tuo tallennetut kokoonpanot toiselta tililtäsi",

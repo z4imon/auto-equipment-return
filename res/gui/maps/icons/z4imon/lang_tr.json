@@ -65,7 +65,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip: diğer araçlara göz atmanın ekipmanını yanlışlıkla yer değiştirmemesi için otomatik takma kapatıldı. Menüdeki anahtarla istediğin zaman yeniden açabilirsin.",
 
-    "importModDisplayName": "Z4imon tarafından Auto Equipment Return – içe aktarma",
+    "cleanupLabel": "Kayıtlı sette olmayan ekipmanı sök",
+    "cleanupScopeAll": "Kayıtlı seti olan tüm tanklar",
+    "cleanupScopePrimary": "Sadece birincil tanklar (bu hangar)",
+    "cleanupButtonText": "Sök",
+    "cleanupTooltip": "{HEADER}Kayıtlı sette olmayan ekipmanı sök{/HEADER}{BODY}Her tanktan, kayıtlı setinde kendisine ayrılan yuvada durmayan tüm ekipmanı söker ve depoya geri koyar.\n\nÖzellikle düşürülmüş ekipman için: ödül ekipmanı bulunamıyorsa mod bunun yerine standart olanı takmıştır. O ekipman kayıtlı sette olmadığı için burada sökülür.\n\nKayıtlı seti olmayan tanklara dokunulmaz ve kredi, altın ya da sökmüs kiti gerektiren hiçbir şey sökülmez.{/BODY}",
+    "cleanupNothing": "AutoEquip: kayıtlı setlerin dışında ekipman bulunamadı",
+    "cleanupDone": "AutoEquip: %(vehicles)d tanktan %(count)d ekipman söküldü",
+    "cleanupToDepot": "Depoya geri kondu: %(items)s",
+    "cleanupKept": "Bırakıldı (sökmük ücretsiz olmazdı): %(items)s",
+    "cleanupMoreItems": "… ve %(count)d tane daha",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "Hesap kimliğin: %(accountId)s",
     "importDropdownLabel": "kurzdor'un auto equipment return modundaki kayıtlı yapılandırmaları içe aktar",
     "importOwnDropdownLabel": "Başka bir hesabından kayıtlı yapılandırmaları içe aktar",

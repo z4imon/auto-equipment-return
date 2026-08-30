@@ -65,7 +65,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip: az automatikus felszerelést kikapcsoltuk, hogy a többi jármű böngészése ne mozgassa véletlenül a felszerelésedet. A menüben lévő kapcsolóval bármikor újra bekapcsolhatod.",
 
-    "importModDisplayName": "Auto Equipment Return – Z4imon – importálás",
+    "cleanupLabel": "Az elmentett szettben nem szereplő felszerelés leszerelése",
+    "cleanupScopeAll": "Minden harckocsi, amelynek van mentett szettje",
+    "cleanupScopePrimary": "Csak elsődleges harckocsik (ez a hangár)",
+    "cleanupButtonText": "Leszerelés",
+    "cleanupTooltip": "{HEADER}Az elmentett szettben nem szereplő felszerelés leszerelése{/HEADER}{BODY}Minden harckocsiról leszedi az összes felszerelést, amely nem pontosan abban a helyen van, amelyet a mentett szettje kijelöl neki, és visszateszi a raktárba.\n\nFőleg a lecserélt felszereléshez: ha egy zsákmányolt alkatrész nem volt elérhető, a mod a szabványos változatot szerelte fel helyette. Az nincs a mentett szettben, ezért itt lekerül.\n\nA mentett szett nélküli harckocsikhoz nem nyúl, és semmit nem szerel le, ami kreditbe, aranyba vagy leszerelőkészletbe kerülne.{/BODY}",
+    "cleanupNothing": "AutoEquip: nem találtunk a mentett szetteken kívüli felszerelést",
+    "cleanupDone": "AutoEquip: %(count)d alkatrész leszerelve %(vehicles)d harckocsiról",
+    "cleanupToDepot": "Vissza a raktárban: %(items)s",
+    "cleanupKept": "Fennmaradt (a leszerelés nem lenne ingyenes): %(items)s",
+    "cleanupMoreItems": "… és még %(count)d",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "A fiókazonosítód: %(accountId)s",
     "importDropdownLabel": "Mentett konfigurációk importálása kurzdor auto equipment return moduljából",
     "importOwnDropdownLabel": "Mentett konfigurációk importálása egy másik fiókodból",

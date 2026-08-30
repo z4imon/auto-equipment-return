@@ -1,16 +1,25 @@
 # -*- coding: utf-8 -*-
-"""Optional ModsSettingsAPI panel offering two ways to seed this account's
-saved sets instead of saving everything by hand again:
+"""The mod's optional ModsSettingsAPI panel, and the save-file importing that
+is most of what it offers.
 
-1. Import from kurzdor's "Auto Equipment Return" mod - a separate, more
-   popular mod many players already have data for. This also runs silently,
-   without any panel, the first time our mod sees a brand-new account (see
-   auto_import_for_account, called from config.py).
-2. Import from one of OUR OWN mod's other per-account save files, for players
-   with several WoT accounts on this PC.
+The panel holds two things:
 
-Everything here degrades quietly if ModsSettingsAPI isn't installed, or if
-neither data source has anything to offer.
+* the CLEANUP action (cleanup.py) - one dropdown picking how wide to go and a
+  button that runs it. Always there, because it needs nothing but saved sets;
+* the IMPORT section, two ways to seed this account's saved sets instead of
+  saving everything by hand again:
+
+  1. from kurzdor's "Auto Equipment Return" mod - a separate, more popular mod
+     many players already have data for. This also runs silently, without any
+     panel, the first time our mod sees a brand-new account (see
+     auto_import_for_account, called from config.py).
+  2. from one of OUR OWN mod's other per-account save files, for players with
+     several WoT accounts on this PC.
+
+  It only appears when at least one of those data sources has something to
+  offer, which for most players is never.
+
+Everything here degrades quietly if ModsSettingsAPI isn't installed.
 
 kurzdor's .dat files are zlib-compressed pickle (protocol 0) dumps of:
 
@@ -46,13 +55,17 @@ import os
 import pickle
 import zlib
 
-from . import config, inventory, messages
+from . import cleanup, config, inventory, messages
 from .i18n import t
 from .log import LOG
 
+# Named after what the panel started out as. Kept unchanged on purpose: the
+# linkage is the key ModsSettingsAPI stores this mod's panel state under, so
+# renaming it would orphan every player's saved panel state.
 _MOD_LINKAGE = 'z4imon.auto_equipment_return.kurzdor_import'
 _VAR_KURZDOR_FILE = 'kurzdorFile'
 _VAR_OWN_FILE = 'ownAccountFile'
+_VAR_CLEANUP_SCOPE = 'cleanupScope'
 
 _SETS_PER_KURZDOR_ENTRY = 3
 
@@ -283,6 +296,17 @@ def onButtonClicked(linkage, varName, value):
         _handle_kurzdor_import(index)
     elif varName == _VAR_OWN_FILE:
         _handle_own_import(index)
+    elif varName == _VAR_CLEANUP_SCOPE:
+        _handle_cleanup(index)
+
+
+def _handle_cleanup(scope):
+    """The dropdown index IS the scope - see cleanup.SCOPE_*. The run reports
+    itself, so there is nothing to say here."""
+    try:
+        cleanup.demount_misplaced(scope)
+    except Exception:
+        LOG.exc('_handle_cleanup failed')
 
 
 def onModSettingsChanged(linkage, newSettings):
@@ -333,42 +357,66 @@ def _import_button(templates):
     return templates.createButton(text=t('importButtonText'), width=70, height=23)
 
 
-def _build_column(account_id, templates):
-    column = [templates.createLabel(t('importAccountLabel', accountId=account_id))]
+def _cleanup_row(templates):
+    """The cleanup action. ModsSettingsAPI has no standalone button component -
+    a button only ever rides along with a control - so the scope dropdown is
+    both the setting and the button's host, exactly like the import rows."""
+    return templates.createDropdown(
+        t('cleanupLabel'), _VAR_CLEANUP_SCOPE,
+        [t('cleanupScopeAll'), t('cleanupScopePrimary')], 0,
+        tooltip=t('cleanupTooltip'),
+        button=templates.createButton(text=t('cleanupButtonText'),
+                                      width=100, height=23))
+
+
+def _import_rows(templates):
+    rows = []
     if _kurzdor_files:
-        column.append(templates.createDropdown(
+        rows.append(templates.createDropdown(
             t('importDropdownLabel'), _VAR_KURZDOR_FILE, _kurzdor_options(), 0,
             tooltip=t('importOtherAccountTooltip') if _has_other_account_files() else None,
             button=_import_button(templates)))
-        column.extend(_other_account_note(account_id, templates))
+        rows.extend(_other_account_note(_account_id, templates))
     if _own_files:
-        column.append(templates.createDropdown(
+        rows.append(templates.createDropdown(
             t('importOwnDropdownLabel'), _VAR_OWN_FILE,
             [_file_label(path) for path in _own_files], 0,
             button=_import_button(templates)))
+    return rows
+
+
+def _build_column(account_id, templates):
+    """Cleanup first: it is the everyday action, while importing is a one-off
+    most players never do - and for most of them the import section is not
+    there at all."""
+    column = [_cleanup_row(templates)]
+    rows = _import_rows(templates)
+    if rows:
+        column.append(templates.createEmpty())
+        column.append(templates.createLabel(t('importAccountLabel', accountId=account_id)))
+        column.extend(rows)
     return column
 
 
 def register(account_id):
-    """Adds the ModsSettingsAPI panel. No-op when the API isn't installed, or
-    when neither data source has anything to offer. Called by mod_auto_equip
-    once the account id is known - never before."""
+    """Adds the ModsSettingsAPI panel. No-op when the API isn't installed.
+    Called by mod_auto_equip once the account id is known - never before.
+
+    The panel used to bow out when there was nothing to import; it no longer
+    can, because the cleanup action stands on its own."""
     global _kurzdor_files, _own_files, _account_id
     try:
         from gui.modsSettingsApi import g_modsSettingsApi, templates
     except Exception:
-        LOG.info('ModsSettingsAPI not installed - import panel disabled')
+        LOG.info('ModsSettingsAPI not installed - settings panel disabled')
         return
 
     _account_id = account_id
     _kurzdor_files = _list_kurzdor_files()
     _own_files = _list_own_account_files()
-    if not _kurzdor_files and not _own_files:
-        LOG.info('no kurzdor data and no other account files - import panel disabled')
-        return
 
     template = {
-        'modDisplayName': t('importModDisplayName'),
+        'modDisplayName': t('panelDisplayName'),
         'enabled': True,
         'column1': _build_column(account_id, templates),
     }
@@ -378,7 +426,7 @@ def register(account_id):
         else:
             g_modsSettingsApi.setModTemplate(_MOD_LINKAGE, template,
                                              onModSettingsChanged, onButtonClicked)
-        LOG.info('registered import panel (%d kurzdor file(s), %d own account file(s), accountId=%s)'
+        LOG.info('registered settings panel (%d kurzdor file(s), %d own account file(s), accountId=%s)'
                  % (len(_kurzdor_files), len(_own_files), account_id))
     except Exception:
         LOG.exc('register failed')

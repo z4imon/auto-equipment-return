@@ -65,7 +65,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip: автоматичното поставяне е изключено, за да не размества оборудването по погрешка, докато разглеждаш другите машини. Може да го включиш отново по всяко време от менюто.",
 
-    "importModDisplayName": "Auto Equipment Return от Z4imon – импорт",
+    "cleanupLabel": "Свали оборудването, което не е в запазения набор",
+    "cleanupScopeAll": "Всички танкове със запазен набор",
+    "cleanupScopePrimary": "Само основни танкове (този хангар)",
+    "cleanupButtonText": "Свали",
+    "cleanupTooltip": "{HEADER}Свали оборудването, което не е в запазения набор{/HEADER}{BODY}Сваля от всеки танк цялото оборудване, което не е точно в слота, определен за него в запазения набор, и го връща в склада.\n\nПредимно за заменено оборудване: когато трофейна част не е била налична, модът е поставил стандартната версия. Тя не е в запазения набор, затова се сваля тук.\n\nТанкове без запазен набор не се пипат и не се сваля нищо, което би струвало кредити, злато или комплект за демонтаж.{/BODY}",
+    "cleanupNothing": "AutoEquip: не е намерено оборудване извън запазените набори",
+    "cleanupDone": "AutoEquip: свалени са %(count)d части от %(vehicles)d танка",
+    "cleanupToDepot": "Обратно в склада: %(items)s",
+    "cleanupKept": "Остана (свалянето не би било безплатно): %(items)s",
+    "cleanupMoreItems": "… и още %(count)d",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "Твоят ID на акаунт: %(accountId)s",
     "importDropdownLabel": "Импортирай запазените конфигурации от auto equipment return на kurzdor",
     "importOwnDropdownLabel": "Импортирай запазените конфигурации от друг твой акаунт",

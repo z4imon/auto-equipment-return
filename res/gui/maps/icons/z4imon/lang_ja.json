@@ -65,7 +65,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip: 他の車輌を見て回るときに装備が誤って移動しないよう、自動装着をオフにしました。メニューのスイッチからいつでも再度オンにできます。",
 
-    "importModDisplayName": "Auto Equipment Return by Z4imon – インポート",
+    "cleanupLabel": "保存されたセットにない装備を取り外す",
+    "cleanupScopeAll": "保存セットがある全車両",
+    "cleanupScopePrimary": "主要車両のみ（このガレージ）",
+    "cleanupButtonText": "取り外す",
+    "cleanupTooltip": "{HEADER}保存されたセットにない装備を取り外す{/HEADER}{BODY}各車両から、保存されたセットで指定されたスロットに入っていない装備をすべて取り外し、倉庫に戻します。\n\n主に代替装備向けです。バウンティ装備が入手できなかった場合、この MOD は代わりに通常版を取り付けます。それは保存セットにないため、ここで取り外されます。\n\n保存セットがない車両は対象外で、クレジット・ゴールド・取外キットが必要なものは取り外しません。{/BODY}",
+    "cleanupNothing": "AutoEquip: 保存セット外の装備は見つかりませんでした",
+    "cleanupDone": "AutoEquip: %(vehicles)d 車両から %(count)d 個の装備を取り外しました",
+    "cleanupToDepot": "倉庫に戻りました: %(items)s",
+    "cleanupKept": "残しました（取外しが有料のため）: %(items)s",
+    "cleanupMoreItems": "… ほか %(count)d 件",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "あなたのアカウント ID: %(accountId)s",
     "importDropdownLabel": "kurzdor の auto equipment return から保存済み設定をインポート",
     "importOwnDropdownLabel": "自分の別アカウントから保存済み設定をインポート",

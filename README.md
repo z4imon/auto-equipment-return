@@ -48,6 +48,15 @@ next to the customization button.
 **Demount equipment** is added to the right-click menu of every tank in the carousel.
 It removes everything that can be demounted for free and leaves the rest mounted.
 
+**Demount equipment that is not in the saved set** is in the mod's ModsSettingsAPI
+settings panel. Pick the scope — all tanks with a saved set, or only the primary
+tanks of the current hangar — and press *Demount*. It takes off every device that
+is not sitting in exactly the slot its tank's saved set gives it and puts it back
+in the depot. This is mainly for downgraded equipment: when a bounty device could
+not be found, the mod installs the standard one instead, and that one is not what
+the saved set asks for. Tanks without a saved set are never touched, and nothing
+is removed that would cost credits, gold or a demount kit.
+
 ## Installation
 - Download the mod from the official WoT Mods webside
 - Unpack the downloaded file and move both .wotmod files into the world of tanks mod folder:

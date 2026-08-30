@@ -65,7 +65,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip: аўтаўсталяванне адключана, каб прагляд іншых машын выпадкова не перамяшчаў абсталяванне. Уключыць яго зноў можна ў любы час пераключальнікам у меню.",
 
-    "importModDisplayName": "Auto Equipment Return ад Z4imon – імпарт",
+    "cleanupLabel": "Зняць абсталяванне, якога няма ў захаваным наборы",
+    "cleanupScopeAll": "Усе танкі з захаваным наборам",
+    "cleanupScopePrimary": "Толькі асноўныя танкі (гэты ангар)",
+    "cleanupButtonText": "Зняць",
+    "cleanupTooltip": "{HEADER}Зняць абсталяванне, якога няма ў захаваным наборы{/HEADER}{BODY}Здымае з кожнага танка ўсё абсталяванне, якое стаіць не ў тым слоце, які адведзены яму ў захаваным наборы, і вяртае яго на склад.\n\nПерш за ўсё для замененага абсталявання: калі трафейнай дэталі не было, мод усталяваў звычайную. Её няма ў захаваным наборы, таму тут яна будзе знята.\n\nТанкі без захаванага набору не закранаюцца, і нішто не здымаецца, калі гэта каштавала б крэдытаў, золата ці камплекта дэмантажу.{/BODY}",
+    "cleanupNothing": "AutoEquip: абсталявання па-за захаванымі наборамі не знойдзена",
+    "cleanupDone": "AutoEquip: знята %(count)d дэталяў з %(vehicles)d танкаў",
+    "cleanupToDepot": "Зноў на складзе: %(items)s",
+    "cleanupKept": "Засталося (зняццё платнае): %(items)s",
+    "cleanupMoreItems": "… і яшчэ %(count)d",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "Ваш ID акаўнта: %(accountId)s",
     "importDropdownLabel": "Імпартаваць захаваныя канфігурацыі з auto equipment return ад kurzdor",
     "importOwnDropdownLabel": "Імпартаваць захаваныя канфігурацыі з іншага вашага акаўнта",

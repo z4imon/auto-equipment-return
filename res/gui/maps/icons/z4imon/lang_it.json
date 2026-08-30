@@ -65,7 +65,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip: l'installazione automatica è stata disattivata affinché la consultazione degli altri veicoli non sposti per sbaglio il tuo equipaggiamento. Puoi riattivarla quando vuoi dal menu.",
 
-    "importModDisplayName": "Auto Equipment Return di Z4imon – Importazione",
+    "cleanupLabel": "Smonta l'equipaggiamento che non è nel set salvato",
+    "cleanupScopeAll": "Tutti i carri con un set salvato",
+    "cleanupScopePrimary": "Solo carri principali (questo hangar)",
+    "cleanupButtonText": "Smonta",
+    "cleanupTooltip": "{HEADER}Smonta l'equipaggiamento che non è nel set salvato{/HEADER}{BODY}Rimuove da ogni carro tutto l’equipaggiamento che non si trova esattamente nello slot che il suo set salvato gli assegna, e lo rimette nel deposito.\n\nSoprattutto per l'equipaggiamento declassato: se un pezzo di taglia non era disponibile, la mod ha montato la versione standard. Quella non è nel set salvato, quindi viene rimossa qui.\n\nI carri senza set salvato non vengono toccati e non viene rimosso nulla che costerebbe crediti, oro o un kit di smontaggio.{/BODY}",
+    "cleanupNothing": "AutoEquip: nessun equipaggiamento fuori dai set salvati",
+    "cleanupDone": "AutoEquip: %(count)d pezzo/i rimosso/i da %(vehicles)d carro/i",
+    "cleanupToDepot": "Tornato nel deposito: %(items)s",
+    "cleanupKept": "Lasciato montato (la rimozione non sarebbe gratuita): %(items)s",
+    "cleanupMoreItems": "… e altri %(count)d",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "Il tuo ID account: %(accountId)s",
     "importDropdownLabel": "Importa le configurazioni salvate da auto equipment return di kurzdor",
     "importOwnDropdownLabel": "Importa le configurazioni salvate da un altro dei tuoi account",

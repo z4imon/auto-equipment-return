@@ -65,7 +65,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip: automatická montáž byla vypnuta, aby prohlížení ostatních vozidel omylem nepřesouvalo vybavení. Kdykoli ji můžeš znovu zapnout přepínačem v nabídce.",
 
-    "importModDisplayName": "Auto Equipment Return od Z4imon – import",
+    "cleanupLabel": "Demontovat vybavení, které není v uložené sadě",
+    "cleanupScopeAll": "Všechny tanky s uloženou sadou",
+    "cleanupScopePrimary": "Pouze hlavní tanky (tento hangár)",
+    "cleanupButtonText": "Demontovat",
+    "cleanupTooltip": "{HEADER}Demontovat vybavení, které není v uložené sadě{/HEADER}{BODY}Sejme z každého tanku veškeré vybavení, které není přesně ve slotu, který mu určuje uložená sada, a vrátí ho do skladu.\n\nPředevším pro nahrazené vybavení: pokud kořistní díl nebyl k dispozici, mod nasadil standardní verzi. Ta v uložené sadě není, takže se zde sejme.\n\nTanků bez uložené sady se to netýká a nic se nesejme, pokud by to stálo kredity, zlato nebo demontažní sadu.{/BODY}",
+    "cleanupNothing": "AutoEquip: nenalezeno žádné vybavení mimo uložené sady",
+    "cleanupDone": "AutoEquip: sejmuto %(count)d dílů z %(vehicles)d tanků",
+    "cleanupToDepot": "Zpět ve skladu: %(items)s",
+    "cleanupKept": "Ponecháno (demontáž by nebyla zdarma): %(items)s",
+    "cleanupMoreItems": "… a dalších %(count)d",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "ID tvého účtu: %(accountId)s",
     "importDropdownLabel": "Importovat uložené konfigurace z auto equipment return od kurzdora",
     "importOwnDropdownLabel": "Importovat uložené konfigurace z jiného tvého účtu",

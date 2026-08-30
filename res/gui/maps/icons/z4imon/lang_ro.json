@@ -65,7 +65,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip: instalarea automată a fost dezactivată, pentru ca răsfoirea celorlalte vehicule să nu îți mute echipamentele din greșeală. O poți reactiva oricând din meniu.",
 
-    "importModDisplayName": "Auto Equipment Return de Z4imon – Import",
+    "cleanupLabel": "Demontează echipamentul care nu este în setul salvat",
+    "cleanupScopeAll": "Toate tancurile cu un set salvat",
+    "cleanupScopePrimary": "Doar tancurile principale (acest hangar)",
+    "cleanupButtonText": "Demontează",
+    "cleanupTooltip": "{HEADER}Demontează echipamentul care nu este în setul salvat{/HEADER}{BODY}Scoate de pe fiecare tanc tot echipamentul care nu se află exact în slotul pe care i-l atribuie setul său salvat și îl pune înapoi în depozit.\n\nÎn special pentru echipamentul înlocuit: dacă o piesă de recompensă nu era disponibilă, modul a montat versiunea standard. Aceasta nu este în setul salvat, așa că este scoasă aici.\n\nTancurile fără set salvat nu sunt atinse și nu se scoate nimic care ar costa credite, aur sau un kit de demontare.{/BODY}",
+    "cleanupNothing": "AutoEquip: nu s-a găsit echipament în afara seturilor salvate",
+    "cleanupDone": "AutoEquip: %(count)d piesă/piese demontate de pe %(vehicles)d tanc(uri)",
+    "cleanupToDepot": "Înapoi în depozit: %(items)s",
+    "cleanupKept": "Păstrat (demontarea nu ar fi gratuită): %(items)s",
+    "cleanupMoreItems": "… și încă %(count)d",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "ID-ul contului tău: %(accountId)s",
     "importDropdownLabel": "Importă configurațiile salvate din auto equipment return al lui kurzdor",
     "importOwnDropdownLabel": "Importă configurațiile salvate dintr-un alt cont al tău",

@@ -24,16 +24,24 @@ from adisp import adisp_async, adisp_process
 from gui.Scaleform.daapi.view.lobby.hangar.hangar_cm_handlers import VehicleContextMenuHandler
 from gui.shared.notifications import NotificationPriorityLevel
 
-from . import config, inventory, messages, rpc
+from . import cleanup, config, inventory, messages, rpc
 from . import apply as apply_engine
 from .i18n import t
 from .log import LOG
 
 _OPTION_ID = 'z4imonDemountFree'
 
-# One run at a time, and never on top of an apply run - both move the same
-# devices around.
+# One run at a time, and never on top of an apply or cleanup run - all three
+# move the same devices around.
 _busy = False
+
+
+def is_busy():
+    return _busy
+
+
+def _other_run_busy():
+    return apply_engine.is_busy() or cleanup.is_busy()
 
 
 # ---------------------------------------------------------------------------
@@ -75,7 +83,7 @@ def _demount_option(handler):
         return None
     enabled = (not vehicle.isLocked
                and not _busy
-               and not apply_engine.is_busy()
+               and not _other_run_busy()
                and bool(_free_devices(vehicle)))
     return handler._makeItem(_OPTION_ID, t('cmDemountFree'), {'enabled': enabled})
 
@@ -132,7 +140,7 @@ def fini():
 @adisp_process
 def demount_free_equipment(veh_inv_id):
     global _busy
-    if _busy or apply_engine.is_busy():
+    if _busy or _other_run_busy():
         LOG.info('carousel demount: another run is busy, ignoring')
         return
     vehicle = inventory.vehicle_by_inv_id(veh_inv_id)

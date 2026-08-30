@@ -65,7 +65,18 @@
 
     "autoDisabledAfterBatch": "AutoEquip: automatska ugradnja je isključena kako pregledavanje drugih vozila ne bi slučajno premještalo tvoju opremu. Možeš je ponovno uključiti u bilo kojem trenutku prekidačem u izborniku.",
 
-    "importModDisplayName": "Auto Equipment Return autora Z4imon – uvoz",
+    "cleanupLabel": "Skini opremu koje nema u spremljenom setu",
+    "cleanupScopeAll": "Sva vozila sa spremljenim setom",
+    "cleanupScopePrimary": "Samo glavna vozila (ovaj hangar)",
+    "cleanupButtonText": "Skini",
+    "cleanupTooltip": "{HEADER}Skini opremu koje nema u spremljenom setu{/HEADER}{BODY}Skida sa svakog vozila svu opremu koja nije točno u utoru koji joj dodjeljuje njegov spremljeni set i vraća je u skladište.\n\nPrije svega za zamijenjenu opremu: ako trofejni dio nije bio dostupan, mod je umjesto njega ugradio standardnu verziju. Nje nema u spremljenom setu pa se ovdje skida.\n\nVozila bez spremljenog seta se ne diraju i ništa se ne skida ako bi to stajalo kredita, zlata ili kompleta za demontažu.{/BODY}",
+    "cleanupNothing": "AutoEquip: nije pronađena oprema izvan spremljenih setova",
+    "cleanupDone": "AutoEquip: skinuto %(count)d dijelova s %(vehicles)d vozila",
+    "cleanupToDepot": "Natrag u skladištu: %(items)s",
+    "cleanupKept": "Ostavljeno (skidanje ne bi bilo besplatno): %(items)s",
+    "cleanupMoreItems": "… i još %(count)d",
+
+    "panelDisplayName": "Auto Equipment Return by Z4imon",
     "importAccountLabel": "ID tvog računa: %(accountId)s",
     "importDropdownLabel": "Uvezi spremljene konfiguracije iz kurzdorovog auto equipment returna",
     "importOwnDropdownLabel": "Uvezi spremljene konfiguracije s drugog svog računa",
