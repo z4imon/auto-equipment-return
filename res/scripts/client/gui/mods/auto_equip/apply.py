@@ -24,7 +24,7 @@ from adisp import adisp_async, adisp_process
 from CurrentVehicle import g_currentVehicle
 from gui.shared.notifications import NotificationPriorityLevel
 
-from . import config, experiment, inventory, messages, metrics, rpc
+from . import config, inventory, messages, rpc
 from .i18n import t
 from .log import LOG
 
@@ -290,7 +290,6 @@ def apply_to_vehicle(veh_inv_id, options, callback=None):
                      % vehicle.userName)
             return
 
-        metrics.set_vehicle(vehicle)
         original_setup_idx = inventory.active_setup_index(vehicle)
         plan = _build_plan(vehicle, saved)
         if not plan:
@@ -375,12 +374,7 @@ def _prefetch_devices(vehicle, plan, options, outcome, ledger, callback=None):
                  % (len(borrows), len(set(b[0].invID for b in borrows)),
                     [(b[0].userName, b[2].userName) for b in borrows]))
         steps = [rpc.equip_device(donor.invID, 0, slot_idx, True,
-                                  not item.isRemovable,
-                                  meta={'device_cd': device_cd,
-                                        'device_name': item.userName,
-                                        'setup_idx': setup_idx,
-                                        'veh_name': donor.userName,
-                                        'batch_size': len(borrows)})
+                                  not item.isRemovable)
                  for donor, device_cd, item, setup_idx, slot_idx in borrows]
         results = yield rpc.gather(steps)
 
@@ -589,19 +583,16 @@ def _clear_slot(vehicle, setup_idx, slot_idx, device_cd, outcome, ledger, callba
         other_setups = [idx for idx in inventory.setup_indices(vehicle) if idx != setup_idx]
         stays_on_vehicle = any(inventory.vehicle_has_device(vehicle, device_cd, setup_idx=idx)
                                for idx in other_setups)
-        meta = {'device_cd': device_cd, 'device_name': item.userName,
-                'setup_idx': setup_idx}
         if stays_on_vehicle:
             # Still mounted in the other setup, so this is free by definition.
             code, extra = yield rpc.equip_device(vehicle.invID, 0, slot_idx,
-                                                 False, False, meta=meta)
+                                                 False, False)
         else:
             if not inventory.is_free_to_demount(item):
                 outcome.note_skipped(item.userName, t('reasonPaidDemount'), also_missing=False)
                 return
             code, extra = yield rpc.equip_device(vehicle.invID, 0, slot_idx,
-                                                 True, not item.isRemovable,
-                                                 meta=meta)
+                                                 True, not item.isRemovable)
         if not rpc.is_success(code):
             outcome.errors.append(t('errDemountFailed', name=item.userName,
                                     code=code, ext=extra))
@@ -656,9 +647,7 @@ def _borrow_from_donor(veh_inv_id, device_cd, item, options, outcome, ledger, ca
         LOG.info('demounting %s from %s (setup %d slot %d)'
                  % (item.name, donor.userName, donor_setup_idx, donor_slot_idx))
         code, extra = yield rpc.equip_device(
-            donor.invID, 0, donor_slot_idx, True, not item.isRemovable,
-            meta={'device_cd': device_cd, 'device_name': item.userName,
-                  'setup_idx': donor_setup_idx, 'veh_name': donor.userName})
+            donor.invID, 0, donor_slot_idx, True, not item.isRemovable)
         obtained = rpc.is_success(code)
         if obtained:
             outcome.donated.append((item.userName, donor.userName))
@@ -690,13 +679,13 @@ def _install_layout(vehicle, setup_idx, final, capacity, outcome, ledger, callba
     """Phase 3: apply the whole prepared layout in one server command."""
     try:
         current = inventory.setup_device_cds(vehicle, setup_idx)
+        _keep_what_could_not_be_replaced(current, final, capacity)
         _drop_unaffordable(vehicle, current, final, capacity, outcome, ledger)
         if current == final:
             return
 
         changes = sum(1 for i in range(capacity) if final[i] and final[i] != current[i])
-        code, error = yield rpc.apply_setup_layout(vehicle.invID, final,
-                                                   meta={'setup_idx': setup_idx})
+        code, error = yield rpc.apply_setup_layout(vehicle.invID, final)
         if rpc.is_success(code):
             outcome.installed += changes
         else:
@@ -708,6 +697,22 @@ def _install_layout(vehicle, setup_idx, final, capacity, outcome, ledger, callba
     finally:
         if callback is not None:
             callback(None)
+
+
+def _keep_what_could_not_be_replaced(current, final, capacity):
+    """Puts back every slot the planning phase gave up on while the slot is
+    still occupied on the server.
+
+    A failed donor borrow leaves a 0 in `final` (see _prepare_slot), but the
+    device it meant to replace is still mounted. CMD_EQUIP_OPT_DEVS_SEQUENCE
+    refuses to demount: a layout that empties an occupied slot is rejected
+    WHOLESALE with RES_FAILURE, so one unobtainable device would cost the whole
+    setup - and with the donor already stripped, nothing gets installed at all.
+    Sending the current content back is a no-op for that slot and lets the rest
+    of the layout through. Same rule _prepare_slot applies on a failed clear."""
+    for slot_idx in range(capacity):
+        if not final[slot_idx] and current[slot_idx]:
+            final[slot_idx] = current[slot_idx]
 
 
 def _drop_unaffordable(vehicle, current, final, capacity, outcome, ledger):
@@ -770,44 +775,22 @@ def _summary_lines(outcome):
 # ---------------------------------------------------------------------------
 
 @adisp_process
-def apply_saved_sets(veh_inv_id, trigger='selection'):
-    """Single-vehicle run, used by the selection trigger. `trigger` only names
-    what set the run off, for the metrics row."""
+def apply_saved_sets(veh_inv_id):
+    """Single-vehicle run, used by the selection trigger."""
     global _busy
     if _busy:
         return
     _busy = True
     _notify_refresh()
     inventory.reset_donor_search_stats()
-    metrics.start_run('single', trigger)
-    outcome = None
     try:
-        outcome = yield apply_to_vehicle(veh_inv_id, RunOptions())
+        yield apply_to_vehicle(veh_inv_id, RunOptions())
     except Exception:
         LOG.exc('apply_saved_sets failed')
     finally:
         inventory.log_donor_search_stats('apply_saved_sets(%s)' % veh_inv_id)
-        metrics.end_run(**_single_run_totals(outcome))
         _busy = False
         _notify_refresh()
-
-
-def _single_run_totals(outcome):
-    """The metrics row for a one-vehicle run, read off the RunOutcome that run
-    already produced. A vehicle counts as touched when it has something to
-    report - which is exactly when the run made server calls for it."""
-    if outcome is None:
-        return {'vehicles_planned': 1, 'vehicles_touched': 0}
-    return {
-        'vehicles_planned': 1,
-        'vehicles_touched': 1 if outcome.has_anything_to_report() else 0,
-        'installed': outcome.installed,
-        'donor_demounts': len(outcome.donated),
-        'downgrades': len(outcome.downgraded),
-        'skipped': len(outcome.skipped),
-        'errors': len(outcome.errors),
-        'interrupted': outcome.interrupted,
-    }
 
 
 def on_vehicle_changed():
@@ -820,10 +803,6 @@ def on_vehicle_changed():
             return
         _last_inv_id = vehicle.invID
         _notify_refresh()
-        # An armed experiment owns this selection: it moves equipment around on
-        # purpose, and an install run on top of it would fight it.
-        if experiment.run_if_pending(vehicle.invID):
-            return
         if not config.is_auto_enabled() or not config.has_saved_sets(vehicle.invID):
             return
         # Let the selection settle first, then start - unless the player
@@ -881,7 +860,6 @@ def equip_primary_vehicles():
     _busy = True
     _notify_refresh()
     inventory.reset_donor_search_stats()
-    metrics.start_run('batch', 'button')
     veil_shown = messages.show_waiting()
     totals = _BatchTotals()
     try:
@@ -903,7 +881,6 @@ def equip_primary_vehicles():
     finally:
         inventory.log_donor_search_stats(
             'equip_primary_vehicles(%d vehicle(s))' % totals.processed)
-        metrics.end_run(vehicles_planned=len(with_sets), **totals.metrics_row())
         if veil_shown:
             messages.hide_waiting()
         _busy = False
@@ -920,20 +897,11 @@ class _BatchTotals(object):
         self.downgraded = []
         self.errors = []
         self.missing_counts = {}    # device name -> number of vehicles missing it
-        # Only for the metrics row - the player-facing summary does not use them.
-        self.touched = 0
-        self.skipped = 0
-        self.interrupted = False
 
     def add(self, vehicle, outcome):
         self.processed += 1
         self.installed += outcome.installed
         self.donated += len(outcome.donated)
-        self.skipped += len(outcome.skipped)
-        if outcome.has_anything_to_report():
-            self.touched += 1
-        if outcome.interrupted:
-            self.interrupted = True
         for note in outcome.downgraded:
             if note not in self.downgraded:
                 self.downgraded.append(note)
@@ -955,19 +923,6 @@ class _BatchTotals(object):
         if len(self.errors) > _MAX_SUMMARY_ERRORS:
             lines.append(t('batchMoreErrors', count=len(self.errors) - _MAX_SUMMARY_ERRORS))
         return lines
-
-    def metrics_row(self):
-        """What end_run() wants, straight out of the sums this class already
-        keeps for the summary message."""
-        return {
-            'vehicles_touched': self.touched,
-            'installed': self.installed,
-            'donor_demounts': self.donated,
-            'downgrades': len(self.downgraded),
-            'skipped': self.skipped,
-            'errors': len(self.errors),
-            'interrupted': self.interrupted,
-        }
 
     def missing_lines(self):
         lines = [t('batchMissingHeader'), t('batchMissingListHeader')]

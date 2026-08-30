@@ -18,7 +18,6 @@ import BigWorld
 
 from adisp import adisp_async
 
-from . import metrics
 from .inventory import OPT_DEVICE_GROUP
 from .log import LOG
 
@@ -79,47 +78,31 @@ def gather(steps, callback=None):
 
 @adisp_async
 def pause(seconds, callback=None):
-    """The settle pause between operations. Booked on its own metrics counter:
-    it is neither server time nor our own work, and a run that turns out to be
-    mostly OP_PAUSE is a very different problem from one that is mostly latency."""
-    started = metrics.now()
-
+    """The settle pause between operations."""
     def done():
-        metrics.note_pause(metrics.elapsed_ms(started))
         callback(None)
 
     BigWorld.callback(seconds, done)
 
 
-def _retry_on_cooldown(op, fields, fire, callback):
+def _retry_on_cooldown(fire, callback):
     """Runs an RPC and re-issues it while the server answers RES_COOLDOWN.
     `fire(done)` must issue the call and report back via done(code, result).
     The pause grows per attempt (0.1/0.2/0.3/0.4s); after that the cooldown
     result is passed through to the caller unchanged.
 
-    This is also where every server call in the mod is timed - all three RPCs
-    funnel through here, so one measuring point covers them all. The reported
-    duration is server time ONLY: the retry sleeps are subtracted out and
-    reported as backoff_ms, otherwise the run summary would count them twice,
-    once as server time and once as backoff.
-
     `state` is a dict because Python 2 closures cannot rebind an outer name."""
-    started = metrics.now()
-    state = {'retries': 0, 'backoff_ms': 0.0}
+    state = {'retries': 0}
 
     def attempt():
         def done(code, result):
             if code == _RES_COOLDOWN and state['retries'] < len(_COOLDOWN_DELAYS):
                 delay = _COOLDOWN_DELAYS[state['retries']]
                 state['retries'] += 1
-                state['backoff_ms'] += delay * 1000.0
                 LOG.info('server cooldown, retrying in %.1fs (attempt %d)'
                          % (delay, state['retries']))
                 BigWorld.callback(delay, attempt)
                 return
-            metrics.note_op(op, metrics.elapsed_ms(started) - state['backoff_ms'],
-                            code=code, retries=state['retries'],
-                            backoff_ms=state['backoff_ms'], **fields)
             callback(result)
         fire(done)
 
@@ -137,22 +120,15 @@ def change_setup_index(veh_inv_id, setup_idx, callback=None):
         except Exception:
             LOG.exc('change_setup_index RPC failed')
             done(-1, -1)
-    _retry_on_cooldown('change_setup', {'veh_inv_id': veh_inv_id,
-                                        'setup_idx': setup_idx}, fire, callback)
+    _retry_on_cooldown(fire, callback)
 
 
 @adisp_async
 def equip_device(veh_inv_id, device_cd, slot_idx, all_setups, finance_operation,
-                 meta=None, callback=None):
+                 callback=None):
     """Installs one device into one slot, or demounts it when device_cd is 0.
     Reports (code, extra). Never passes useDemountKit - demount kits must not
-    be spent.
-
-    `meta` is for the metrics row only and changes nothing about the call. Pass
-    the device that is actually being MOVED and the setup it sits in: on a
-    demount the wire argument is 0 by definition, so without this the record
-    would say nothing about which device left, and the slot index alone does
-    not say which setup it addressed."""
+    be spent."""
     def fire(done):
         def on_response(code, extra=None):
             done(code, (code, extra))
@@ -163,76 +139,23 @@ def equip_device(veh_inv_id, device_cd, slot_idx, all_setups, finance_operation,
         except Exception:
             LOG.exc('equip_device RPC failed')
             done(-1, (-1, None))
-    # Three different jobs share one server call, and they cost the player very
-    # different things - so they get three different op names. 'demount' sends
-    # the device to the depot (all_setups), 'unslot' only frees the slot in the
-    # active setup because the device stays mounted in the other one.
-    if device_cd:
-        op = 'equip'
-    else:
-        op = 'demount' if all_setups else 'unslot'
-    fields = {'veh_inv_id': veh_inv_id, 'slot_idx': slot_idx,
-              'device_cd': device_cd}
-    fields.update(meta or {})
-    _retry_on_cooldown(op, fields, fire, callback)
+    _retry_on_cooldown(fire, callback)
 
 
 @adisp_async
-def easy_tank_equip(veh_inv_id, free_demount_cds, layout_cds, meta=None, callback=None):
-    """CMD_EASY_TANK_EQUIP_APPLY: demounts SEVERAL devices and applies a whole
-    layout in ONE command. The client's own "quick equip" button uses it.
-
-    This is the only command that can take more than one optional device off a
-    vehicle. CMD_EQUIP_OPTDEV does one per call, and CMD_EQUIP_OPT_DEVS_SEQUENCE
-    refuses to demount at all ("Demount of optional device must be performed in
-    other command"), so this is the only way to batch.
-
-    `free_demount_cds` are the devices to take off, addressed by intCD rather
-    than by slot. THE CALLER OWNS THE MONEY GUARANTEE for every one of them:
-    the native processor gates this list behind FreeToDemountValidator, which is
-    the same isFreeToDemount() rule inventory.py wraps, and there is no flag on
-    the wire that would make the server refuse a paid one.
-
-    The demount-kit list is hardcoded empty and not exposed as a parameter. That
-    is deliberate: kits are consumed silently and irreversibly, and a list that
-    cannot be filled cannot be filled by accident.
-
-    `layout_cds` is the resulting layout and, exactly like apply_setup_layout,
-    it BUYS whatever is not in the depot. Same guard applies: verify every new
-    device is obtainable before naming it here.
-
-    Reports (code, error)."""
-    free_cds = [int(cd) for cd in free_demount_cds]
-    layout = [int(cd) for cd in layout_cds]
-
-    def fire(done):
-        def on_response(code, error='', extra=None):
-            done(code, (code, error))
-        try:
-            data = (veh_inv_id,
-                    [],             # demount kits: never, structurally
-                    free_cds,
-                    layout,
-                    None,           # shells - not ours to touch
-                    None,           # consumables - not ours to touch
-                    None)           # style - not ours to touch
-            BigWorld.player().inventory.easyTankEquipApply(data, on_response)
-        except Exception:
-            LOG.exc('easy_tank_equip RPC failed')
-            done(-1, (-1, 'rpc failed'))
-
-    fields = {'veh_inv_id': veh_inv_id, 'n_slots': len(layout)}
-    fields.update(meta or {})
-    _retry_on_cooldown('easy_equip', fields, fire, callback)
-
-
-@adisp_async
-def apply_setup_layout(veh_inv_id, device_cds, meta=None, callback=None):
+def apply_setup_layout(veh_inv_id, device_cds, callback=None):
     """Applies the WHOLE optional-device layout of the ACTIVE setup in one
     command (CMD_EQUIP_OPT_DEVS_SEQUENCE) - the native tank-setup confirm flow.
     It is the only server path that accepts a device currently mounted in the
     OTHER setup of the same vehicle; per-slot equip_device rejects that with
     RES_WRONG_ARGS (-2).
+
+    IT DOES NOT DEMOUNT. Verified live: a layout that empties an occupied slot
+    is refused WHOLESALE with RES_FAILURE (-1), "Demount of optional device must
+    be performed in other command" - not per slot, the entire command fails. So
+    a caller that could not source one device must send that slot's CURRENT
+    content back rather than a 0, or it loses the whole setup. That is what
+    apply._keep_what_could_not_be_replaced() is for.
 
     CAUTION: this is the buy-and-install command. Callers must have verified
     that every listed device is in the depot or already on the vehicle, or the
@@ -247,8 +170,4 @@ def apply_setup_layout(veh_inv_id, device_cds, meta=None, callback=None):
         except Exception:
             LOG.exc('apply_setup_layout RPC failed')
             done(-1, (-1, 'rpc failed'))
-    # n_slots is how many slots this ONE command set - the number that shows
-    # whether a later build really replaced single calls with batched ones.
-    fields = {'veh_inv_id': veh_inv_id, 'n_slots': len(cds)}
-    fields.update(meta or {})
-    _retry_on_cooldown('layout', fields, fire, callback)
+    _retry_on_cooldown(fire, callback)

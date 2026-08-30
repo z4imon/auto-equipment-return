@@ -8,7 +8,7 @@ the same PC never mixes up saved sets. File layout:
 
     {"autoEquipEnabled": true,
      "downgradeEnabled": false,
-     "metricsEnabled": true,
+     "alwaysSelectSetup1": true,
      "sets": {"<vehicle invID>": {"set1": [intCD, intCD, intCD] or null,
                                   "set2": [intCD, intCD, intCD] or null,
                                   "vehicleCD": intCD or null}}}
@@ -34,14 +34,10 @@ from .log import LOG
 _DEFAULTS = {
     'autoEquipEnabled': True,   # install saved sets automatically on vehicle selection
     'downgradeEnabled': False,  # replace unavailable special devices with their standard variant
-    'metricsEnabled': True,     # write run/operation timings to metrics/*.csv
     # Leave every vehicle on set 1 and never switch a donor back. Off restores
     # the old behaviour: donors return to their own setup and the vehicle ends
     # on whichever setup it started on.
     'alwaysSelectSetup1': True,
-    # Arms experiment.py once. Set it by hand, start the client, select a tank -
-    # it disarms itself before the first server call, so it can never fire twice.
-    'probeLayoutDemount': False,
 }
 
 _EMPTY_ENTRY = {'set1': None, 'set2': None, 'vehicleCD': None}
@@ -120,8 +116,7 @@ def load_for_account(account_id):
             _settings = {
                 'autoEquipEnabled': bool(data.get('autoEquipEnabled', True)),
                 'downgradeEnabled': bool(data.get('downgradeEnabled', False)),
-                'metricsEnabled': bool(data.get('metricsEnabled', True)),
-                'probeLayoutDemount': bool(data.get('probeLayoutDemount', False)),
+                'alwaysSelectSetup1': bool(data.get('alwaysSelectSetup1', True)),
             }
             _sets = _clean_sets(data.get('sets', {}))
         else:
@@ -154,8 +149,7 @@ def save():
             json.dump({
                 'autoEquipEnabled': bool(_settings['autoEquipEnabled']),
                 'downgradeEnabled': bool(_settings['downgradeEnabled']),
-                'metricsEnabled': bool(_settings['metricsEnabled']),
-                'probeLayoutDemount': bool(_settings['probeLayoutDemount']),
+                'alwaysSelectSetup1': bool(_settings['alwaysSelectSetup1']),
                 'sets': _sets,
             }, handle, indent=4)
     except Exception:
@@ -195,20 +189,6 @@ def set_downgrade_enabled(enabled):
     return _settings['downgradeEnabled']
 
 
-def is_metrics_enabled():
-    """Whether runs are timed into metrics/*.csv. Not gated on _mod_disabled:
-    a disabled mod does no runs, so there is nothing to measure either way, and
-    keeping the two independent means turning measuring off never looks like
-    turning the mod off."""
-    return bool(_settings.get('metricsEnabled', True))
-
-
-def set_metrics_enabled(enabled):
-    _settings['metricsEnabled'] = bool(enabled)
-    save()
-    return _settings['metricsEnabled']
-
-
 def is_always_setup1():
     """Whether a run leaves the vehicle on set 1 and skips the donor's switch
     back. Both halves hang on this one flag because they are the same trade:
@@ -224,19 +204,6 @@ def set_always_setup1(enabled):
     _settings['alwaysSelectSetup1'] = bool(enabled)
     save()
     return _settings['alwaysSelectSetup1']
-
-
-def is_layout_probe_armed():
-    """Whether the one-shot experiment in experiment.py should run. Not gated on
-    _mod_disabled: the probe is a deliberate manual act, and silently ignoring it
-    would look like the probe answering 'no'."""
-    return bool(_settings.get('probeLayoutDemount', False))
-
-
-def set_layout_probe_armed(armed):
-    _settings['probeLayoutDemount'] = bool(armed)
-    save()
-    return _settings['probeLayoutDemount']
 
 
 # ---------------------------------------------------------------------------

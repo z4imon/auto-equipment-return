@@ -8,6 +8,9 @@ Gui items are recreated on every cache sync, so nothing here is ever cached:
 each helper re-fetches what it needs.
 """
 
+import sys
+import time
+
 from gui.shared.gui_items import GUI_ITEM_TYPE
 from gui.shared.utils.requesters import REQ_CRITERIA
 from helpers import dependency
@@ -15,7 +18,7 @@ from post_progression_common import TankSetupGroupsId
 from skeletons.gui.game_control import IWotPlusController
 from skeletons.gui.shared import IItemsCache
 
-from . import config, hangar, metrics
+from . import config, hangar
 from .log import LOG
 
 OPT_DEVICE_GROUP = TankSetupGroupsId.OPTIONAL_DEVICES_AND_BOOSTERS
@@ -39,24 +42,6 @@ def has_wot_plus():
     except Exception:
         LOG.exc('has_wot_plus check failed')
         return False
-
-
-def easy_equip_config():
-    """(enabled, minimum vehicle level) for the client's quick-equip feature, or
-    (False, None) when it cannot be read.
-
-    Recorded for the metrics row, NOT used as a gate. `minVehicleLevel` is what
-    the client checks before showing its own button (easy_tank_equip_helpers.
-    isAvailableForVehicle); whether the SERVER enforces it on the command is not
-    visible from the client source, so the mod tries the command and falls back
-    when it is refused rather than refusing on its behalf."""
-    try:
-        from skeletons.gui.game_control import IEasyTankEquipController
-        config_ = dependency.instance(IEasyTankEquipController).config
-        return bool(config_.enabled), int(config_.minVehicleLevel)
-    except Exception:
-        LOG.exc('could not read the easy-tank-equip config')
-        return False, None
 
 
 def is_free_to_demount(item):
@@ -266,10 +251,17 @@ def locate_device_on_vehicle(vehicle, device_cd):
 # run actually spends its time. The counters let one aggregate line be logged
 # per run instead of per-vehicle spam.
 #
-# Timed on metrics.now() rather than time.time(): under Windows the latter
-# resolves to about 15.6 ms, so a scan that takes 3 ms reads as either 0 or
-# 15.6 - which is how these counters could report 0.000s for real work.
+# Timed on _now() rather than time.time(): under Windows the latter resolves to
+# about 15.6 ms, so a scan that takes 3 ms reads as either 0 or 15.6 - which is
+# how these counters could report 0.000s for real work.
 # ---------------------------------------------------------------------------
+
+# time.clock() is the high-resolution wall clock on Windows in Python 2; on
+# anything else it measures CPU time, which is the wrong thing, so fall back.
+if sys.platform == 'win32':
+    _now = time.clock
+else:
+    _now = time.time
 
 _donor_search_ms = 0.0
 _donor_search_count = 0
@@ -346,14 +338,12 @@ def find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids=None):
     Mode-locked loaners are never donors: their equipment cannot be released,
     so picking one only produces a failed demount and a skipped install."""
     global _donor_search_ms, _donor_search_count
-    started = metrics.now()
+    started = _now()
     try:
         return _find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids)
     finally:
-        spent = metrics.elapsed_ms(started)
-        _donor_search_ms += spent
+        _donor_search_ms += (_now() - started) * 1000.0
         _donor_search_count += 1
-        metrics.note_client_op('donor_search', spent, device_cd=device_cd)
 
 
 def _find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids):

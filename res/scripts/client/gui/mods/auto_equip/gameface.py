@@ -390,7 +390,7 @@ class AutoEquipView(ViewComponent):
             # this message only has to say that the set changed.
             messages.push_info(t('recSaved', veh=vehicle.userName),
                                priority=NotificationPriorityLevel.HIGH)
-            apply_engine.apply_saved_sets(vehicle.invID, trigger='recommended')
+            apply_engine.apply_saved_sets(vehicle.invID)
         except Exception:
             LOG.exc('_on_save_recommended failed')
 
