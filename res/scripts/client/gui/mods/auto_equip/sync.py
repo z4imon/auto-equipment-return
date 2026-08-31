@@ -206,7 +206,11 @@ def full_reconcile(account_id):
         if status != 200 or data is None:
             LOG.warning('sync: full pull failed (status=%s)' % status)
             return
-        to_push = _merge_server_sets(data.get('sets', {}))
+        sets = data.get('sets', {})
+        if not isinstance(sets, dict):
+            LOG.warning('sync: full pull returned malformed sets (type=%s)' % type(sets))
+            sets = {}
+        to_push = _merge_server_sets(sets)
         for veh_inv_id in to_push:
             _push_vehicle(account_id, veh_inv_id)
 
@@ -218,17 +222,20 @@ def _merge_server_sets(server_sets):
     invIDs that still need pushing afterwards (local-only, or local won)."""
     to_push = set(config.all_saved_inv_ids())
     for inv_id, server_entry in server_sets.items():
-        local_entry = config.saved_sets(inv_id)
-        local_updated = local_entry['updatedAt'] if local_entry else None
-        if local_updated is not None and local_updated >= server_entry['updatedAt']:
-            continue  # local wins or ties - stays in to_push, gets pushed below
-        if server_entry.get('deleted'):
-            config.delete_sets(inv_id, notify=False)
-        else:
-            config.store_sets(inv_id, set1=server_entry['set1'], set2=server_entry['set2'],
-                              veh_cd=server_entry.get('vehicleCD'),
-                              updated_at=server_entry['updatedAt'], notify=False)
-        to_push.discard(inv_id)
+        try:
+            local_entry = config.saved_sets(inv_id)
+            local_updated = local_entry['updatedAt'] if local_entry else None
+            if local_updated is not None and local_updated >= server_entry['updatedAt']:
+                continue  # local wins or ties - stays in to_push, gets pushed below
+            if server_entry.get('deleted'):
+                config.delete_sets(inv_id, notify=False)
+            else:
+                config.store_sets(inv_id, set1=server_entry['set1'], set2=server_entry['set2'],
+                                  veh_cd=server_entry.get('vehicleCD'),
+                                  updated_at=server_entry['updatedAt'], notify=False)
+            to_push.discard(inv_id)
+        except Exception:
+            LOG.exc('sync: failed merging server entry for %s' % (inv_id,))
     return list(to_push)
 
 
