@@ -186,3 +186,101 @@ def disconnect(account_id):
         return
     call_async('DELETE', '/auth/token', token=token, callback=lambda status, data: None)
     _forget_pairing(account_id)
+
+
+# ---------------------------------------------------------------------------
+# Bidirectional reconcile - called at login and right after a fresh pairing
+# ---------------------------------------------------------------------------
+
+def full_reconcile(account_id):
+    """Pulls the account's server-stored sets, merges them into the local
+    config (newest updatedAt per vehicle wins), then pushes every local
+    entry that the server is missing or that just won the merge. This is
+    the one function that makes a freshly-paired, empty-local-config PC
+    catch up immediately instead of waiting for the next login."""
+    token = current_token(account_id)
+    if token is None:
+        return
+
+    def handle_pull(status, data):
+        if status != 200 or data is None:
+            LOG.warning('sync: full pull failed (status=%s)' % status)
+            return
+        to_push = _merge_server_sets(data.get('sets', {}))
+        for veh_inv_id in to_push:
+            _push_vehicle(account_id, veh_inv_id)
+
+    call_async('GET', '/accounts/%s' % account_id, token=token, callback=handle_pull)
+
+
+def _merge_server_sets(server_sets):
+    """Applies the server's view onto the local config in-place. Returns the
+    invIDs that still need pushing afterwards (local-only, or local won)."""
+    to_push = set(config.all_saved_inv_ids())
+    for inv_id, server_entry in server_sets.items():
+        local_entry = config.saved_sets(inv_id)
+        local_updated = local_entry['updatedAt'] if local_entry else None
+        if local_updated is not None and local_updated >= server_entry['updatedAt']:
+            continue  # local wins or ties - stays in to_push, gets pushed below
+        if server_entry.get('deleted'):
+            config.delete_sets(inv_id, notify=False)
+        else:
+            config.store_sets(inv_id, set1=server_entry['set1'], set2=server_entry['set2'],
+                              veh_cd=server_entry.get('vehicleCD'),
+                              updated_at=server_entry['updatedAt'], notify=False)
+        to_push.discard(inv_id)
+    return list(to_push)
+
+
+# ---------------------------------------------------------------------------
+# Push on local change - debounced per vehicle
+# ---------------------------------------------------------------------------
+
+_pending_pushes = {}  # invID -> BigWorld callback id
+_PUSH_DEBOUNCE_SECONDS = 3
+
+
+def _on_local_change(veh_inv_id, entry):
+    _schedule_push(veh_inv_id, delete=(entry is None))
+
+
+def _schedule_push(veh_inv_id, delete):
+    existing = _pending_pushes.pop(veh_inv_id, None)
+    if existing is not None:
+        BigWorld.cancelCallback(existing)
+
+    def fire():
+        _pending_pushes.pop(veh_inv_id, None)
+        account_id = config.current_account_id()
+        if account_id and is_paired(account_id):
+            if delete:
+                _delete_vehicle_remote(account_id, veh_inv_id)
+            else:
+                _push_vehicle(account_id, veh_inv_id)
+
+    _pending_pushes[veh_inv_id] = BigWorld.callback(_PUSH_DEBOUNCE_SECONDS, fire)
+
+
+def _push_vehicle(account_id, veh_inv_id):
+    token = current_token(account_id)
+    entry = config.saved_sets(veh_inv_id)
+    if token is None or entry is None:
+        return
+    body = {'set1': entry['set1'], 'set2': entry['set2'], 'vehicleCD': entry['vehicleCD']}
+
+    def handle_push(status, data):
+        if status == 200 and data:
+            config.set_updated_at(veh_inv_id, data['updatedAt'])
+        else:
+            LOG.warning('sync: push of %s failed (status=%s)' % (veh_inv_id, status))
+
+    call_async('PUT', '/accounts/%s/vehicles/%s' % (account_id, veh_inv_id), token=token,
+              body=body, callback=handle_push)
+
+
+def _delete_vehicle_remote(account_id, veh_inv_id):
+    token = current_token(account_id)
+    if token is None:
+        return
+    call_async('DELETE', '/accounts/%s/vehicles/%s' % (account_id, veh_inv_id), token=token,
+              callback=lambda status, data: None)
