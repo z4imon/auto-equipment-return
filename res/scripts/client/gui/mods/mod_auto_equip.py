@@ -35,6 +35,7 @@ def init():
         from .auto_equip import confirm, gameface
         i18n.init()
         gameface.init()
+        _init_sync()
         confirm.register()
         if os.name == 'nt':
             _start_account_load()
@@ -60,6 +61,14 @@ def _carousel_menu(step):
         getattr(carousel_menu, step)()
     except Exception:
         LOG.exc('carousel menu %s() failed' % step)
+
+
+def _init_sync():
+    try:
+        from .auto_equip import sync
+        config.add_change_listener(sync._on_local_change)
+    except Exception:
+        LOG.exc('sync change-listener registration failed')
 
 
 # ---------------------------------------------------------------------------
@@ -98,3 +107,10 @@ def _finish_account_load(account_id):
         importer.register(account_id)
     except Exception:
         LOG.exc('auto_equip.importer.register failed')
+    try:
+        from .auto_equip import sync
+        sync.register(account_id)
+        if sync.is_paired(account_id):
+            sync.full_reconcile(account_id)
+    except Exception:
+        LOG.exc('auto_equip.sync setup failed')
