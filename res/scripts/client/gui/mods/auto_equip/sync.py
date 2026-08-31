@@ -111,3 +111,78 @@ def call_async(method, path, token=None, body=None, callback=None):
             BigWorld.callback(0, lambda: callback(status, data))
 
     threading.Thread(target=worker).start()
+
+
+# ---------------------------------------------------------------------------
+# Device-pairing flow
+# ---------------------------------------------------------------------------
+
+from . import messages
+from .i18n import t
+
+_POLL_INTERVAL_DEFAULT = 5
+
+
+def _current_realm():
+    try:
+        from constants import AUTH_REALM
+    except Exception:
+        AUTH_REALM = 'EU'
+    return unicode(AUTH_REALM or 'EU').upper()
+
+
+def start_pairing(account_id):
+    """Kicks off the device-pairing flow: asks the server for a device/user
+    code pair, opens the WG login page in the system browser, then polls
+    until the server confirms it (or it expires)."""
+    body = {'accountId': account_id, 'realm': _current_realm()}
+
+    def handle_device_response(status, data):
+        if status != 200 or data is None:
+            LOG.warning('sync: /auth/device failed (status=%s)' % status)
+            messages.push_error(t('syncPairingFailed'))
+            return
+        BigWorld.wg_openWebBrowser(str(data['verificationUri']))
+        messages.push_info(t('syncPairingStarted', userCode=data['userCode']))
+        _poll_pairing(account_id, data['deviceCode'], data.get('intervalSeconds', _POLL_INTERVAL_DEFAULT))
+
+    call_async('POST', '/auth/device', body=body, callback=handle_device_response)
+
+
+def _poll_pairing(account_id, device_code, interval_seconds):
+    def handle_poll_response(status, data):
+        if status == 404:
+            messages.push_error(t('syncPairingExpired'))
+            return
+        if status == 403:
+            messages.push_error(t('syncPairingMismatch'))
+            return
+        if status == 200 and data and data.get('status') == 'authorized':
+            if data.get('accountId') != account_id:
+                LOG.warning('sync: paired token accountId mismatch, discarding')
+                messages.push_error(t('syncPairingMismatch'))
+                return
+            _write_pairing(account_id, {
+                'accessToken': data['accessToken'],
+                'realm': data['realm'],
+                'pairedAt': time.time(),
+            })
+            messages.push_info(t('syncPairingDone'))
+            full_reconcile(account_id)
+            return
+        # still pending - poll again after the server-suggested interval
+        BigWorld.callback(interval_seconds, lambda: call_async(
+            'POST', '/auth/token', body={'deviceCode': device_code}, callback=handle_poll_response))
+
+    call_async('POST', '/auth/token', body={'deviceCode': device_code}, callback=handle_poll_response)
+
+
+def disconnect(account_id):
+    """Revokes this PC's token server-side and forgets it locally. Other
+    paired PCs for the same account are untouched - each has its own token
+    (see the server's token_store, keyed by token, not by account)."""
+    token = current_token(account_id)
+    if token is None:
+        return
+    call_async('DELETE', '/auth/token', token=token, callback=lambda status, data: None)
+    _forget_pairing(account_id)
