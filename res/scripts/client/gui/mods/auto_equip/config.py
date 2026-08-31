@@ -26,6 +26,7 @@ Plain, hand-editable JSON with real booleans, on purpose.
 
 import json
 import os
+import time
 
 from helpers import getPreferencesDirPath
 
@@ -40,7 +41,7 @@ _DEFAULTS = {
     'alwaysSelectSetup1': True,
 }
 
-_EMPTY_ENTRY = {'set1': None, 'set2': None, 'vehicleCD': None}
+_EMPTY_ENTRY = {'set1': None, 'set2': None, 'vehicleCD': None, 'updatedAt': None}
 
 _settings = dict(_DEFAULTS)
 _sets = {}
@@ -50,6 +51,23 @@ _account_id = 0
 
 # Set once the WoT Plus check failed - the whole mod stays inert from then on.
 _mod_disabled = False
+
+_listeners = []
+
+
+def add_change_listener(callback):
+    """callback(veh_inv_id, entry_or_None) - called after every successful
+    store_sets/delete_sets, entry_or_None is None for a delete. Lets sync.py
+    react to changes without config.py knowing sync exists at all."""
+    _listeners.append(callback)
+
+
+def _notify_listeners(veh_inv_id, entry):
+    for callback in list(_listeners):
+        try:
+            callback(veh_inv_id, entry)
+        except Exception:
+            LOG.exc('a config change listener failed')
 
 
 # ---------------------------------------------------------------------------
@@ -79,6 +97,13 @@ def _as_int_or_none(raw):
         return None
 
 
+def _as_float_or_none(raw):
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 def _clean_set(raw):
     """A stored set list -> list of ints, unreadable entries becoming 0
     ("empty slot"). None stays None, which means "this set was never saved"."""
@@ -92,6 +117,7 @@ def _clean_entry(raw):
         'set1': _clean_set(raw.get('set1')),
         'set2': _clean_set(raw.get('set2')),
         'vehicleCD': _as_int_or_none(raw.get('vehicleCD')),
+        'updatedAt': _as_float_or_none(raw.get('updatedAt')),
     }
 
 
@@ -220,10 +246,36 @@ def has_saved_sets(veh_inv_id):
     return entry is not None and (entry['set1'] is not None or entry['set2'] is not None)
 
 
-def store_sets(veh_inv_id, set1=None, set2=None, veh_cd=None):
+def all_saved_inv_ids():
+    return list(_sets.keys())
+
+
+def current_account_id():
+    return _account_id or None
+
+
+def set_updated_at(veh_inv_id, updated_at):
+    """Overwrites just the updatedAt bookkeeping field after a successful
+    push - the entry's content doesn't change, only which timestamp future
+    merges compare against (see sync.py:full_reconcile)."""
+    entry = _sets.get(str(veh_inv_id))
+    if entry is None:
+        return
+    entry['updatedAt'] = updated_at
+    save()
+
+
+def store_sets(veh_inv_id, set1=None, set2=None, veh_cd=None, updated_at=None, notify=True):
     """Stores (overwrites) the given set lists for a vehicle. Pass None to
     leave a set untouched. veh_cd, when known, is recorded alongside for later
-    cross-account import remapping."""
+    cross-account import remapping.
+
+    updated_at overrides the local-clock timestamp - used by sync.py when
+    applying a server-authoritative value during a merge; leave it None for a
+    normal local save, which stamps the current time instead. notify=False
+    suppresses the change-listener call, also for sync.py's merge, so
+    applying what the server just sent doesn't immediately get pushed right
+    back to it."""
     entry = _sets.setdefault(str(veh_inv_id), dict(_EMPTY_ENTRY))
     entry.setdefault('vehicleCD', None)
     if set1 is not None:
@@ -232,16 +284,21 @@ def store_sets(veh_inv_id, set1=None, set2=None, veh_cd=None):
         entry['set2'] = [int(cd) for cd in set2]
     if veh_cd is not None:
         entry['vehicleCD'] = int(veh_cd)
+    entry['updatedAt'] = updated_at if updated_at is not None else time.time()
     save()
+    if notify:
+        _notify_listeners(veh_inv_id, entry)
     return entry
 
 
-def delete_sets(veh_inv_id):
+def delete_sets(veh_inv_id, notify=True):
     """Forgets everything stored for a vehicle - both sets and the vehicleCD.
     Returns True when there was something to forget."""
     if _sets.pop(str(veh_inv_id), None) is None:
         return False
     save()
+    if notify:
+        _notify_listeners(veh_inv_id, None)
     return True
 
 
