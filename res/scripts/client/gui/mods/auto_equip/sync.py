@@ -291,3 +291,52 @@ def _delete_vehicle_remote(account_id, veh_inv_id):
         return
     call_async('DELETE', '/accounts/%s/vehicles/%s' % (account_id, veh_inv_id), token=token,
               callback=lambda status, data: None)
+
+
+# ---------------------------------------------------------------------------
+# ModsSettingsAPI panel - a single checkbox toggling pairing on/off
+# ---------------------------------------------------------------------------
+
+_MOD_LINKAGE = 'z4imon.auto_equipment_return.sync'
+_VAR_SYNC_ACTIVE = 'syncActive'
+
+_account_id = None
+
+
+def _build_template(account_id, templates):
+    return {
+        'modDisplayName': t('syncModDisplayName'),
+        'enabled': True,
+        'column1': [
+            templates.createCheckbox(t('syncCheckboxLabel'), _VAR_SYNC_ACTIVE, is_paired(account_id),
+                                     tooltip=t('syncCheckboxTooltip')),
+        ],
+    }
+
+
+def onModSettingsChanged(linkage, newSettings):
+    if linkage != _MOD_LINKAGE or _account_id is None:
+        return
+    wants_sync = bool(newSettings.get(_VAR_SYNC_ACTIVE))
+    if wants_sync and not is_paired(_account_id):
+        start_pairing(_account_id)
+    elif not wants_sync and is_paired(_account_id):
+        disconnect(_account_id)
+
+
+def register(account_id):
+    """Adds the ModsSettingsAPI panel. No-op when the API isn't installed -
+    same degrade-quietly convention as importer.register()."""
+    global _account_id
+    _account_id = account_id
+    try:
+        from gui.modsSettingsApi import g_modsSettingsApi, templates
+    except Exception:
+        LOG.info('sync: ModsSettingsAPI not installed - cloud-sync panel disabled')
+        return
+    template = _build_template(account_id, templates)
+    if g_modsSettingsApi.getModSettings(_MOD_LINKAGE, template):
+        g_modsSettingsApi.registerCallback(_MOD_LINKAGE, onModSettingsChanged, None)
+    else:
+        g_modsSettingsApi.setModTemplate(_MOD_LINKAGE, template, onModSettingsChanged, None)
+    LOG.info('sync: registered cloud-sync panel (paired=%s)' % is_paired(account_id))

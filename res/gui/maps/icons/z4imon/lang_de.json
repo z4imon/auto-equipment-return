@@ -99,5 +99,14 @@
     "importDoneMsg": "Kurzdor-Import (%(file)s): %(imported)d Fahrzeug(e) importiert, %(skipped)d übersprungen (bereits eigene Sets vorhanden)",
     "importOwnDoneMsg": "Import von %(file)s: %(imported)d Fahrzeug(e) importiert, %(skipped)d übersprungen (bereits eigene Sets vorhanden), %(unmatched)d auf diesem Account nicht vorhanden",
     "importEmptyMsg": "Import (%(file)s): Datei enthält keine importierbaren Fahrzeuge",
-    "importFailedMsg": "Import fehlgeschlagen (siehe Log)"
+    "importFailedMsg": "Import fehlgeschlagen (siehe Log)",
+
+    "syncModDisplayName": "Cloud-Sync",
+    "syncCheckboxLabel": "Ausruestung zwischen PCs synchronisieren",
+    "syncCheckboxTooltip": "Bestaetigt deinen Wargaming-Account einmalig im Browser und haelt danach deine gespeicherte Ausruestung zwischen allen PCs synchron, auf denen du spielst.",
+    "syncPairingStarted": "Im Browser fortfahren (Code: %(userCode)s)",
+    "syncPairingDone": "Cloud-Sync verbunden.",
+    "syncPairingFailed": "Sync-Server nicht erreichbar.",
+    "syncPairingExpired": "Anfrage abgelaufen, bitte erneut versuchen.",
+    "syncPairingMismatch": "Im Browser wurde ein anderer Account bestaetigt."
 }

@@ -99,5 +99,14 @@
     "importDoneMsg": "Kurzdor import (%(file)s): %(imported)d vehicle(s) imported, %(skipped)d skipped (already had own sets)",
     "importOwnDoneMsg": "Import from %(file)s: %(imported)d vehicle(s) imported, %(skipped)d skipped (already had own sets), %(unmatched)d not owned on this account",
     "importEmptyMsg": "Import (%(file)s): file has no importable vehicles",
-    "importFailedMsg": "Import failed (see log)"
+    "importFailedMsg": "Import failed (see log)",
+
+    "syncModDisplayName": "Cloud Sync",
+    "syncCheckboxLabel": "Sync saved equipment across PCs",
+    "syncCheckboxTooltip": "Verifies your Wargaming account once in the browser, then keeps your saved equipment in sync between every PC you play on.",
+    "syncPairingStarted": "Continue in your browser (code: %(userCode)s)",
+    "syncPairingDone": "Cloud sync connected.",
+    "syncPairingFailed": "Could not reach the sync server.",
+    "syncPairingExpired": "Pairing request expired, please try again.",
+    "syncPairingMismatch": "A different account was confirmed in the browser."
 }
