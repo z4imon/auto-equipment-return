@@ -111,5 +111,9 @@
     "syncPairingFailed": "Could not reach the sync server.",
     "syncPairingExpired": "Pairing request expired, please try again.",
     "syncPairingMismatch": "A different account was confirmed in the browser.",
-    "syncCloudDataAvailableNotification": "Equipment sets are saved in the cloud for your account. Connect via the mod list button to load them on this PC."
+    "syncCloudDataAvailableNotification": "Equipment sets are saved in the cloud for your account. Connect via the mod list button to load them on this PC.",
+    "streamerListTitle": "Streamers",
+    "streamerListReset": "WoT Plus Recommendation",
+    "streamerRecTitle": "Streamer Equipment",
+    "recLoading": "Loading…"
 }
