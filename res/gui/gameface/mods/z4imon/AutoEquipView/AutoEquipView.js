@@ -502,15 +502,20 @@ function buildStreamerRow(label, accountId) {
 function setStreamerListOpen(open) {
     gStreamerListOpen = open;
     if (open) {
-        // Force a fresh fetch + loading state every time the list opens -
-        // the catalog is intentionally never session-cached. gLastStreamerListJson
-        // must reset too: onModelUpdate only applies a response whose JSON
-        // differs from the last one it saw, and a repeat open commonly gets
-        // back byte-identical content (nothing changed server-side) - without
-        // this reset that "no change" read would leave gStreamerList stuck at
-        // the null we just set, showing an empty list forever after the first
-        // successful open.
-        gStreamerList = null;
+        // Force a fresh fetch every time the list opens - the catalog is
+        // intentionally never session-cached. gLastStreamerListJson must
+        // reset so a repeat open that happens to get back byte-identical
+        // content (nothing changed server-side) still counts as "new" and
+        // re-renders once it arrives, rather than being silently skipped as
+        // "no change" against what an earlier open already saw.
+        //
+        // gStreamerList itself is deliberately NOT reset to null here
+        // anymore: the round trip takes a few hundred ms, and blanking the
+        // list for that whole window (with no loading indicator, by
+        // request) made a quick reopen look permanently broken - every
+        // fresh open wiped the previous, still-valid answer before the new
+        // one had a chance to land. Now the dropdown just keeps showing
+        // whatever it last knew until the fresh fetch quietly replaces it.
         gLastStreamerListJson = null;
         cmd("onOpenStreamerList");
     }
