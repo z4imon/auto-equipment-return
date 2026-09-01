@@ -4,7 +4,7 @@ via the z4imon.de server.
 
     sync.transport   the urllib2 wrapper below - runs off the main thread
     sync.reconcile   full_reconcile + per-vehicle debounced push (Task 11)
-    sync.panel       the ModsSettingsAPI checkbox (Task 12)
+    sync.panel       the ModsListAPI toggle button
 
 There is no authentication on this path right now - the server trusts
 `account_id` directly. This is a temporary state for functional testing; a
@@ -177,48 +177,42 @@ def _delete_vehicle_remote(account_id, veh_inv_id):
 
 
 # ---------------------------------------------------------------------------
-# ModsSettingsAPI panel - a single checkbox toggling sync on/off
+# ModsListAPI button - a single button toggling sync on/off, swapping its own
+# label/description in place to show the current state
 # ---------------------------------------------------------------------------
 
-_MOD_LINKAGE = 'z4imon.auto_equipment_return.sync'
-_VAR_SYNC_ACTIVE = 'syncActive'
-
-_account_id = None
+_MODLIST_ID = 'z4imon.auto_equipment_return.sync'
 
 
-def _build_template(account_id, templates):
-    return {
-        'modDisplayName': t('syncModDisplayName'),
-        'enabled': True,
-        'column1': [
-            templates.createCheckbox(t('syncCheckboxLabel'), _VAR_SYNC_ACTIVE, config.is_sync_enabled(),
-                                     tooltip=t('syncCheckboxTooltip')),
-        ],
-    }
+def _modlist_button_text(enabled):
+    if enabled:
+        return t('syncModListDisableLabel'), t('syncModListDisableTooltip')
+    return t('syncCheckboxLabel'), t('syncCheckboxTooltip')
 
 
-def onModSettingsChanged(linkage, newSettings):
-    if linkage != _MOD_LINKAGE or _account_id is None:
+def _update_modlist_button(account_id):
+    try:
+        from gui.modsListApi import g_modsListApi
+    except Exception:
         return
-    wants_sync = bool(newSettings.get(_VAR_SYNC_ACTIVE))
-    config.set_sync_enabled(wants_sync)
-    if wants_sync:
-        full_reconcile(_account_id)
+    name, description = _modlist_button_text(config.is_sync_enabled())
+    g_modsListApi.addModification(
+        id=_MODLIST_ID, name=name, description=description,
+        enabled=True, login=False, lobby=True,
+        callback=lambda: _on_modlist_click(account_id),
+    )
+
+
+def _on_modlist_click(account_id):
+    enabled = not config.is_sync_enabled()
+    config.set_sync_enabled(enabled)
+    if enabled:
+        full_reconcile(account_id)
+    _update_modlist_button(account_id)
 
 
 def register(account_id):
-    """Adds the ModsSettingsAPI panel. No-op when the API isn't installed -
-    same degrade-quietly convention as importer.register()."""
-    global _account_id
-    _account_id = account_id
-    try:
-        from gui.modsSettingsApi import g_modsSettingsApi, templates
-    except Exception:
-        LOG.info('sync: ModsSettingsAPI not installed - cloud-sync panel disabled')
-        return
-    template = _build_template(account_id, templates)
-    if g_modsSettingsApi.getModSettings(_MOD_LINKAGE, template):
-        g_modsSettingsApi.registerCallback(_MOD_LINKAGE, onModSettingsChanged, None)
-    else:
-        g_modsSettingsApi.setModTemplate(_MOD_LINKAGE, template, onModSettingsChanged, None)
-    LOG.info('sync: registered cloud-sync panel (enabled=%s)' % config.is_sync_enabled())
+    """Registers/refreshes the ModsListAPI button. No-op when the API isn't
+    installed - same degrade-quietly convention as the rest of this mod."""
+    _update_modlist_button(account_id)
+    LOG.info('sync: registered ModsListAPI button (enabled=%s)' % config.is_sync_enabled())

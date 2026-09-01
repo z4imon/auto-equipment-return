@@ -104,6 +104,8 @@
     "syncModDisplayName": "Cloud-Sync",
     "syncCheckboxLabel": "Ausruestung zwischen PCs synchronisieren",
     "syncCheckboxTooltip": "Bestaetigt deinen Wargaming-Account einmalig im Browser und haelt danach deine gespeicherte Ausruestung zwischen allen PCs synchron, auf denen du spielst.",
+    "syncModListDisableLabel": "Cloud-Sync aktiv - zum Trennen klicken",
+    "syncModListDisableTooltip": "Cloud-Sync ist aktiv und haelt deine gespeicherte Ausruestung zwischen PCs synchron. Zum Deaktivieren klicken.",
     "syncPairingStarted": "Im Browser fortfahren (Code: %(userCode)s)",
     "syncPairingDone": "Cloud-Sync verbunden.",
     "syncPairingFailed": "Sync-Server nicht erreichbar.",
