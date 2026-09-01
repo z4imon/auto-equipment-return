@@ -250,6 +250,35 @@ const ROW_ICONS = {
     ],
 };
 
+const XLINKNS = "http://www.w3.org/1999/xlink";
+
+// A downloaded streamer icon (data: URI) as an inline SVG <image>, sized and
+// classed exactly like rowIconSvg's glyphs so it drops into the same corner-
+// icon slot the star uses. This engine's CSS does not paint
+// `background-image: url(data:...)` at all (confirmed live: the exact same,
+// correctly-sized data URI reaches the DOM every time - logged and verified -
+// yet nothing ever renders via `node.style.backgroundImage`) - but the native
+// client's own hangar bundle embeds data: URIs exactly this way
+// (`<image xlink:href="data:image/png;base64,...">` inside an inline <svg>,
+// confirmed by inspecting its shipped bundle), so this mirrors that proven
+// pattern instead of CSS background-image.
+function buildImageIcon(dataUri) {
+    const svg = document.createElementNS(SVGNS, "svg");
+    svg.setAttribute("viewBox", "0 0 20 20");
+    svg.setAttribute("width", "20");
+    svg.setAttribute("height", "20");
+    svg.setAttribute("class", "z4ae-row-svg");
+    const image = document.createElementNS(SVGNS, "image");
+    image.setAttributeNS(XLINKNS, "href", dataUri);
+    image.setAttribute("x", "0");
+    image.setAttribute("y", "0");
+    image.setAttribute("width", "20");
+    image.setAttribute("height", "20");
+    image.setAttribute("preserveAspectRatio", "xMidYMid slice");
+    svg.appendChild(image);
+    return svg;
+}
+
 function rowIconSvg(name) {
     const svg = document.createElementNS(SVGNS, "svg");
     svg.setAttribute("viewBox", "0 0 20 20");
@@ -342,7 +371,7 @@ function buildRecommendButton() {
     const icon = el("div", "z4ae-corner-icon z4ae-sets-recommend-icon");
     if (gData.selectedStreamer != null && gStreamerIconDataUri) {
         log("streamer icon APPLIED: selectedStreamer=" + gData.selectedStreamer + " dataUriLen=" + gStreamerIconDataUri.length);
-        bg(icon, gStreamerIconDataUri);
+        icon.appendChild(buildImageIcon(gStreamerIconDataUri));
     } else {
         if (gData.selectedStreamer != null) {
             log("streamer icon NOT applied (falling back to star): selectedStreamer=" + gData.selectedStreamer + " dataUriLen=" + (gStreamerIconDataUri ? gStreamerIconDataUri.length : 0));
@@ -444,6 +473,7 @@ function buildStreamerTrigger() {
 }
 
 function buildStreamerList() {
+    log("buildStreamerList: gStreamerList=" + JSON.stringify(gStreamerList));
     const list = el("div", "z4ae-streamer-list");
     list.addEventListener("click", function (e) { e.stopPropagation(); });
     const head = el("div", "z4ae-streamer-list-head");
@@ -696,6 +726,7 @@ function onModelUpdate() {
     if (streamerListJson !== gLastStreamerListJson) {
         gLastStreamerListJson = streamerListJson;
         gStreamerList = parseModelJson("streamerListJson", []);
+        log("onModelUpdate: streamerListJson changed, parsed=" + JSON.stringify(gStreamerList) + " gPopoverOpen=" + gPopoverOpen);
         if (gPopoverOpen) renderPopover();
     }
     const streamerIconDataUri = m.streamerIconDataUri || "";

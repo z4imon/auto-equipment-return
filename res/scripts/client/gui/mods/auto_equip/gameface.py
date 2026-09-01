@@ -497,6 +497,8 @@ class AutoEquipView(ViewComponent):
     def _on_open_streamer_list(self, data=None):
         try:
             def on_result(streamer_list):
+                LOG.info('streamers: list fetch returned %s'
+                         % ('None (failed)' if streamer_list is None else streamer_list))
                 if streamer_list is None:
                     _push_streamer_list([])
                     return
