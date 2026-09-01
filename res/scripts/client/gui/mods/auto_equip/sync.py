@@ -353,6 +353,20 @@ def _delete_vehicle_remote(account_id, veh_inv_id):
 
 _MODLIST_ID = 'z4imon.auto_equipment_return.sync'
 
+# Same two icons for both modlist buttons in this file - green while the
+# toggle they represent is ON, orange while it's OFF (independent of whether
+# the button itself is currently clickable - see _update_sharing_button,
+# whose "off" icon shows even while greyed out for "cloud sync isn't on
+# yet"). Paths are resource-VFS-relative, as g_modsListApi.addModification's
+# icon param requires (validated via ResMgr.isFile against this exact
+# string, before the API's own '../../' prefix gets added internally).
+_ICON_ENABLED = 'gui/maps/icons/z4imon/GreenGlow.png'
+_ICON_DISABLED = 'gui/maps/icons/z4imon/OrangeGlow.png'
+
+
+def _state_icon(enabled):
+    return _ICON_ENABLED if enabled else _ICON_DISABLED
+
 
 def _modlist_button_text(enabled):
     if enabled:
@@ -365,9 +379,10 @@ def _update_modlist_button(account_id):
         from gui.modsListApi import g_modsListApi
     except Exception:
         return
-    name, description = _modlist_button_text(is_paired(account_id))
+    paired = is_paired(account_id)
+    name, description = _modlist_button_text(paired)
     g_modsListApi.addModification(
-        id=_MODLIST_ID, name=name, description=description,
+        id=_MODLIST_ID, name=name, description=description, icon=_state_icon(paired),
         enabled=True, login=False, lobby=True,
         callback=lambda: _on_modlist_click(account_id),
     )
@@ -445,9 +460,10 @@ def _update_sharing_button(account_id):
     except Exception:
         return
     paired = is_paired(account_id)
-    name, description = _sharing_modlist_button_text(paired, candidacy.get('activated', False))
+    activated = candidacy.get('activated', False)
+    name, description = _sharing_modlist_button_text(paired, activated)
     g_modsListApi.addModification(
-        id=_MODLIST_SHARING_ID, name=name, description=description,
+        id=_MODLIST_SHARING_ID, name=name, description=description, icon=_state_icon(activated),
         enabled=paired, login=False, lobby=True,
         callback=lambda: _on_sharing_modlist_click(account_id),
     )
