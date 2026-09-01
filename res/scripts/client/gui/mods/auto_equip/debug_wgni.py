@@ -47,8 +47,9 @@ def _on_token_received(response):
 
 
 def _on_click():
+    LOG.step('WGNI debug: button clicked, requesting token')
     try:
-        getTokenRequester(TOKEN_TYPE.WGNI).request(timeout=10.0, callback=_on_token_received)
+        getTokenRequester(TOKEN_TYPE.WGNI).request(timeout=10.0)(_on_token_received)
     except Exception:
         LOG.exc('WGNI debug: request failed')
 
