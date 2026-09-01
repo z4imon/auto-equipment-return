@@ -72,7 +72,7 @@ def is_paired(account_id):
 
 def current_token(account_id):
     pairing = _read_pairing(account_id)
-    return pairing['accessToken'] if pairing else None
+    return pairing.get('accessToken') if pairing else None
 
 
 # ---------------------------------------------------------------------------
@@ -110,7 +110,9 @@ def call_async(method, path, token=None, body=None, callback=None):
         if callback is not None:
             BigWorld.callback(0, lambda: callback(status, data))
 
-    threading.Thread(target=worker).start()
+    thread = threading.Thread(target=worker)
+    thread.daemon = True
+    thread.start()
 
 
 # ---------------------------------------------------------------------------
@@ -162,6 +164,10 @@ def _poll_pairing(account_id, device_code, interval_seconds):
                 LOG.warning('sync: paired token accountId mismatch, discarding')
                 messages.push_error(t('syncPairingMismatch'))
                 return
+            if not data.get('accessToken'):
+                LOG.warning('sync: authorized poll response carried no accessToken, discarding')
+                messages.push_error(t('syncPairingMismatch'))
+                return
             _write_pairing(account_id, {
                 'accessToken': data['accessToken'],
                 'realm': data['realm'],
@@ -192,6 +198,17 @@ def disconnect(account_id):
 # Bidirectional reconcile - called at login and right after a fresh pairing
 # ---------------------------------------------------------------------------
 
+def _handle_auth_failure(account_id, status):
+    """A 401 means the token is gone (expired or revoked) - there is nothing
+    to retry, so forget the pairing now rather than silently failing sync
+    forever with a checkbox that still reads "connected"."""
+    if status == 401:
+        _forget_pairing(account_id)
+        messages.push_warning(t('syncPairingExpired'))
+        return True
+    return False
+
+
 def full_reconcile(account_id):
     """Pulls the account's server-stored sets, merges them into the local
     config (newest updatedAt per vehicle wins), then pushes every local
@@ -204,6 +221,8 @@ def full_reconcile(account_id):
 
     def handle_pull(status, data):
         if status != 200 or data is None:
+            if _handle_auth_failure(account_id, status):
+                return
             LOG.warning('sync: full pull failed (status=%s)' % status)
             return
         sets = data.get('sets', {})
@@ -230,9 +249,9 @@ def _merge_server_sets(server_sets):
             if server_entry.get('deleted'):
                 config.delete_sets(inv_id, notify=False)
             else:
-                config.store_sets(inv_id, set1=server_entry['set1'], set2=server_entry['set2'],
-                                  veh_cd=server_entry.get('vehicleCD'),
-                                  updated_at=server_entry['updatedAt'], notify=False)
+                config.apply_remote_entry(inv_id, server_entry['set1'], server_entry['set2'],
+                                          server_entry.get('vehicleCD'),
+                                          server_entry['updatedAt'], notify=False)
             to_push.discard(inv_id)
         except Exception:
             LOG.exc('sync: failed merging server entry for %s' % (inv_id,))
@@ -279,6 +298,8 @@ def _push_vehicle(account_id, veh_inv_id):
         if status == 200 and data:
             config.set_updated_at(veh_inv_id, data['updatedAt'])
         else:
+            if _handle_auth_failure(account_id, status):
+                return
             LOG.warning('sync: push of %s failed (status=%s)' % (veh_inv_id, status))
 
     call_async('PUT', '/accounts/%s/vehicles/%s' % (account_id, veh_inv_id), token=token,
@@ -289,8 +310,15 @@ def _delete_vehicle_remote(account_id, veh_inv_id):
     token = current_token(account_id)
     if token is None:
         return
+
+    def handle_delete(status, data):
+        if status != 200:
+            if _handle_auth_failure(account_id, status):
+                return
+            LOG.warning('sync: delete of %s failed (status=%s)' % (veh_inv_id, status))
+
     call_async('DELETE', '/accounts/%s/vehicles/%s' % (account_id, veh_inv_id), token=token,
-              callback=lambda status, data: None)
+              callback=handle_delete)
 
 
 # ---------------------------------------------------------------------------

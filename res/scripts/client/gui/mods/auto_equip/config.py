@@ -291,6 +291,19 @@ def store_sets(veh_inv_id, set1=None, set2=None, veh_cd=None, updated_at=None, n
     return entry
 
 
+def apply_remote_entry(veh_inv_id, set1, set2, veh_cd, updated_at, notify=True):
+    """Applies a server-authoritative entry unconditionally - unlike store_sets,
+    None here means "this set really doesn't exist," not "leave it alone."
+    Used only by sync.py's merge; store_sets's own partial-update contract for
+    its other callers (e.g. save.py's single-setup saves) is untouched."""
+    entry = {'set1': set1, 'set2': set2, 'vehicleCD': veh_cd, 'updatedAt': updated_at}
+    _sets[str(veh_inv_id)] = entry
+    save()
+    if notify:
+        _notify_listeners(veh_inv_id, entry)
+    return entry
+
+
 def delete_sets(veh_inv_id, notify=True):
     """Forgets everything stored for a vehicle - both sets and the vehicleCD.
     Returns True when there was something to forget."""
