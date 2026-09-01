@@ -48,6 +48,11 @@ let gUi = {};
 let gLastDataJson = null;
 let gPreviewData = null;      // parsed previewJson, or null until a response arrives
 let gLastPreviewJson = null;
+let gStreamerListOpen = false;
+let gStreamerList = null;         // parsed streamerListJson, or null before the first open
+let gLastStreamerListJson = null;
+let gStreamerIconDataUri = "";
+let gLastStreamerIconDataUri = null;
 
 // --------------------------------------------------------------------------
 function el(tag, cls) {
@@ -239,6 +244,10 @@ const ROW_ICONS = {
     star: [
         "M10 1.8 L12.47 6.79 L17.98 7.59 L14 11.47 L14.94 16.96 L10 14.36 L5.06 16.96 L6 11.47 L2.02 7.59 L7.53 6.79 Z",
     ],
+    // small filled chevron pointing down = "more options below"
+    chevronDown: [
+        "M4 7 L10 14 L16 7 Z",
+    ],
 };
 
 function rowIconSvg(name) {
@@ -331,7 +340,11 @@ function buildRecommendButton() {
     const btn = el("div", "z4ae-corner-btn z4ae-sets-recommend"
                         + (hasSaved ? " z4ae-corner-btn-inactive" : ""));
     const icon = el("div", "z4ae-corner-icon z4ae-sets-recommend-icon");
-    icon.appendChild(rowIconSvg("star"));
+    if (gData.selectedStreamer != null && gStreamerIconDataUri) {
+        bg(icon, gStreamerIconDataUri);
+    } else {
+        icon.appendChild(rowIconSvg("star"));
+    }
     btn.appendChild(icon);
     btn.appendChild(buildRecommendPreview(hasSaved));
     if (!hasSaved) {
@@ -406,6 +419,71 @@ function buildRecommendPreview(hasSaved) {
         pop.appendChild(note);
     }
     return pop;
+}
+
+// Small trigger next to the recommend button: opens the streamer picker.
+// Always visible - unlike the recommend button, its own content is fetched
+// fresh on every open (onOpenStreamerList), so there is nothing to
+// pre-check for emptiness.
+function buildStreamerTrigger() {
+    const btn = el("div", "z4ae-corner-btn z4ae-streamer-trigger");
+    const icon = el("div", "z4ae-corner-icon z4ae-streamer-trigger-icon");
+    icon.appendChild(rowIconSvg("chevronDown"));
+    btn.appendChild(icon);
+    btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        toggleStreamerList();
+    });
+    if (gStreamerListOpen) btn.appendChild(buildStreamerList());
+    addSounds(btn, true);
+    return btn;
+}
+
+function buildStreamerList() {
+    const list = el("div", "z4ae-streamer-list");
+    list.addEventListener("click", function (e) { e.stopPropagation(); });
+    const head = el("div", "z4ae-streamer-list-head");
+    head.textContent = String(ui("streamerListTitle", "Streamers")).toUpperCase();
+    list.appendChild(head);
+    // Always first: switches back to the WoT Plus recommendation.
+    list.appendChild(buildStreamerRow(ui("streamerListReset", "WoT Plus Recommendation"), null));
+    if (gStreamerList === null) {
+        const loading = el("div", "z4ae-streamer-list-loading");
+        loading.textContent = String(ui("recLoading", "Loading…"));
+        list.appendChild(loading);
+    } else {
+        gStreamerList.forEach(function (streamer) {
+            list.appendChild(buildStreamerRow(streamer.streamerName, streamer.accountId));
+        });
+    }
+    return list;
+}
+
+function buildStreamerRow(label, accountId) {
+    const row = el("div", "z4ae-streamer-row");
+    row.textContent = label;
+    row.addEventListener("click", function (e) {
+        e.stopPropagation();
+        cmd("onSelectStreamer", { accountId: accountId });
+        setStreamerListOpen(false);
+    });
+    addSounds(row, true);
+    return row;
+}
+
+function setStreamerListOpen(open) {
+    gStreamerListOpen = open;
+    if (open) {
+        // Force a fresh fetch + loading state every time the list opens -
+        // the catalog is intentionally never session-cached.
+        gStreamerList = null;
+        cmd("onOpenStreamerList");
+    }
+    if (gPopoverOpen) renderPopover();
+}
+
+function toggleStreamerList() {
+    setStreamerListOpen(!gStreamerListOpen);
 }
 
 // One menu row, exact copy of the native MenuItem markup:
@@ -485,6 +563,7 @@ function buildPopover() {
         sets.appendChild(buildSetBlock(ui("set2", "Set 2"), null, ui("noSetup2", "Kein zweites Loadout verfügbar")));
     }
     sets.appendChild(buildRecommendButton());
+    sets.appendChild(buildStreamerTrigger());
     sets.appendChild(buildDeleteButton());
     content.appendChild(sets);
 
@@ -563,6 +642,9 @@ function renderPopover() {
 function setPopoverOpen(open) {
     const wasOpen = gPopoverOpen;
     gPopoverOpen = open;
+    if (!open) {
+        gStreamerListOpen = false;
+    }
     if (gButton && gButton.classList) {
         gButton.classList.toggle("z4ae-menu-btn-opened", open);
     }
@@ -603,6 +685,18 @@ function onModelUpdate() {
     if (previewJson !== gLastPreviewJson) {
         gLastPreviewJson = previewJson;
         gPreviewData = previewJson ? parseModelJson("previewJson", null) : null;
+        if (gPopoverOpen) renderPopover();
+    }
+    const streamerListJson = m.streamerListJson || "";
+    if (streamerListJson !== gLastStreamerListJson) {
+        gLastStreamerListJson = streamerListJson;
+        gStreamerList = parseModelJson("streamerListJson", []);
+        if (gPopoverOpen) renderPopover();
+    }
+    const streamerIconDataUri = m.streamerIconDataUri || "";
+    if (streamerIconDataUri !== gLastStreamerIconDataUri) {
+        gLastStreamerIconDataUri = streamerIconDataUri;
+        gStreamerIconDataUri = streamerIconDataUri;
         if (gPopoverOpen) renderPopover();
     }
 }

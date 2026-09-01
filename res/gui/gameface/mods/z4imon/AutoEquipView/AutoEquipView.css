@@ -598,3 +598,57 @@
     line-height: 1.3;
     color: rgba(255, 221, 153, 0.85);
 }
+
+/* --- streamer picker trigger + dropdown ------------------------------- */
+.z4ae-streamer-trigger {
+    top: 0;
+    right: 48rem;
+    width: 16rem;
+    height: 16rem;
+}
+.z4ae-large .z4ae-streamer-trigger {
+    right: 54rem;
+}
+.z4ae-streamer-trigger-icon .z4ae-row-svg {
+    width: 12rem;
+    height: 12rem;
+}
+
+.z4ae-streamer-list {
+    position: absolute;
+    top: 100%;
+    margin-top: 4rem;
+    right: 0;
+    width: 200rem;
+    max-height: 220rem;
+    overflow-y: auto;
+    padding: 8rem 0;
+    z-index: 2;
+    border-width: 2rem;
+    border-style: solid;
+    border-image: url(img://gui/maps/icons/hangar/vehicleMenu/menu_border.png) 2/2rem repeat;
+    background: url(img://gui/maps/icons/hangar/vehicleMenu/menu_background.png) center no-repeat;
+    background-size: 100% 100%;
+    background-color: rgba(20, 20, 23, 0.98);
+    cursor: default;
+}
+.z4ae-streamer-list-head {
+    padding: 0 14rem 6rem 14rem;
+    font-size: 10rem;
+    letter-spacing: 0.03em;
+    color: rgba(238, 237, 233, 0.45);
+}
+.z4ae-streamer-row,
+.z4ae-streamer-list-loading {
+    padding: 6rem 14rem;
+    font-size: 12rem;
+    color: rgba(238, 237, 233, 0.85);
+    cursor: pointer;
+}
+.z4ae-streamer-list-loading {
+    cursor: default;
+    color: rgba(238, 237, 233, 0.45);
+}
+.z4ae-streamer-row:hover {
+    background-color: rgba(237, 230, 217, 0.24);
+}
