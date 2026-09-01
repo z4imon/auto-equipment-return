@@ -17,6 +17,7 @@ same account_id later, the local cache goes stale until manually cleared -
 there is no invalidation mechanism in this iteration."""
 
 import base64
+import hashlib
 import json
 import os
 import re
@@ -47,12 +48,23 @@ def _icon_cache_dir():
 def _sanitize_filename(name):
     """A streamer's display name -> a safe filesystem component: keeps
     alphanumerics, replaces everything else (spaces, parens, unicode
-    punctuation) with underscores, collapses repeats, and falls back to
-    "streamer" if nothing usable survives (empty/None/all-symbol name)."""
+    punctuation) with underscores, collapses repeats. A name/None with
+    nothing Latin-alphanumeric in it (a Cyrillic-, CJK-, or Arabic-only
+    handle, or literally none) would otherwise all collapse onto the same
+    literal "streamer" fallback - two such streamers would then share one
+    cache file, showing one's icon under the other's selection. Falls back
+    to a short hash of the original name instead, unique per distinct name
+    while still filesystem-safe."""
     if not name:
         return 'streamer'
     safe = re.sub(r'[^A-Za-z0-9]+', '_', name).strip('_')
-    return safe or 'streamer'
+    if safe:
+        return safe
+    try:
+        raw = name.encode('utf-8') if isinstance(name, unicode) else str(name)
+    except Exception:
+        raw = repr(name)
+    return 'streamer_' + hashlib.md5(raw).hexdigest()[:8]
 
 
 def _cached_icon_bin_path(name):
