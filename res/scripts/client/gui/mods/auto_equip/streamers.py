@@ -7,18 +7,22 @@ ever sends or needs a bearer token.
 
 Icon caching lives under config.account_files_dir()/streamer_icons/, keyed by
 the streamer's display NAME (sanitized for filesystem safety), not
-account_id - account_id is only used to build the download URL itself. Two
-files per cached icon: "<name>.bin" (raw bytes) and "<name>.json" (the
-remembered Content-Type, since a fixed extension can't be assumed - see
-icon_file in the server's streamers.csv, which can be png/jpg/webp/etc.).
+account_id - account_id is only used to build the download URL itself. One
+file per cached icon, named "<name><ext>" where <ext> is derived from the
+download's actual Content-Type (.png/.jpg/etc - see icon_file in the
+server's streamers.csv, which can be png/jpg/webp/etc.) via the same stdlib
+mimetypes module the server itself uses, so the file is self-describing -
+no separate metadata sidecar needed.
 
 Known, accepted limitation: if the server-side icon file is swapped under the
 same account_id later, the local cache goes stale until manually cleared -
 there is no invalidation mechanism in this iteration."""
 
 import base64
+import glob
 import hashlib
 import json
+import mimetypes
 import os
 import re
 import threading
@@ -67,25 +71,23 @@ def _sanitize_filename(name):
     return 'streamer_' + hashlib.md5(raw).hexdigest()[:8]
 
 
-def _cached_icon_bin_path(name):
-    return os.path.join(_icon_cache_dir(), '%s.bin' % _sanitize_filename(name))
+def _cached_icon_glob(name):
+    return os.path.join(_icon_cache_dir(), '%s.*' % _sanitize_filename(name))
 
 
-def _cached_icon_meta_path(name):
-    return os.path.join(_icon_cache_dir(), '%s.json' % _sanitize_filename(name))
+def _find_cached_icon(name):
+    """The path of an already-cached icon for this name, or None. A glob
+    rather than a fixed extension, since the extension is only known once a
+    download's real Content-Type has been seen (see _download_icon)."""
+    matches = glob.glob(_cached_icon_glob(name))
+    return matches[0] if matches else None
 
 
-def _data_uri(bin_path, meta_path):
-    with open(bin_path, 'rb') as handle:
+def _data_uri(path):
+    with open(path, 'rb') as handle:
         raw = handle.read()
-    mime_type = 'application/octet-stream'
-    try:
-        with open(meta_path, 'r') as handle:
-            meta = json.load(handle)
-        mime_type = meta.get('contentType') or mime_type
-    except Exception:
-        pass
-    return 'data:%s;base64,%s' % (mime_type, base64.b64encode(raw))
+    mime_type, _ = mimetypes.guess_type(path)
+    return 'data:%s;base64,%s' % (mime_type or 'application/octet-stream', base64.b64encode(raw))
 
 
 # ---------------------------------------------------------------------------
@@ -116,16 +118,25 @@ def _download_icon(account_id, name, callback):
                                        timeout=REQUEST_TIMEOUT_SECONDS)
             raw = response.read()
             content_type = response.info().gettype()
+            extension = mimetypes.guess_extension(content_type) or '.png'
             directory = _icon_cache_dir()
             if not os.path.exists(directory):
                 os.makedirs(directory)
-            with open(_cached_icon_bin_path(name), 'wb') as handle:
+            # Drop any previously-cached file for this name under a
+            # different extension first (the operator swapped png for jpg,
+            # say) - otherwise both would sit on disk and the glob lookup
+            # could return either one.
+            for stale in glob.glob(_cached_icon_glob(name)):
+                try:
+                    os.remove(stale)
+                except Exception:
+                    pass
+            path = os.path.join(directory, '%s%s' % (_sanitize_filename(name), extension))
+            with open(path, 'wb') as handle:
                 handle.write(raw)
-            with open(_cached_icon_meta_path(name), 'w') as handle:
-                json.dump({'contentType': content_type}, handle)
             ok = True
             LOG.info('streamers: icon downloaded for account %s as "%s" (%d bytes, %s)'
-                     % (account_id, name, len(raw), content_type))
+                     % (account_id, path, len(raw), content_type))
         except Exception:
             LOG.exc('streamers: icon download failed for account %s (%s)' % (account_id, name))
         if callback is not None:
@@ -160,14 +171,13 @@ def fetch_vehicle_set(account_id, vehicle_cd, callback):
 
 
 def forget_streamer(name):
-    """Deletes this streamer's cached icon files, if any - used when a
+    """Deletes this streamer's cached icon file, if any - used when a
     previously-selected streamer disappears from the catalog (consent
     revoked, or removed from streamers.csv), so their likeness doesn't
     linger locally forever after that."""
-    for path in (_cached_icon_bin_path(name), _cached_icon_meta_path(name)):
+    for path in glob.glob(_cached_icon_glob(name)):
         try:
-            if os.path.exists(path):
-                os.remove(path)
+            os.remove(path)
         except Exception:
             LOG.exc('streamers: failed to remove cached icon for "%s"' % name)
 
@@ -177,11 +187,10 @@ def ensure_icon_cached(account_id, name, callback):
     GET /streamers/{account_id}/icon otherwise. Cached under `name` (the
     streamer's display name, sanitized), not account_id - account_id is only
     used for the download URL itself."""
-    bin_path = _cached_icon_bin_path(name)
-    meta_path = _cached_icon_meta_path(name)
-    if os.path.exists(bin_path) and os.path.exists(meta_path):
+    existing = _find_cached_icon(name)
+    if existing is not None:
         try:
-            data_uri = _data_uri(bin_path, meta_path)
+            data_uri = _data_uri(existing)
             LOG.info('streamers: icon cache hit for "%s" (%d chars)' % (name, len(data_uri)))
             callback(data_uri)
         except Exception:
@@ -190,11 +199,12 @@ def ensure_icon_cached(account_id, name, callback):
         return
 
     def on_downloaded(ok):
-        if not ok:
+        path = _find_cached_icon(name) if ok else None
+        if path is None:
             callback(None)
             return
         try:
-            data_uri = _data_uri(bin_path, meta_path)
+            data_uri = _data_uri(path)
             LOG.info('streamers: icon ready for "%s" (%d chars)' % (name, len(data_uri)))
             callback(data_uri)
         except Exception:
