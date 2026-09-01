@@ -229,6 +229,7 @@ def _on_vehicle_changed(*args, **kwargs):
     try:
         apply_engine.on_vehicle_changed()
         push_data()
+        _push_preview({})
     except Exception:
         LOG.exc('_on_vehicle_changed failed')
 

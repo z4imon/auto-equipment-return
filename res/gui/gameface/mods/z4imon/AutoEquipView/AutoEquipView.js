@@ -355,7 +355,7 @@ function buildRecommendButton() {
 // vehicle/source arrives.
 function buildRecommendPreview(hasSaved) {
     const pop = el("div", "z4ae-rec-popup");
-    if (!gPreviewData) {
+    if (!gPreviewData || !gPreviewData.kind) {
         const loading = el("div", "z4ae-rec-head");
         loading.textContent = String(ui("recLoading", "Loading…")).toUpperCase();
         pop.appendChild(loading);
@@ -653,6 +653,7 @@ engine.whenReady.then(function () {
         gUi = parseModelJson("uiJson", {});
         gData = parseModelJson("dataJson", {});
         gLastDataJson = model.model.dataJson || null;
+        gLastPreviewJson = model.model.previewJson || null;
     }
 
     injectButton();
