@@ -102,5 +102,12 @@
   "streamerListTitle": "Streamers",
   "streamerListReset": "WoT Plus Recommendation",
   "streamerRecTitle": "Streamer Equipment",
-  "recLoading": "Loading…"
+  "recLoading": "Loading…",
+  "sharingModListLabel": "Enable Equipment Sharing",
+  "sharingModListTooltip": "Shares your currently cloud-synced equipment sets publicly under your streamer profile, so other players can see and use them via the streamer picker.",
+  "sharingModListDisableLabel": "Disable Equipment Sharing",
+  "sharingModListDisableTooltip": "Stops showing your equipment to other players. Your existing cloud-synced sets are unaffected - only public visibility changes.",
+  "sharingModListDisabledLabel": "Equipment Sharing (enable Cloud Sync first)",
+  "sharingModListDisabledTooltip": "You've been invited to share your equipment publicly. Enable Equipment Cloud Sync first, then you can turn sharing on here.",
+  "sharingToggleFailed": "Could not change equipment sharing."
 }

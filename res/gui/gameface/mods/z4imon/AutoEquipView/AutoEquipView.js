@@ -447,15 +447,9 @@ function buildStreamerList() {
     list.appendChild(head);
     // Always first: switches back to the WoT Plus recommendation.
     list.appendChild(buildStreamerRow(ui("streamerListReset", "WoT Plus Recommendation"), null));
-    if (gStreamerList === null) {
-        const loading = el("div", "z4ae-streamer-list-loading");
-        loading.textContent = String(ui("recLoading", "Loading…"));
-        list.appendChild(loading);
-    } else {
-        gStreamerList.forEach(function (streamer) {
-            list.appendChild(buildStreamerRow(streamer.streamerName, streamer.accountId));
-        });
-    }
+    (gStreamerList || []).forEach(function (streamer) {
+        list.appendChild(buildStreamerRow(streamer.streamerName, streamer.accountId));
+    });
     return list;
 }
 

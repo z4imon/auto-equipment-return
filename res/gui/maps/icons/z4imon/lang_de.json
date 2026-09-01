@@ -106,7 +106,7 @@
     "syncCheckboxTooltip": "Verbindet deinen Account per Wargaming-Anmeldung (OAuth) mit dem Cloud-Sync. Nach dem Verbinden werden deine gespeicherten Ausruestungs-Sets zusaetzlich auf dem Server gespeichert und automatisch mit deinen anderen PCs synchronisiert.",
     "syncModListDisableLabel": "Deaktiviere Equipment Cloud Sync",
     "syncModListDisableTooltip": "Trennt die Verbindung zum Cloud-Sync. Um dich spaeter wieder zu verbinden, ist erneut eine Anmeldung ueber Wargaming (OAuth) noetig. Achtung: Beim Trennen werden alle fuer diesen Account auf dem Server gespeicherten Ausruestungs-Sets geloescht.",
-    "syncPairingStarted": "Im Browser fortfahren (Code: %(userCode)s)",
+    "syncPairingStarted": "Bitte im Browser fortfahren.",
     "syncPairingDone": "Cloud-Sync verbunden.",
     "syncPairingFailed": "Sync-Server nicht erreichbar.",
     "syncPairingExpired": "Anfrage abgelaufen, bitte erneut versuchen.",
@@ -115,5 +115,12 @@
     "streamerListTitle": "Streamer",
     "streamerListReset": "WoT Plus Empfehlung",
     "streamerRecTitle": "Streamer-Equipment",
-    "recLoading": "Lädt…"
+    "recLoading": "Lädt…",
+    "sharingModListLabel": "Aktiviere Equipment-Teilen",
+    "sharingModListTooltip": "Teilt deine aktuell per Cloud-Sync gespeicherten Ausruestungs-Sets oeffentlich unter deinem Streamer-Profil, damit andere Spieler sie ueber die Streamer-Auswahl sehen und uebernehmen koennen.",
+    "sharingModListDisableLabel": "Deaktiviere Equipment-Teilen",
+    "sharingModListDisableTooltip": "Zeigt dein Equipment anderen Spielern nicht mehr. Deine gespeicherten Sets per Cloud-Sync bleiben unveraendert - nur die oeffentliche Sichtbarkeit aendert sich.",
+    "sharingModListDisabledLabel": "Equipment-Teilen (zuerst Cloud-Sync aktivieren)",
+    "sharingModListDisabledTooltip": "Du wurdest eingeladen, dein Equipment oeffentlich zu teilen. Aktiviere zuerst Equipment Cloud Sync, danach kannst du das Teilen hier aktivieren.",
+    "sharingToggleFailed": "Equipment-Teilen konnte nicht geaendert werden."
 }

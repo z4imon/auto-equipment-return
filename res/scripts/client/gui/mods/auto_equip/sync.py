@@ -144,7 +144,7 @@ def start_pairing(account_id):
             messages.push_error(t('syncPairingFailed'))
             return
         BigWorld.wg_openWebBrowser(str(data['verificationUri']))
-        messages.push_info(t('syncPairingStarted', userCode=data['userCode']))
+        messages.push_info(t('syncPairingStarted'))
         _poll_pairing(account_id, data['deviceCode'], data.get('intervalSeconds', _POLL_INTERVAL_DEFAULT))
 
     call_async('POST', '/auth/device', body=body, callback=handle_device_response)
@@ -174,6 +174,8 @@ def _poll_pairing(account_id, device_code, interval_seconds):
             })
             messages.push_info(t('syncPairingDone'))
             full_reconcile(account_id)
+            _update_modlist_button(account_id)
+            _update_sharing_button(account_id)
             return
         # still pending - poll again after the server-suggested interval
         BigWorld.callback(interval_seconds, lambda: call_async(
@@ -197,6 +199,11 @@ def disconnect(account_id):
             LOG.warning('sync: account data delete failed (status=%s)' % status)
         call_async('DELETE', '/auth/token', token=token, callback=lambda s, d: None)
         _forget_pairing(account_id)
+        _update_modlist_button(account_id)
+        candidacy = _streamer_candidacy.get(account_id)
+        if candidacy is not None:
+            candidacy['activated'] = False
+        _update_sharing_button(account_id)
 
     call_async('DELETE', '/accounts/%s' % account_id, token=token, callback=after_data_deleted)
 
@@ -371,11 +378,103 @@ def _on_modlist_click(account_id):
         disconnect(account_id)
     else:
         start_pairing(account_id)
-    _update_modlist_button(account_id)
+
+
+# ---------------------------------------------------------------------------
+# Streamer sharing self-service - a second ModsListAPI button, visible only
+# to accounts the server has flagged as candidates for the streamer picker
+# ---------------------------------------------------------------------------
+
+_MODLIST_SHARING_ID = 'z4imon.auto_equipment_return.sharing'
+
+_streamer_candidacy = {}  # account_id -> {'activated': bool}, only present once known-candidate
+
+
+def check_streamer_candidate(account_id, callback):
+    """callback(is_candidate, activated). Unauthenticated GET, called at
+    every register() regardless of pairing state - mirrors check_cloud_data's
+    login-time pattern, but runs unconditionally rather than only-when-
+    unpaired, since a candidate might already be paired."""
+    def handle_response(status, data):
+        if status == 200 and data:
+            callback(bool(data.get('isCandidate')), bool(data.get('activated')))
+        else:
+            callback(False, False)
+    call_async('GET', '/streamers/%s/is-candidate' % account_id, callback=handle_response)
+
+
+def set_streamer_sharing(account_id, activated, callback=None):
+    """Flips this account's own sharing consent via the self-service
+    endpoint - only works while paired, since the endpoint requires a
+    bearer token bound to this exact account_id."""
+    token = current_token(account_id)
+    if token is None:
+        if callback is not None:
+            callback(False)
+        return
+
+    def handle_response(status, data):
+        if callback is not None:
+            callback(status == 200 and bool(data and data.get('activated')) == activated)
+
+    call_async('PUT', '/streamers/%s/sharing' % account_id, token=token,
+              body={'activated': activated}, callback=handle_response)
+
+
+def _on_candidacy_known(account_id, is_candidate, activated):
+    if not is_candidate:
+        return
+    _streamer_candidacy[account_id] = {'activated': activated}
+    _update_sharing_button(account_id)
+
+
+def _sharing_modlist_button_text(paired, activated):
+    if not paired:
+        return t('sharingModListDisabledLabel'), t('sharingModListDisabledTooltip')
+    if activated:
+        return t('sharingModListDisableLabel'), t('sharingModListDisableTooltip')
+    return t('sharingModListLabel'), t('sharingModListTooltip')
+
+
+def _update_sharing_button(account_id):
+    candidacy = _streamer_candidacy.get(account_id)
+    if candidacy is None:
+        return
+    try:
+        from gui.modsListApi import g_modsListApi
+    except Exception:
+        return
+    paired = is_paired(account_id)
+    name, description = _sharing_modlist_button_text(paired, candidacy.get('activated', False))
+    g_modsListApi.addModification(
+        id=_MODLIST_SHARING_ID, name=name, description=description,
+        enabled=paired, login=False, lobby=True,
+        callback=lambda: _on_sharing_modlist_click(account_id),
+    )
+
+
+def _on_sharing_modlist_click(account_id):
+    if not is_paired(account_id):
+        return
+    candidacy = _streamer_candidacy.get(account_id)
+    if candidacy is None:
+        return
+    new_state = not candidacy.get('activated', False)
+
+    def handle_result(ok):
+        if ok:
+            candidacy['activated'] = new_state
+        else:
+            messages.push_error(t('sharingToggleFailed'))
+        _update_sharing_button(account_id)
+
+    set_streamer_sharing(account_id, new_state, callback=handle_result)
 
 
 def register(account_id):
     """Registers/refreshes the ModsListAPI button. No-op when the API isn't
     installed - same degrade-quietly convention as the rest of this mod."""
     _update_modlist_button(account_id)
+    check_streamer_candidate(account_id, callback=lambda is_candidate, activated:
+                              _on_candidacy_known(account_id, is_candidate, activated))
     LOG.info('sync: registered ModsListAPI button (enabled=%s)' % is_paired(account_id))
