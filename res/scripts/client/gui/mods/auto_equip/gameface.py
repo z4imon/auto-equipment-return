@@ -497,7 +497,16 @@ class AutoEquipView(ViewComponent):
     def _on_open_streamer_list(self, data=None):
         try:
             def on_result(streamer_list):
-                _push_streamer_list(streamer_list or [])
+                streamer_list = streamer_list or []
+                _push_streamer_list(streamer_list)
+                selected_id = config.selected_streamer_account_id()
+                if selected_id is not None and not any(
+                        s.get('accountId') == selected_id for s in streamer_list):
+                    streamers.forget_streamer(selected_id)
+                    config.set_selected_streamer(None)
+                    _push_preview({})
+                    _push_icon_data_uri('')
+                    push_data()
             streamers.list_streamers(on_result)
         except Exception:
             LOG.exc('_on_open_streamer_list failed')
@@ -506,10 +515,10 @@ class AutoEquipView(ViewComponent):
         try:
             account_id = (data or {}).get('accountId')
             config.set_selected_streamer(account_id)
+            _push_preview({})
+            _push_icon_data_uri('')
             push_data()
-            if account_id is None:
-                _push_icon_data_uri('')
-            else:
+            if account_id is not None:
                 streamers.ensure_icon_cached(account_id, callback=_push_icon_data_uri)
         except Exception:
             LOG.exc('_on_select_streamer failed')

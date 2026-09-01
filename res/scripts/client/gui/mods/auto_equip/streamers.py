@@ -133,6 +133,19 @@ def fetch_vehicle_set(account_id, vehicle_cd, callback):
     _get_json('/streamers/%s/vehicle-set/%s' % (account_id, int(vehicle_cd)), handle_response)
 
 
+def forget_streamer(account_id):
+    """Deletes this streamer's cached icon files, if any - used when a
+    previously-selected streamer disappears from the catalog (consent
+    revoked, or removed from streamers.csv), so their likeness doesn't
+    linger locally forever after that."""
+    for path in (_cached_icon_bin_path(account_id), _cached_icon_meta_path(account_id)):
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+        except Exception:
+            LOG.exc('streamers: failed to remove cached icon for %s' % account_id)
+
+
 def ensure_icon_cached(account_id, callback):
     """callback(data_uri_or_None). Reads the local cache if present; downloads
     and writes it otherwise. account_id alone is enough - see the module
