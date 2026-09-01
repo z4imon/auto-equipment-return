@@ -46,6 +46,8 @@ let gPopoverOpen = false;
 let gData = {};
 let gUi = {};
 let gLastDataJson = null;
+let gPreviewData = null;      // parsed previewJson, or null until a response arrives
+let gLastPreviewJson = null;
 
 // --------------------------------------------------------------------------
 function el(tag, cls) {
@@ -312,55 +314,70 @@ function buildDeleteButton() {
     return btn;
 }
 
-// Star in the top-right corner of the saved-sets area: stores WoT Plus'
-// equipment recommendation as this vehicle's sets and installs it.
-// Hovering shows what would be stored, because this overwrites whatever the
-// player saved before and a click should never be a surprise.
-// Dimmed and inert when the client has no recommendation for the tank - the
-// data does not cover every vehicle.
+// The corner button in the saved-sets area: applies the currently selected
+// source (WoT Plus recommendation, or a chosen streamer's set - see the
+// picker Task 6 adds) as this vehicle's sets and installs it. Hovering asks
+// Python for a fresh preview every time (onRequestPreview) rather than
+// showing something precomputed - a network round trip only for the
+// streamer source, effectively instant for WoT Plus.
+// Dimmed only by hasSaved: applying would overwrite a set the player already
+// saved, and a saved set is the player's own decision, not something a
+// single mis-click should undo. Neither source's own availability is known
+// in advance any more - "nothing available for this tank" is something the
+// hover preview itself says now, the same way it always said "not available"
+// for a single missing set.
 function buildRecommendButton() {
-    const entries = gData.recommended || [];
-    // Only offered while nothing is saved yet: applying it overwrites both sets,
-    // and a saved set is the player's own decision, not something a single
-    // mis-click should undo. The bin right below is the way back.
     const hasSaved = !!(gData.saved1 || gData.saved2);
-    // Three states, not two: no data at all (dead), data that cannot be applied
-    // (dimmed but still hoverable, because the preview is where it says why),
-    // and a usable recommendation.
-    const usable = entries.some(function (e) { return e.slots && e.slots.length; });
-    const active = usable && !hasSaved;
-    let modifier = "";
-    if (!entries.length) modifier = " z4ae-corner-btn-disabled";
-    else if (!active) modifier = " z4ae-corner-btn-inactive";
-    const btn = el("div", "z4ae-corner-btn z4ae-sets-recommend" + modifier);
+    const btn = el("div", "z4ae-corner-btn z4ae-sets-recommend"
+                        + (hasSaved ? " z4ae-corner-btn-inactive" : ""));
     const icon = el("div", "z4ae-corner-icon z4ae-sets-recommend-icon");
     icon.appendChild(rowIconSvg("star"));
     btn.appendChild(icon);
-    if (entries.length) btn.appendChild(buildRecommendPreview(entries, hasSaved));
-    if (active) {
+    btn.appendChild(buildRecommendPreview(hasSaved));
+    if (!hasSaved) {
         btn.addEventListener("click", function (e) {
             e.stopPropagation();
             cmd("onSaveRecommended");
         });
     }
-    // Only the state that actually does something: the dimmed star is a
-    // hover preview, and previewing is not an action.
-    addSounds(btn, active);
+    // Unconditional: previewing why nothing can be applied is exactly what
+    // a dimmed button's hover is for.
+    btn.addEventListener("mouseenter", function () {
+        cmd("onRequestPreview");
+    });
+    addSounds(btn, !hasSaved);
     return btn;
 }
 
-// The hover preview. Pure CSS visibility (:hover on the button) - no JS state
-// to get out of step with a re-render.
-function buildRecommendPreview(entries, hasSaved) {
+// The hover preview. Pure CSS visibility (:hover on the button); its CONTENT
+// now comes from gPreviewData, filled in asynchronously by onRequestPreview -
+// so it renders a loading state until the first response for the current
+// vehicle/source arrives.
+function buildRecommendPreview(hasSaved) {
     const pop = el("div", "z4ae-rec-popup");
+    if (!gPreviewData) {
+        const loading = el("div", "z4ae-rec-head");
+        loading.textContent = String(ui("recLoading", "Loading…")).toUpperCase();
+        pop.appendChild(loading);
+        return pop;
+    }
+    const kind = gPreviewData.kind;
     const head = el("div", "z4ae-rec-head");
-    head.textContent = String(ui("recTitle", "Empfohlenes Equipment")).toUpperCase();
+    head.textContent = String(kind === "streamer"
+        ? ui("streamerRecTitle", "Streamer Equipment")
+        : ui("recTitle", "Empfohlenes Equipment")).toUpperCase();
     pop.appendChild(head);
-    entries.forEach(function (entry, index) {
+
+    const blocks = kind === "streamer"
+        ? [{ slots: gPreviewData.slots1, percent: 0 }, { slots: gPreviewData.slots2, percent: 0 }]
+        : (gPreviewData.entries || []);
+
+    blocks.forEach(function (entry, index) {
         const block = el("div", "z4ae-rec-block");
         const lab = el("div", "z4ae-set-label");
-        // The entries arrive in set order, so entry N fills set N - naming them
-        // after the sets is what tells the player what the click overwrites.
+        // The entries arrive in set order, so entry N fills set N - naming
+        // them after the sets is what tells the player what the click
+        // overwrites.
         let text = String(ui(index === 0 ? "set1" : "set2", "Set " + (index + 1))).toUpperCase();
         if (entry.percent) text += "  " + entry.percent + " %";
         lab.textContent = text;
@@ -368,9 +385,10 @@ function buildRecommendPreview(entries, hasSaved) {
         if (entry.slots && entry.slots.length) {
             block.appendChild(buildSlotRow(entry.slots));
         } else {
-            // No ranked loadout could be built without a hole. Say which set is
-            // affected - "not available" on its own would leave the player
-            // guessing whether the other one still works.
+            // No usable set for this slot - say which one, "not available"
+            // on its own would leave the player guessing whether the other
+            // one still works. Same wording for both sources - the player's
+            // next step is identical either way (nothing to do).
             const miss = el("div", "z4ae-set-missing");
             miss.textContent = ui(index === 0 ? "recUnavailable1" : "recUnavailable2",
                                   index === 0 ? "Erste Empfehlung nicht verfügbar"
@@ -380,8 +398,8 @@ function buildRecommendPreview(entries, hasSaved) {
         pop.appendChild(block);
     });
     if (hasSaved) {
-        // The star is greyed out for a reason the sets above cannot show: there
-        // is already something saved, and applying would overwrite it.
+        // The button is greyed out for a reason the sets above cannot show:
+        // there is already something saved, and applying would overwrite it.
         const note = el("div", "z4ae-rec-note");
         note.textContent = ui("recAlreadySaved",
                               "Gespeichertes Equipment zuerst löschen, um dies zu übernehmen");
@@ -577,6 +595,14 @@ function onModelUpdate() {
     if (dataJson !== gLastDataJson) {
         gLastDataJson = dataJson;
         gData = parseModelJson("dataJson", {});
+        gPreviewData = null;
+        gLastPreviewJson = null;
+        if (gPopoverOpen) renderPopover();
+    }
+    const previewJson = m.previewJson || "";
+    if (previewJson !== gLastPreviewJson) {
+        gLastPreviewJson = previewJson;
+        gPreviewData = previewJson ? parseModelJson("previewJson", null) : null;
         if (gPopoverOpen) renderPopover();
     }
 }
