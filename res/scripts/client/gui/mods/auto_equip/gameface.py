@@ -15,7 +15,7 @@ import BigWorld
 from CurrentVehicle import g_currentVehicle
 from gui.shared.notifications import NotificationPriorityLevel
 
-from . import config, hangar, i18n, inventory, messages, recommended, save
+from . import config, hangar, i18n, inventory, messages, recommended, save, streamers
 from . import apply as apply_engine
 from .i18n import t
 from .log import LOG
@@ -129,8 +129,8 @@ def _build_data():
         'hasSetup2': False,
         'saved1': None,
         'saved2': None,
-        'recommended': [],
         'busy': apply_engine.is_busy(),
+        'selectedStreamer': config.selected_streamer_account_id(),
     }
     try:
         vehicle = g_currentVehicle.item
@@ -143,7 +143,6 @@ def _build_data():
         if saved:
             data['saved1'] = _set_payload(saved.get('set1'))
             data['saved2'] = _set_payload(saved.get('set2'))
-        data['recommended'] = _recommended_payload(vehicle)
     except Exception:
         LOG.exc('_build_data failed')
     return data
@@ -180,6 +179,42 @@ def push_data():
         view_model.setDataJson(json.dumps(_build_data()))
     except Exception:
         LOG.exc('push_data failed')
+
+
+def _push_preview(payload):
+    if _view is None:
+        return
+    try:
+        view_model = _view.viewModel
+        if view_model is None:
+            return
+        view_model.setPreviewJson(json.dumps(payload))
+    except Exception:
+        LOG.exc('_push_preview failed')
+
+
+def _push_streamer_list(streamer_list):
+    if _view is None:
+        return
+    try:
+        view_model = _view.viewModel
+        if view_model is None:
+            return
+        view_model.setStreamerListJson(json.dumps(streamer_list))
+    except Exception:
+        LOG.exc('_push_streamer_list failed')
+
+
+def _push_icon_data_uri(data_uri):
+    if _view is None:
+        return
+    try:
+        view_model = _view.viewModel
+        if view_model is None:
+            return
+        view_model.setStreamerIconDataUri(data_uri or '')
+    except Exception:
+        LOG.exc('_push_icon_data_uri failed')
 
 
 # ---------------------------------------------------------------------------
@@ -232,10 +267,11 @@ def _unsubscribe_from_vehicle():
 class AutoEquipViewModel(ViewModel):
     __slots__ = ('onJsLog', 'onToggleEnabled', 'onToggleDowngrade',
                  'onToggleAlwaysSetup1', 'onSaveSet', 'onDeleteSets',
-                 'onSaveRecommended', 'onEquipPrimary')
+                 'onSaveRecommended', 'onEquipPrimary',
+                 'onRequestPreview', 'onOpenStreamerList', 'onSelectStreamer')
 
     def __init__(self):
-        super(AutoEquipViewModel, self).__init__(properties=2, commands=8)
+        super(AutoEquipViewModel, self).__init__(properties=5, commands=11)
 
     def getDataJson(self):
         return self._getString(0)
@@ -249,10 +285,31 @@ class AutoEquipViewModel(ViewModel):
     def setUiJson(self, value):
         self._setString(1, value)
 
+    def getPreviewJson(self):
+        return self._getString(2)
+
+    def setPreviewJson(self, value):
+        self._setString(2, value)
+
+    def getStreamerListJson(self):
+        return self._getString(3)
+
+    def setStreamerListJson(self, value):
+        self._setString(3, value)
+
+    def getStreamerIconDataUri(self):
+        return self._getString(4)
+
+    def setStreamerIconDataUri(self, value):
+        self._setString(4, value)
+
     def _initialize(self):
         super(AutoEquipViewModel, self)._initialize()
         self._addStringProperty('dataJson', '{}')
         self._addStringProperty('uiJson', '{}')
+        self._addStringProperty('previewJson', '{}')
+        self._addStringProperty('streamerListJson', '[]')
+        self._addStringProperty('streamerIconDataUri', '')
         self.onJsLog = self._addCommand('onJsLog')
         self.onToggleEnabled = self._addCommand('onToggleEnabled')
         self.onToggleDowngrade = self._addCommand('onToggleDowngrade')
@@ -261,6 +318,9 @@ class AutoEquipViewModel(ViewModel):
         self.onDeleteSets = self._addCommand('onDeleteSets')
         self.onSaveRecommended = self._addCommand('onSaveRecommended')
         self.onEquipPrimary = self._addCommand('onEquipPrimary')
+        self.onRequestPreview = self._addCommand('onRequestPreview')
+        self.onOpenStreamerList = self._addCommand('onOpenStreamerList')
+        self.onSelectStreamer = self._addCommand('onSelectStreamer')
         gf_mod_inject(self, _VIEW_ALIAS,
                       styles=['%s/AutoEquipView.css' % _VIEW_DIR],
                       modules=['%s/AutoEquipView.js' % _VIEW_DIR])
@@ -297,6 +357,9 @@ class AutoEquipView(ViewComponent):
             (self.viewModel.onDeleteSets, self._on_delete_sets),
             (self.viewModel.onSaveRecommended, self._on_save_recommended),
             (self.viewModel.onEquipPrimary, self._on_equip_primary),
+            (self.viewModel.onRequestPreview, self._on_request_preview),
+            (self.viewModel.onOpenStreamerList, self._on_open_streamer_list),
+            (self.viewModel.onSelectStreamer, self._on_select_streamer),
         )
 
     def _on_js_log(self, data=None):
@@ -352,11 +415,12 @@ class AutoEquipView(ViewComponent):
             LOG.exc('_on_delete_sets failed')
 
     def _on_save_recommended(self, data=None):
-        """Stores the equipment assistant's proposal as this vehicle's sets and
-        installs it right away - saving without installing would leave the
-        player looking at a set that is not on the tank.
+        """Stores whichever source is currently selected (WoT Plus or a
+        streamer) as this vehicle's sets and installs it right away - saving
+        without installing would leave the player looking at a set that is
+        not on the tank.
 
-        Only ever runs on a vehicle with nothing saved: the proposal fills both
+        Only ever runs on a vehicle with nothing saved: the source fills both
         sets, so on a vehicle that already has one it would silently replace
         the player's own work."""
         try:
@@ -364,35 +428,90 @@ class AutoEquipView(ViewComponent):
             if vehicle is None:
                 return
             if config.has_saved_sets(vehicle.invID):
-                # The popover greys the star out in this case; this is the net
-                # under a stale render, so it only has to refuse, not explain.
+                # The popover greys the button out in this case; this is the
+                # net under a stale render, so it only has to refuse, not
+                # explain.
                 LOG.warning('recommendation refused for %s: sets are already saved'
                             % vehicle.userName)
                 return
-            entries = recommended.for_vehicle(vehicle)
-            if not entries:
-                messages.push_warning(t('recNone'))
-                return
-            set1, set2 = recommended.as_sets(entries)
+            streamer_id = config.selected_streamer_account_id()
+            if streamer_id is None:
+                self._apply_wotplus_recommendation(vehicle)
+            else:
+                self._apply_streamer_recommendation(vehicle, streamer_id)
+        except Exception:
+            LOG.exc('_on_save_recommended failed')
+
+    def _apply_wotplus_recommendation(self, vehicle):
+        entries = recommended.for_vehicle(vehicle)
+        if not entries:
+            messages.push_warning(t('recNone'))
+            return
+        set1, set2 = recommended.as_sets(entries)
+        if set1 is None and set2 is None:
+            # Every ranked loadout had a slot only experimental equipment
+            # could fill. Storing now would create an empty entry for a
+            # vehicle the player never handed to the mod.
+            messages.push_warning(t('recNone'))
+            return
+        config.store_sets(vehicle.invID, set1=set1, set2=set2, veh_cd=vehicle.intCD)
+        LOG.info('recommended sets stored for %s (%s, rank %s): set1=%s set2=%s'
+                 % (vehicle.userName, entries[0]['source'],
+                    [entry['rank'] for entry in entries], set1, set2))
+        push_data()
+        messages.push_info(t('recSaved', veh=vehicle.userName),
+                           priority=NotificationPriorityLevel.HIGH)
+        apply_engine.apply_saved_sets(vehicle.invID)
+
+    def _apply_streamer_recommendation(self, vehicle, streamer_account_id):
+        def on_result(set1, set2):
             if set1 is None and set2 is None:
-                # Every ranked loadout had a slot only experimental equipment
-                # could fill. Storing now would create an empty entry for a
-                # vehicle the player never handed to the mod.
                 messages.push_warning(t('recNone'))
                 return
-            config.store_sets(vehicle.invID, set1=set1, set2=set2,
-                              veh_cd=vehicle.intCD)
-            LOG.info('recommended sets stored for %s (%s, rank %s): set1=%s set2=%s'
-                     % (vehicle.userName, entries[0]['source'],
-                        [entry['rank'] for entry in entries], set1, set2))
+            config.store_sets(vehicle.invID, set1=set1, set2=set2, veh_cd=vehicle.intCD)
             push_data()
-            # The install run reports what it could and could not source, so
-            # this message only has to say that the set changed.
             messages.push_info(t('recSaved', veh=vehicle.userName),
                                priority=NotificationPriorityLevel.HIGH)
             apply_engine.apply_saved_sets(vehicle.invID)
+        streamers.fetch_vehicle_set(streamer_account_id, vehicle.intCD, callback=on_result)
+
+    def _on_request_preview(self, data=None):
+        try:
+            vehicle = g_currentVehicle.item
+            if vehicle is None:
+                return
+            streamer_id = config.selected_streamer_account_id()
+            if streamer_id is None:
+                _push_preview({'kind': 'wotplus', 'entries': _recommended_payload(vehicle)})
+                return
+
+            def on_result(set1, set2):
+                _push_preview({'kind': 'streamer',
+                               'slots1': _set_payload(set1),
+                               'slots2': _set_payload(set2)})
+            streamers.fetch_vehicle_set(streamer_id, vehicle.intCD, callback=on_result)
         except Exception:
-            LOG.exc('_on_save_recommended failed')
+            LOG.exc('_on_request_preview failed')
+
+    def _on_open_streamer_list(self, data=None):
+        try:
+            def on_result(streamer_list):
+                _push_streamer_list(streamer_list or [])
+            streamers.list_streamers(on_result)
+        except Exception:
+            LOG.exc('_on_open_streamer_list failed')
+
+    def _on_select_streamer(self, data=None):
+        try:
+            account_id = (data or {}).get('accountId')
+            config.set_selected_streamer(account_id)
+            push_data()
+            if account_id is None:
+                _push_icon_data_uri('')
+            else:
+                streamers.ensure_icon_cached(account_id, callback=_push_icon_data_uri)
+        except Exception:
+            LOG.exc('_on_select_streamer failed')
 
     def _on_equip_primary(self, data=None):
         try:
@@ -424,6 +543,9 @@ def _activate(view):
     _subscribe_to_vehicle()
     _inject_into(view)
     push_data()
+    streamer_id = config.selected_streamer_account_id()
+    if streamer_id is not None:
+        streamers.ensure_icon_cached(streamer_id, callback=_push_icon_data_uri)
 
 
 def _check_wot_plus(attempt):
