@@ -42,6 +42,10 @@ _DEFAULTS = {
     # None = show the WoT Plus recommendation on the popover's star button;
     # otherwise the account_id of the streamer whose sets to show instead.
     'selectedStreamerAccountId': None,
+    # The selected streamer's display name, persisted alongside the account_id
+    # so the name-keyed icon cache (see streamers.py) can be found again on
+    # the next hangar load without a network round trip.
+    'selectedStreamerName': None,
 }
 
 _EMPTY_ENTRY = {'set1': None, 'set2': None, 'vehicleCD': None, 'updatedAt': None}
@@ -107,6 +111,15 @@ def _as_float_or_none(raw):
         return None
 
 
+def _as_str_or_none(raw):
+    if raw is None:
+        return None
+    try:
+        return unicode(raw)
+    except Exception:
+        return None
+
+
 def _clean_set(raw):
     """A stored set list -> list of ints, unreadable entries becoming 0
     ("empty slot"). None stays None, which means "this set was never saved"."""
@@ -147,6 +160,7 @@ def load_for_account(account_id):
                 'downgradeEnabled': bool(data.get('downgradeEnabled', False)),
                 'alwaysSelectSetup1': bool(data.get('alwaysSelectSetup1', True)),
                 'selectedStreamerAccountId': _as_int_or_none(data.get('selectedStreamerAccountId')),
+                'selectedStreamerName': _as_str_or_none(data.get('selectedStreamerName')),
             }
             _sets = _clean_sets(data.get('sets', {}))
         else:
@@ -181,6 +195,7 @@ def save():
                 'downgradeEnabled': bool(_settings['downgradeEnabled']),
                 'alwaysSelectSetup1': bool(_settings['alwaysSelectSetup1']),
                 'selectedStreamerAccountId': _settings.get('selectedStreamerAccountId'),
+                'selectedStreamerName': _settings.get('selectedStreamerName'),
                 'sets': _sets,
             }, handle, separators=(',', ':'))
     except Exception:
@@ -241,8 +256,14 @@ def selected_streamer_account_id():
     return _settings.get('selectedStreamerAccountId')
 
 
-def set_selected_streamer(streamer_account_id):
+def selected_streamer_name():
+    return _settings.get('selectedStreamerName')
+
+
+def set_selected_streamer(streamer_account_id, streamer_name=None):
     _settings['selectedStreamerAccountId'] = _as_int_or_none(streamer_account_id)
+    _settings['selectedStreamerName'] = (_as_str_or_none(streamer_name)
+                                          if _settings['selectedStreamerAccountId'] is not None else None)
     save()
     return _settings['selectedStreamerAccountId']
 

@@ -5,12 +5,12 @@ transport style (own urllib2 + threading + BigWorld.callback marshalling), but
 every endpoint here is unauthenticated and public - nothing in this module
 ever sends or needs a bearer token.
 
-Icon caching lives under config.account_files_dir()/streamer_icons/, keyed
-purely by account_id - the server resolves the actual filename from
-streamers.csv, so the client never needs to know it. Two files per cached
-icon: "<accountId>.bin" (raw bytes) and "<accountId>.json" (the remembered
-Content-Type, since a fixed extension can't be assumed - see icon_file in the
-server's streamers.csv, which can be png/jpg/webp/etc.).
+Icon caching lives under config.account_files_dir()/streamer_icons/, keyed by
+the streamer's display NAME (sanitized for filesystem safety), not
+account_id - account_id is only used to build the download URL itself. Two
+files per cached icon: "<name>.bin" (raw bytes) and "<name>.json" (the
+remembered Content-Type, since a fixed extension can't be assumed - see
+icon_file in the server's streamers.csv, which can be png/jpg/webp/etc.).
 
 Known, accepted limitation: if the server-side icon file is swapped under the
 same account_id later, the local cache goes stale until manually cleared -
@@ -19,6 +19,7 @@ there is no invalidation mechanism in this iteration."""
 import base64
 import json
 import os
+import re
 import threading
 
 try:
@@ -43,12 +44,23 @@ def _icon_cache_dir():
     return os.path.join(config.account_files_dir(), 'streamer_icons')
 
 
-def _cached_icon_bin_path(account_id):
-    return os.path.join(_icon_cache_dir(), '%s.bin' % account_id)
+def _sanitize_filename(name):
+    """A streamer's display name -> a safe filesystem component: keeps
+    alphanumerics, replaces everything else (spaces, parens, unicode
+    punctuation) with underscores, collapses repeats, and falls back to
+    "streamer" if nothing usable survives (empty/None/all-symbol name)."""
+    if not name:
+        return 'streamer'
+    safe = re.sub(r'[^A-Za-z0-9]+', '_', name).strip('_')
+    return safe or 'streamer'
 
 
-def _cached_icon_meta_path(account_id):
-    return os.path.join(_icon_cache_dir(), '%s.json' % account_id)
+def _cached_icon_bin_path(name):
+    return os.path.join(_icon_cache_dir(), '%s.bin' % _sanitize_filename(name))
+
+
+def _cached_icon_meta_path(name):
+    return os.path.join(_icon_cache_dir(), '%s.json' % _sanitize_filename(name))
 
 
 def _data_uri(bin_path, meta_path):
@@ -84,7 +96,7 @@ def _get_json(path, callback):
     thread.start()
 
 
-def _download_icon(account_id, callback):
+def _download_icon(account_id, name, callback):
     def worker():
         ok = False
         try:
@@ -95,13 +107,15 @@ def _download_icon(account_id, callback):
             directory = _icon_cache_dir()
             if not os.path.exists(directory):
                 os.makedirs(directory)
-            with open(_cached_icon_bin_path(account_id), 'wb') as handle:
+            with open(_cached_icon_bin_path(name), 'wb') as handle:
                 handle.write(raw)
-            with open(_cached_icon_meta_path(account_id), 'w') as handle:
+            with open(_cached_icon_meta_path(name), 'w') as handle:
                 json.dump({'contentType': content_type}, handle)
             ok = True
+            LOG.info('streamers: icon downloaded for account %s as "%s" (%d bytes, %s)'
+                     % (account_id, name, len(raw), content_type))
         except Exception:
-            LOG.exc('streamers: icon download failed for %s' % account_id)
+            LOG.exc('streamers: icon download failed for account %s (%s)' % (account_id, name))
         if callback is not None:
             BigWorld.callback(0, lambda: callback(ok))
 
@@ -133,30 +147,33 @@ def fetch_vehicle_set(account_id, vehicle_cd, callback):
     _get_json('/streamers/%s/vehicle-set/%s' % (account_id, int(vehicle_cd)), handle_response)
 
 
-def forget_streamer(account_id):
+def forget_streamer(name):
     """Deletes this streamer's cached icon files, if any - used when a
     previously-selected streamer disappears from the catalog (consent
     revoked, or removed from streamers.csv), so their likeness doesn't
     linger locally forever after that."""
-    for path in (_cached_icon_bin_path(account_id), _cached_icon_meta_path(account_id)):
+    for path in (_cached_icon_bin_path(name), _cached_icon_meta_path(name)):
         try:
             if os.path.exists(path):
                 os.remove(path)
         except Exception:
-            LOG.exc('streamers: failed to remove cached icon for %s' % account_id)
+            LOG.exc('streamers: failed to remove cached icon for "%s"' % name)
 
 
-def ensure_icon_cached(account_id, callback):
+def ensure_icon_cached(account_id, name, callback):
     """callback(data_uri_or_None). Reads the local cache if present; downloads
-    and writes it otherwise. account_id alone is enough - see the module
-    docstring."""
-    bin_path = _cached_icon_bin_path(account_id)
-    meta_path = _cached_icon_meta_path(account_id)
+    GET /streamers/{account_id}/icon otherwise. Cached under `name` (the
+    streamer's display name, sanitized), not account_id - account_id is only
+    used for the download URL itself."""
+    bin_path = _cached_icon_bin_path(name)
+    meta_path = _cached_icon_meta_path(name)
     if os.path.exists(bin_path) and os.path.exists(meta_path):
         try:
-            callback(_data_uri(bin_path, meta_path))
+            data_uri = _data_uri(bin_path, meta_path)
+            LOG.info('streamers: icon cache hit for "%s" (%d chars)' % (name, len(data_uri)))
+            callback(data_uri)
         except Exception:
-            LOG.exc('streamers: reading cached icon failed for %s' % account_id)
+            LOG.exc('streamers: reading cached icon failed for "%s"' % name)
             callback(None)
         return
 
@@ -165,9 +182,11 @@ def ensure_icon_cached(account_id, callback):
             callback(None)
             return
         try:
-            callback(_data_uri(bin_path, meta_path))
+            data_uri = _data_uri(bin_path, meta_path)
+            LOG.info('streamers: icon ready for "%s" (%d chars)' % (name, len(data_uri)))
+            callback(data_uri)
         except Exception:
-            LOG.exc('streamers: encoding downloaded icon failed for %s' % account_id)
+            LOG.exc('streamers: encoding downloaded icon failed for "%s"' % name)
             callback(None)
 
-    _download_icon(account_id, on_downloaded)
+    _download_icon(account_id, name, on_downloaded)

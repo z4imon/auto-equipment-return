@@ -341,8 +341,12 @@ function buildRecommendButton() {
                         + (hasSaved ? " z4ae-corner-btn-inactive" : ""));
     const icon = el("div", "z4ae-corner-icon z4ae-sets-recommend-icon");
     if (gData.selectedStreamer != null && gStreamerIconDataUri) {
+        log("streamer icon APPLIED: selectedStreamer=" + gData.selectedStreamer + " dataUriLen=" + gStreamerIconDataUri.length);
         bg(icon, gStreamerIconDataUri);
     } else {
+        if (gData.selectedStreamer != null) {
+            log("streamer icon NOT applied (falling back to star): selectedStreamer=" + gData.selectedStreamer + " dataUriLen=" + (gStreamerIconDataUri ? gStreamerIconDataUri.length : 0));
+        }
         icon.appendChild(rowIconSvg("star"));
     }
     btn.appendChild(icon);
@@ -458,7 +462,7 @@ function buildStreamerRow(label, accountId) {
     row.textContent = label;
     row.addEventListener("click", function (e) {
         e.stopPropagation();
-        cmd("onSelectStreamer", { accountId: accountId });
+        cmd("onSelectStreamer", { accountId: accountId, streamerName: accountId === null ? null : label });
         setStreamerListOpen(false);
     });
     addSounds(row, true);

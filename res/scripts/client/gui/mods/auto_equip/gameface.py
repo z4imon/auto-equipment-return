@@ -504,7 +504,7 @@ class AutoEquipView(ViewComponent):
                 selected_id = config.selected_streamer_account_id()
                 if selected_id is not None and not any(
                         s.get('accountId') == selected_id for s in streamer_list):
-                    streamers.forget_streamer(selected_id)
+                    streamers.forget_streamer(config.selected_streamer_name())
                     config.set_selected_streamer(None)
                     _push_preview({})
                     _push_icon_data_uri('')
@@ -527,12 +527,13 @@ class AutoEquipView(ViewComponent):
             # int. Confirmed live: a real download produced exactly those
             # stray ".0"-suffixed files, correct content, wrong name.
             account_id = int(account_id) if account_id is not None else None
-            config.set_selected_streamer(account_id)
+            streamer_name = (data or {}).get('streamerName')
+            config.set_selected_streamer(account_id, streamer_name)
             _push_preview({})
             _push_icon_data_uri('')
             push_data()
             if account_id is not None:
-                streamers.ensure_icon_cached(account_id, callback=_push_icon_data_uri)
+                streamers.ensure_icon_cached(account_id, streamer_name, callback=_push_icon_data_uri)
         except Exception:
             LOG.exc('_on_select_streamer failed')
 
@@ -568,7 +569,7 @@ def _activate(view):
     push_data()
     streamer_id = config.selected_streamer_account_id()
     if streamer_id is not None:
-        streamers.ensure_icon_cached(streamer_id, callback=_push_icon_data_uri)
+        streamers.ensure_icon_cached(streamer_id, config.selected_streamer_name(), callback=_push_icon_data_uri)
 
 
 def _check_wot_plus(attempt):
