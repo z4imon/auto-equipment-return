@@ -183,14 +183,33 @@ def _poll_pairing(account_id, device_code, interval_seconds):
 
 
 def disconnect(account_id):
-    """Revokes this PC's token server-side and forgets it locally. Other
-    paired PCs for the same account are untouched - each has its own token
-    (see the server's token_store, keyed by token, not by account)."""
+    """Revokes this PC's token server-side, deletes ALL of this account's
+    saved equipment on the server (not just this device's data - the player
+    is warned about this in the settings-panel copy before triggering it),
+    and forgets the local pairing. The server delete must be attempted while
+    the token is still valid, so it happens before the token is revoked."""
     token = current_token(account_id)
     if token is None:
         return
-    call_async('DELETE', '/auth/token', token=token, callback=lambda status, data: None)
-    _forget_pairing(account_id)
+
+    def after_data_deleted(status, data):
+        if status != 200:
+            LOG.warning('sync: account data delete failed (status=%s)' % status)
+        call_async('DELETE', '/auth/token', token=token, callback=lambda s, d: None)
+        _forget_pairing(account_id)
+
+    call_async('DELETE', '/accounts/%s' % account_id, token=token, callback=after_data_deleted)
+
+
+def check_cloud_data(account_id):
+    """Called at login only when NOT already paired - lets a fresh, unpaired
+    PC discover that cloud-saved equipment exists for this account, without
+    needing a token (the has-data endpoint is intentionally unauthenticated -
+    it only ever reveals a yes/no signal, never actual equipment content)."""
+    def handle_response(status, data):
+        if status == 200 and data and data.get('hasData'):
+            messages.push_info(t('syncCloudDataAvailableNotification'))
+    call_async('GET', '/accounts/%s/has-data' % account_id, callback=handle_response)
 
 
 # ---------------------------------------------------------------------------

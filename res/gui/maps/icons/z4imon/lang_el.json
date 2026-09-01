@@ -97,5 +97,6 @@
   "syncPairingExpired": "Pairing request expired, please try again.",
   "syncPairingMismatch": "A different account was confirmed in the browser.",
   "syncModListDisableLabel": "Cloud sync active - click to disconnect",
-  "syncModListDisableTooltip": "Cloud sync is on and keeping your saved equipment in sync across PCs. Click to turn it off."
+  "syncModListDisableTooltip": "Cloud sync is on and keeping your saved equipment in sync across PCs. Click to turn it off.",
+  "syncCloudDataAvailableNotification": "Equipment sets are saved in the cloud for your account. Connect via the mod list button to load them on this PC."
 }

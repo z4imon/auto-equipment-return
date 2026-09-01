@@ -112,5 +112,7 @@ def _finish_account_load(account_id):
         sync.register(account_id)
         if sync.is_paired(account_id):
             sync.full_reconcile(account_id)
+        else:
+            sync.check_cloud_data(account_id)
     except Exception:
         LOG.exc('auto_equip.sync setup failed')

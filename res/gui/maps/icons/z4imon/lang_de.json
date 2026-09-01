@@ -102,13 +102,14 @@
     "importFailedMsg": "Import fehlgeschlagen (siehe Log)",
 
     "syncModDisplayName": "Cloud-Sync",
-    "syncCheckboxLabel": "Ausruestung zwischen PCs synchronisieren",
-    "syncCheckboxTooltip": "Bestaetigt deinen Wargaming-Account einmalig im Browser und haelt danach deine gespeicherte Ausruestung zwischen allen PCs synchron, auf denen du spielst.",
-    "syncModListDisableLabel": "Cloud-Sync aktiv - zum Trennen klicken",
-    "syncModListDisableTooltip": "Cloud-Sync ist aktiv und haelt deine gespeicherte Ausruestung zwischen PCs synchron. Zum Deaktivieren klicken.",
+    "syncCheckboxLabel": "Aktiviere Equipment Cloud Sync",
+    "syncCheckboxTooltip": "Verbindet deinen Account per Wargaming-Anmeldung (OAuth) mit dem Cloud-Sync. Nach dem Verbinden werden deine gespeicherten Ausruestungs-Sets zusaetzlich auf dem Server gespeichert und automatisch mit deinen anderen PCs synchronisiert.",
+    "syncModListDisableLabel": "Deaktiviere Equipment Cloud Sync",
+    "syncModListDisableTooltip": "Trennt die Verbindung zum Cloud-Sync. Um dich spaeter wieder zu verbinden, ist erneut eine Anmeldung ueber Wargaming (OAuth) noetig. Achtung: Beim Trennen werden alle fuer diesen Account auf dem Server gespeicherten Ausruestungs-Sets geloescht.",
     "syncPairingStarted": "Im Browser fortfahren (Code: %(userCode)s)",
     "syncPairingDone": "Cloud-Sync verbunden.",
     "syncPairingFailed": "Sync-Server nicht erreichbar.",
     "syncPairingExpired": "Anfrage abgelaufen, bitte erneut versuchen.",
-    "syncPairingMismatch": "Im Browser wurde ein anderer Account bestaetigt."
+    "syncPairingMismatch": "Im Browser wurde ein anderer Account bestaetigt.",
+    "syncCloudDataAvailableNotification": "Fuer deinen Account sind Ausruestungs-Sets in der Cloud gespeichert. Verbinde dich ueber den Mod-Liste-Button, um sie auf diesem PC zu laden."
 }
