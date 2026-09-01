@@ -516,6 +516,17 @@ class AutoEquipView(ViewComponent):
     def _on_select_streamer(self, data=None):
         try:
             account_id = (data or {}).get('accountId')
+            # JS command args arrive as float - BigWorld/Wulf marshals every
+            # JS Number this way, no int/float distinction on that side.
+            # config.set_selected_streamer() already coerces internally, but
+            # ensure_icon_cached() below needs the same clean int too, or its
+            # cache filenames end up "<id>.0.bin"/".0.json" - which every
+            # LATER lookup (hangar-reload warm-up, cache cleanup on consent
+            # revocation) never finds, since those all read the id back via
+            # config.selected_streamer_account_id(), which is always a plain
+            # int. Confirmed live: a real download produced exactly those
+            # stray ".0"-suffixed files, correct content, wrong name.
+            account_id = int(account_id) if account_id is not None else None
             config.set_selected_streamer(account_id)
             _push_preview({})
             _push_icon_data_uri('')
