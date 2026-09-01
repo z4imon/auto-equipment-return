@@ -497,7 +497,9 @@ class AutoEquipView(ViewComponent):
     def _on_open_streamer_list(self, data=None):
         try:
             def on_result(streamer_list):
-                streamer_list = streamer_list or []
+                if streamer_list is None:
+                    _push_streamer_list([])
+                    return
                 _push_streamer_list(streamer_list)
                 selected_id = config.selected_streamer_account_id()
                 if selected_id is not None and not any(
