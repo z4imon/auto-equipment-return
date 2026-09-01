@@ -1,0 +1,160 @@
+# -*- coding: utf-8 -*-
+"""Streamer catalog, per-vehicle-type set lookup, and icon caching for the
+streamer-recommendation picker on the popover's star button. Mirrors sync.py's
+transport style (own urllib2 + threading + BigWorld.callback marshalling), but
+every endpoint here is unauthenticated and public - nothing in this module
+ever sends or needs a bearer token.
+
+Icon caching lives under config.account_files_dir()/streamer_icons/, keyed
+purely by account_id - the server resolves the actual filename from
+streamers.csv, so the client never needs to know it. Two files per cached
+icon: "<accountId>.bin" (raw bytes) and "<accountId>.json" (the remembered
+Content-Type, since a fixed extension can't be assumed - see icon_file in the
+server's streamers.csv, which can be png/jpg/webp/etc.).
+
+Known, accepted limitation: if the server-side icon file is swapped under the
+same account_id later, the local cache goes stale until manually cleared -
+there is no invalidation mechanism in this iteration."""
+
+import base64
+import json
+import os
+import threading
+
+try:
+    import urllib2
+except ImportError:
+    urllib2 = None  # never true on the shipped client; guards local imports
+
+import BigWorld
+
+from . import config
+from .log import LOG
+
+SERVER_BASE_URL = 'https://z4imon.de/api/auto-equipment-return'
+REQUEST_TIMEOUT_SECONDS = 10
+
+
+# ---------------------------------------------------------------------------
+# Icon cache paths
+# ---------------------------------------------------------------------------
+
+def _icon_cache_dir():
+    return os.path.join(config.account_files_dir(), 'streamer_icons')
+
+
+def _cached_icon_bin_path(account_id):
+    return os.path.join(_icon_cache_dir(), '%s.bin' % account_id)
+
+
+def _cached_icon_meta_path(account_id):
+    return os.path.join(_icon_cache_dir(), '%s.json' % account_id)
+
+
+def _data_uri(bin_path, meta_path):
+    with open(bin_path, 'rb') as handle:
+        raw = handle.read()
+    mime_type = 'application/octet-stream'
+    try:
+        with open(meta_path, 'r') as handle:
+            meta = json.load(handle)
+        mime_type = meta.get('contentType') or mime_type
+    except Exception:
+        pass
+    return 'data:%s;base64,%s' % (mime_type, base64.b64encode(raw))
+
+
+# ---------------------------------------------------------------------------
+# Low-level async transport
+# ---------------------------------------------------------------------------
+
+def _get_json(path, callback):
+    def worker():
+        try:
+            response = urllib2.urlopen(SERVER_BASE_URL + path, timeout=REQUEST_TIMEOUT_SECONDS)
+            data = json.loads(response.read())
+        except Exception:
+            LOG.exc('streamers: GET %s failed' % path)
+            data = None
+        if callback is not None:
+            BigWorld.callback(0, lambda: callback(data))
+
+    thread = threading.Thread(target=worker)
+    thread.daemon = True
+    thread.start()
+
+
+def _download_icon(account_id, callback):
+    def worker():
+        ok = False
+        try:
+            response = urllib2.urlopen(SERVER_BASE_URL + '/streamers/%s/icon' % account_id,
+                                       timeout=REQUEST_TIMEOUT_SECONDS)
+            raw = response.read()
+            content_type = response.info().gettype()
+            directory = _icon_cache_dir()
+            if not os.path.exists(directory):
+                os.makedirs(directory)
+            with open(_cached_icon_bin_path(account_id), 'wb') as handle:
+                handle.write(raw)
+            with open(_cached_icon_meta_path(account_id), 'w') as handle:
+                json.dump({'contentType': content_type}, handle)
+            ok = True
+        except Exception:
+            LOG.exc('streamers: icon download failed for %s' % account_id)
+        if callback is not None:
+            BigWorld.callback(0, lambda: callback(ok))
+
+    thread = threading.Thread(target=worker)
+    thread.daemon = True
+    thread.start()
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+def list_streamers(callback):
+    """callback([{'accountId': int, 'streamerName': unicode}, ...] or None on
+    failure). Always fetched fresh - no session cache, matches the
+    hot-loadable CSV this reads from server-side."""
+    _get_json('/streamers', callback)
+
+
+def fetch_vehicle_set(account_id, vehicle_cd, callback):
+    """callback(set1, set2) - both None if the streamer has nothing for this
+    vehicle type, isn't activated for sharing, or the request failed.
+    On-demand only (hover-preview and click-to-apply); never cached."""
+    def handle_response(data):
+        if not data:
+            callback(None, None)
+            return
+        callback(data.get('set1'), data.get('set2'))
+    _get_json('/streamers/%s/vehicle-set/%s' % (account_id, int(vehicle_cd)), handle_response)
+
+
+def ensure_icon_cached(account_id, callback):
+    """callback(data_uri_or_None). Reads the local cache if present; downloads
+    and writes it otherwise. account_id alone is enough - see the module
+    docstring."""
+    bin_path = _cached_icon_bin_path(account_id)
+    meta_path = _cached_icon_meta_path(account_id)
+    if os.path.exists(bin_path) and os.path.exists(meta_path):
+        try:
+            callback(_data_uri(bin_path, meta_path))
+        except Exception:
+            LOG.exc('streamers: reading cached icon failed for %s' % account_id)
+            callback(None)
+        return
+
+    def on_downloaded(ok):
+        if not ok:
+            callback(None)
+            return
+        try:
+            callback(_data_uri(bin_path, meta_path))
+        except Exception:
+            LOG.exc('streamers: encoding downloaded icon failed for %s' % account_id)
+            callback(None)
+
+    _download_icon(account_id, on_downloaded)

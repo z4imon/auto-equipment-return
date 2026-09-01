@@ -39,6 +39,9 @@ _DEFAULTS = {
     # the old behaviour: donors return to their own setup and the vehicle ends
     # on whichever setup it started on.
     'alwaysSelectSetup1': True,
+    # None = show the WoT Plus recommendation on the popover's star button;
+    # otherwise the account_id of the streamer whose sets to show instead.
+    'selectedStreamerAccountId': None,
 }
 
 _EMPTY_ENTRY = {'set1': None, 'set2': None, 'vehicleCD': None, 'updatedAt': None}
@@ -143,6 +146,7 @@ def load_for_account(account_id):
                 'autoEquipEnabled': bool(data.get('autoEquipEnabled', True)),
                 'downgradeEnabled': bool(data.get('downgradeEnabled', False)),
                 'alwaysSelectSetup1': bool(data.get('alwaysSelectSetup1', True)),
+                'selectedStreamerAccountId': _as_int_or_none(data.get('selectedStreamerAccountId')),
             }
             _sets = _clean_sets(data.get('sets', {}))
         else:
@@ -176,6 +180,7 @@ def save():
                 'autoEquipEnabled': bool(_settings['autoEquipEnabled']),
                 'downgradeEnabled': bool(_settings['downgradeEnabled']),
                 'alwaysSelectSetup1': bool(_settings['alwaysSelectSetup1']),
+                'selectedStreamerAccountId': _settings.get('selectedStreamerAccountId'),
                 'sets': _sets,
             }, handle, separators=(',', ':'))
     except Exception:
@@ -230,6 +235,16 @@ def set_always_setup1(enabled):
     _settings['alwaysSelectSetup1'] = bool(enabled)
     save()
     return _settings['alwaysSelectSetup1']
+
+
+def selected_streamer_account_id():
+    return _settings.get('selectedStreamerAccountId')
+
+
+def set_selected_streamer(streamer_account_id):
+    _settings['selectedStreamerAccountId'] = _as_int_or_none(streamer_account_id)
+    save()
+    return _settings['selectedStreamerAccountId']
 
 
 # ---------------------------------------------------------------------------
