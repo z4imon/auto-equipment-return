@@ -469,8 +469,15 @@ function setStreamerListOpen(open) {
     gStreamerListOpen = open;
     if (open) {
         // Force a fresh fetch + loading state every time the list opens -
-        // the catalog is intentionally never session-cached.
+        // the catalog is intentionally never session-cached. gLastStreamerListJson
+        // must reset too: onModelUpdate only applies a response whose JSON
+        // differs from the last one it saw, and a repeat open commonly gets
+        // back byte-identical content (nothing changed server-side) - without
+        // this reset that "no change" read would leave gStreamerList stuck at
+        // the null we just set, showing an empty list forever after the first
+        // successful open.
         gStreamerList = null;
+        gLastStreamerListJson = null;
         cmd("onOpenStreamerList");
     }
     if (gPopoverOpen) renderPopover();
