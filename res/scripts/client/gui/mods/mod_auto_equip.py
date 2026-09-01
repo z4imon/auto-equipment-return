@@ -110,7 +110,7 @@ def _finish_account_load(account_id):
     try:
         from .auto_equip import sync
         sync.register(account_id)
-        if sync.is_paired(account_id):
+        if config.is_sync_enabled():
             sync.full_reconcile(account_id)
     except Exception:
         LOG.exc('auto_equip.sync setup failed')
