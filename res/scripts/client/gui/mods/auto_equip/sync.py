@@ -1,23 +1,21 @@
 # -*- coding: utf-8 -*-
-"""Cloud equipment sync: keeps saved sets in sync across a player's own PCs
-via the z4imon.de server.
+"""Cloud equipment sync: pairs with the z4imon.de server through a
+WG-account-verified device-pairing flow (see /link + /auth/callback on the
+server), then keeps saved sets in sync across a player's own PCs.
 
     sync.transport   the urllib2 wrapper below - runs off the main thread
+    sync.pairing     start_pairing/poll/disconnect (Task 10)
     sync.reconcile   full_reconcile + per-vehicle debounced push (Task 11)
     sync.panel       the ModsListAPI toggle button
-
-There is no authentication on this path right now - the server trusts
-`account_id` directly. This is a temporary state for functional testing; a
-real auth scheme replaces it later (see config.is_sync_enabled/
-set_sync_enabled for the local on/off flag that stands in for pairing in the
-meantime).
 
 All of it lives in one file on purpose, same as every other single-purpose
 module in this package - see mod_auto_equip.py's module list.
 """
 
 import json
+import os
 import threading
+import time
 
 try:
     import urllib2
@@ -27,11 +25,56 @@ except ImportError:
 import BigWorld
 
 from . import config
+from . import messages
 from .i18n import t
 from .log import LOG
 
 SERVER_BASE_URL = 'https://z4imon.de/api/auto-equipment-return'
 REQUEST_TIMEOUT_SECONDS = 10
+
+
+# ---------------------------------------------------------------------------
+# Local pairing file - <preferences>/mods/z4imon/autoequipmentreturn/<accountId>.sync.json
+# ---------------------------------------------------------------------------
+
+def _pairing_path(account_id):
+    return os.path.join(config.account_files_dir(), '%s.sync.json' % account_id)
+
+
+def _read_pairing(account_id):
+    path = _pairing_path(account_id)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, 'r') as handle:
+            return json.load(handle)
+    except Exception:
+        LOG.exc('sync: failed reading pairing file for %s' % account_id)
+        return None
+
+
+def _write_pairing(account_id, data):
+    path = _pairing_path(account_id)
+    directory = os.path.dirname(path)
+    if directory and not os.path.exists(directory):
+        os.makedirs(directory)
+    with open(path, 'w') as handle:
+        json.dump(data, handle)
+
+
+def _forget_pairing(account_id):
+    path = _pairing_path(account_id)
+    if os.path.exists(path):
+        os.remove(path)
+
+
+def is_paired(account_id):
+    return _read_pairing(account_id) is not None
+
+
+def current_token(account_id):
+    pairing = _read_pairing(account_id)
+    return pairing.get('accessToken') if pairing else None
 
 
 # ---------------------------------------------------------------------------
@@ -75,18 +118,110 @@ def call_async(method, path, token=None, body=None, callback=None):
 
 
 # ---------------------------------------------------------------------------
-# Bidirectional reconcile - called at login and whenever sync is turned on
+# Device-pairing flow
 # ---------------------------------------------------------------------------
+
+_POLL_INTERVAL_DEFAULT = 5
+
+
+def _current_realm():
+    try:
+        from constants import AUTH_REALM
+    except Exception:
+        AUTH_REALM = 'EU'
+    return unicode(AUTH_REALM or 'EU').upper()
+
+
+def start_pairing(account_id):
+    """Kicks off the device-pairing flow: asks the server for a device/user
+    code pair, opens the WG login page in the system browser, then polls
+    until the server confirms it (or it expires)."""
+    body = {'accountId': account_id, 'realm': _current_realm()}
+
+    def handle_device_response(status, data):
+        if status != 200 or data is None:
+            LOG.warning('sync: /auth/device failed (status=%s)' % status)
+            messages.push_error(t('syncPairingFailed'))
+            return
+        BigWorld.wg_openWebBrowser(str(data['verificationUri']))
+        messages.push_info(t('syncPairingStarted', userCode=data['userCode']))
+        _poll_pairing(account_id, data['deviceCode'], data.get('intervalSeconds', _POLL_INTERVAL_DEFAULT))
+
+    call_async('POST', '/auth/device', body=body, callback=handle_device_response)
+
+
+def _poll_pairing(account_id, device_code, interval_seconds):
+    def handle_poll_response(status, data):
+        if status == 404:
+            messages.push_error(t('syncPairingExpired'))
+            return
+        if status == 403:
+            messages.push_error(t('syncPairingMismatch'))
+            return
+        if status == 200 and data and data.get('status') == 'authorized':
+            if data.get('accountId') != account_id:
+                LOG.warning('sync: paired token accountId mismatch, discarding')
+                messages.push_error(t('syncPairingMismatch'))
+                return
+            if not data.get('accessToken'):
+                LOG.warning('sync: authorized poll response carried no accessToken, discarding')
+                messages.push_error(t('syncPairingMismatch'))
+                return
+            _write_pairing(account_id, {
+                'accessToken': data['accessToken'],
+                'realm': data['realm'],
+                'pairedAt': time.time(),
+            })
+            messages.push_info(t('syncPairingDone'))
+            full_reconcile(account_id)
+            return
+        # still pending - poll again after the server-suggested interval
+        BigWorld.callback(interval_seconds, lambda: call_async(
+            'POST', '/auth/token', body={'deviceCode': device_code}, callback=handle_poll_response))
+
+    call_async('POST', '/auth/token', body={'deviceCode': device_code}, callback=handle_poll_response)
+
+
+def disconnect(account_id):
+    """Revokes this PC's token server-side and forgets it locally. Other
+    paired PCs for the same account are untouched - each has its own token
+    (see the server's token_store, keyed by token, not by account)."""
+    token = current_token(account_id)
+    if token is None:
+        return
+    call_async('DELETE', '/auth/token', token=token, callback=lambda status, data: None)
+    _forget_pairing(account_id)
+
+
+# ---------------------------------------------------------------------------
+# Bidirectional reconcile - called at login and right after a fresh pairing
+# ---------------------------------------------------------------------------
+
+def _handle_auth_failure(account_id, status):
+    """A 401 means the token is gone (expired or revoked) - there is nothing
+    to retry, so forget the pairing now rather than silently failing sync
+    forever with a button that still reads "connected"."""
+    if status == 401:
+        _forget_pairing(account_id)
+        messages.push_warning(t('syncPairingExpired'))
+        return True
+    return False
+
 
 def full_reconcile(account_id):
     """Pulls the account's server-stored sets, merges them into the local
     config (newest updatedAt per vehicle wins), then pushes every local
     entry that the server is missing or that just won the merge. This is
-    the one function that makes a freshly-enabled, empty-local-config PC
+    the one function that makes a freshly-paired, empty-local-config PC
     catch up immediately instead of waiting for the next login."""
+    token = current_token(account_id)
+    if token is None:
+        return
 
     def handle_pull(status, data):
         if status != 200 or data is None:
+            if _handle_auth_failure(account_id, status):
+                return
             LOG.warning('sync: full pull failed (status=%s)' % status)
             return
         sets = data.get('sets', {})
@@ -97,7 +232,7 @@ def full_reconcile(account_id):
         for veh_inv_id in to_push:
             _push_vehicle(account_id, veh_inv_id)
 
-    call_async('GET', '/accounts/%s' % account_id, callback=handle_pull)
+    call_async('GET', '/accounts/%s' % account_id, token=token, callback=handle_pull)
 
 
 def _merge_server_sets(server_sets):
@@ -142,7 +277,7 @@ def _schedule_push(veh_inv_id, delete):
     def fire():
         _pending_pushes.pop(veh_inv_id, None)
         account_id = config.current_account_id()
-        if account_id and config.is_sync_enabled():
+        if account_id and is_paired(account_id):
             if delete:
                 _delete_vehicle_remote(account_id, veh_inv_id)
             else:
@@ -152,8 +287,9 @@ def _schedule_push(veh_inv_id, delete):
 
 
 def _push_vehicle(account_id, veh_inv_id):
+    token = current_token(account_id)
     entry = config.saved_sets(veh_inv_id)
-    if entry is None:
+    if token is None or entry is None:
         return
     body = {'set1': entry['set1'], 'set2': entry['set2'], 'vehicleCD': entry['vehicleCD']}
 
@@ -161,18 +297,26 @@ def _push_vehicle(account_id, veh_inv_id):
         if status == 200 and data:
             config.set_updated_at(veh_inv_id, data['updatedAt'])
         else:
+            if _handle_auth_failure(account_id, status):
+                return
             LOG.warning('sync: push of %s failed (status=%s)' % (veh_inv_id, status))
 
-    call_async('PUT', '/accounts/%s/vehicles/%s' % (account_id, veh_inv_id),
+    call_async('PUT', '/accounts/%s/vehicles/%s' % (account_id, veh_inv_id), token=token,
               body=body, callback=handle_push)
 
 
 def _delete_vehicle_remote(account_id, veh_inv_id):
+    token = current_token(account_id)
+    if token is None:
+        return
+
     def handle_delete(status, data):
         if status != 200:
+            if _handle_auth_failure(account_id, status):
+                return
             LOG.warning('sync: delete of %s failed (status=%s)' % (veh_inv_id, status))
 
-    call_async('DELETE', '/accounts/%s/vehicles/%s' % (account_id, veh_inv_id),
+    call_async('DELETE', '/accounts/%s/vehicles/%s' % (account_id, veh_inv_id), token=token,
               callback=handle_delete)
 
 
@@ -195,7 +339,7 @@ def _update_modlist_button(account_id):
         from gui.modsListApi import g_modsListApi
     except Exception:
         return
-    name, description = _modlist_button_text(config.is_sync_enabled())
+    name, description = _modlist_button_text(is_paired(account_id))
     g_modsListApi.addModification(
         id=_MODLIST_ID, name=name, description=description,
         enabled=True, login=False, lobby=True,
@@ -204,10 +348,10 @@ def _update_modlist_button(account_id):
 
 
 def _on_modlist_click(account_id):
-    enabled = not config.is_sync_enabled()
-    config.set_sync_enabled(enabled)
-    if enabled:
-        full_reconcile(account_id)
+    if is_paired(account_id):
+        disconnect(account_id)
+    else:
+        start_pairing(account_id)
     _update_modlist_button(account_id)
 
 
@@ -215,4 +359,4 @@ def register(account_id):
     """Registers/refreshes the ModsListAPI button. No-op when the API isn't
     installed - same degrade-quietly convention as the rest of this mod."""
     _update_modlist_button(account_id)
-    LOG.info('sync: registered ModsListAPI button (enabled=%s)' % config.is_sync_enabled())
+    LOG.info('sync: registered ModsListAPI button (enabled=%s)' % is_paired(account_id))

@@ -39,9 +39,6 @@ _DEFAULTS = {
     # the old behaviour: donors return to their own setup and the vehicle ends
     # on whichever setup it started on.
     'alwaysSelectSetup1': True,
-    # Whether cloud sync is turned on. Temporary stand-in for a real auth
-    # scheme - see sync.py's module docstring.
-    'syncEnabled': False,
 }
 
 _EMPTY_ENTRY = {'set1': None, 'set2': None, 'vehicleCD': None, 'updatedAt': None}
@@ -146,7 +143,6 @@ def load_for_account(account_id):
                 'autoEquipEnabled': bool(data.get('autoEquipEnabled', True)),
                 'downgradeEnabled': bool(data.get('downgradeEnabled', False)),
                 'alwaysSelectSetup1': bool(data.get('alwaysSelectSetup1', True)),
-                'syncEnabled': bool(data.get('syncEnabled', False)),
             }
             _sets = _clean_sets(data.get('sets', {}))
         else:
@@ -180,7 +176,6 @@ def save():
                 'autoEquipEnabled': bool(_settings['autoEquipEnabled']),
                 'downgradeEnabled': bool(_settings['downgradeEnabled']),
                 'alwaysSelectSetup1': bool(_settings['alwaysSelectSetup1']),
-                'syncEnabled': bool(_settings.get('syncEnabled', False)),
                 'sets': _sets,
             }, handle, separators=(',', ':'))
     except Exception:
@@ -208,16 +203,6 @@ def set_auto_enabled(enabled):
     _settings['autoEquipEnabled'] = bool(enabled)
     save()
     return _settings['autoEquipEnabled']
-
-
-def is_sync_enabled():
-    return bool(_settings.get('syncEnabled', False))
-
-
-def set_sync_enabled(enabled):
-    _settings['syncEnabled'] = bool(enabled)
-    save()
-    return _settings['syncEnabled']
 
 
 def is_downgrade_enabled():
