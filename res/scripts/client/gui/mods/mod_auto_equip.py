@@ -114,3 +114,10 @@ def _finish_account_load(account_id):
             sync.full_reconcile(account_id)
     except Exception:
         LOG.exc('auto_equip.sync setup failed')
+    try:
+        # THROWAWAY diagnostic - see debug_wgni.py's module docstring. Remove
+        # this block and delete debug_wgni.py once the WGNI question is answered.
+        from .auto_equip import debug_wgni
+        debug_wgni.register()
+    except Exception:
+        LOG.exc('debug_wgni setup failed')
