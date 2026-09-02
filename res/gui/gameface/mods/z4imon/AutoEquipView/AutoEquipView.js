@@ -557,7 +557,6 @@ function buildMenuRow(label, iconName, onClick, disabled) {
 // hover overlay) + the check icon, which is slightly larger than the box.
 function buildCheckboxRow(label, checked, onClick, tooltip) {
     const row = el("div", "z4ae-check-row" + (checked ? " z4ae-check-row-checked" : ""));
-    if (tooltip) row.title = tooltip;
     const check = el("div", "z4ae-check");
     check.appendChild(el("div", "z4ae-check-fill z4ae-check-bg"));
     check.appendChild(el("div", "z4ae-check-fill z4ae-check-border"));
@@ -569,6 +568,15 @@ function buildCheckboxRow(label, checked, onClick, tooltip) {
     const lab = el("div", "z4ae-check-label");
     lab.textContent = label;
     row.appendChild(lab);
+    // Gameface is CEF in off-screen-rendering mode - there is no OS window to
+    // draw a native title-attribute tooltip into, so it never renders here.
+    // Same custom hover-popup technique buildRecommendPreview already uses
+    // (pure CSS :hover visibility on an absolutely positioned child).
+    if (tooltip) {
+        const tip = el("div", "z4ae-check-tooltip");
+        tip.textContent = tooltip;
+        row.appendChild(tip);
+    }
     row.addEventListener("click", function (e) {
         e.stopPropagation();
         onClick();

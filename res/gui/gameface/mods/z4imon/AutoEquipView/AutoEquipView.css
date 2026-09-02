@@ -306,6 +306,7 @@
 /* auto-install row — native ui-kit checkbox (like the crew menu's
    auto-return row: box left, label right, no hover background) */
 .z4ae-check-row {
+    position: relative;
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -314,6 +315,31 @@
     padding-left: 20rem;
     padding-right: 5rem;
     cursor: pointer;
+}
+
+/* Custom hover tooltip for the checkbox rows - same technique as
+   .z4ae-rec-popup (display:none/:hover, absolutely positioned), since
+   Gameface's off-screen-rendered CEF never shows a native title attribute. */
+.z4ae-check-tooltip {
+    display: none;
+    position: absolute;
+    left: 20rem;
+    right: 5rem;
+    bottom: 100%;
+    margin-bottom: 4rem;
+    padding: 6rem 10rem;
+    z-index: 2;
+    border-width: 2rem;
+    border-style: solid;
+    border-image: url(img://gui/maps/icons/hangar/vehicleMenu/menu_border.png) 2/2rem repeat;
+    background-color: rgba(20, 20, 23, 0.98);
+    font-size: 11rem;
+    line-height: 1.3;
+    color: rgba(238, 237, 233, 0.85);
+    cursor: default;
+}
+.z4ae-check-row:hover .z4ae-check-tooltip {
+    display: block;
 }
 .z4ae-large .z4ae-check-row {
     height: 38rem;
