@@ -163,6 +163,7 @@ def load_for_account(account_id):
                 'selectedStreamerName': _as_str_or_none(data.get('selectedStreamerName')),
             }
             _sets = _clean_sets(data.get('sets', {}))
+            _backfill_missing_updated_at()
         else:
             # First time we see this account: start clean, then give kurzdor's
             # save for the same account id a chance to seed it.
@@ -172,6 +173,28 @@ def load_for_account(account_id):
             save()
     except Exception:
         LOG.exc('load_for_account(%s) failed, keeping defaults' % account_id)
+
+
+def _backfill_missing_updated_at():
+    """Sets saved before this sync feature shipped have no updatedAt at all.
+    Left as None, sync.py's merge treated them as unconditionally older than
+    ANY server entry - the first device to pair would silently overwrite
+    every other device's still-untouched local data on its next reconcile,
+    no matter which one the player actually cared about.
+
+    Stamping them with "now" here, once, before any reconcile can see them,
+    gives every device's pre-existing data a real (if arbitrary) place in
+    time instead of an eternal "always loses" bias - after this they compare
+    on the same newest-wins footing as any other save. Persisted immediately
+    so this only ever runs once per account per PC."""
+    now = time.time()
+    changed = False
+    for entry in _sets.values():
+        if entry.get('updatedAt') is None:
+            entry['updatedAt'] = now
+            changed = True
+    if changed:
+        save()
 
 
 def _import_kurzdor_save_once():
