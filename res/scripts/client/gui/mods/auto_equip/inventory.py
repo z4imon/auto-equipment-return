@@ -438,6 +438,26 @@ def plain_bounty_variant_of(vehicle, special_item):
         return None
 
 
+def experimental_level_variant_of(vehicle, special_item, target_level):
+    """The Experimental sibling of special_item at exactly target_level, or
+    None - e.g. mapping a level 2/3 Experimental device down to level 1.
+    Same archetype-matching approach as the other *_variant_of helpers; only
+    .level (not tier/trophy/deluxe) distinguishes siblings within the
+    Experimental family. Also used only for streamer-set pulls."""
+    try:
+        archetype = special_item.descriptor.archetype
+        if not archetype:
+            return None
+        for item in all_optional_devices().itervalues():
+            if (item.isModernized and getattr(item, 'level', None) == target_level
+                    and _same_archetype(item, archetype, vehicle)):
+                return item
+        return None
+    except Exception:
+        LOG.exc('experimental_level_variant_of failed')
+        return None
+
+
 def downgrade_candidates_of(vehicle, special_item):
     """What a special device that cannot be sourced may fall back to, STRONGEST
     first:
