@@ -131,6 +131,7 @@ def _build_data():
         'saved2': None,
         'busy': apply_engine.is_busy(),
         'selectedStreamer': config.selected_streamer_account_id(),
+        'selectedStreamerName': config.selected_streamer_name(),
     }
     try:
         vehicle = g_currentVehicle.item
