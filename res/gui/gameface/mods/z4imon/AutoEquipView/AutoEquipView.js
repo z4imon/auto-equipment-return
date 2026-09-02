@@ -410,7 +410,9 @@ function buildRecommendPreview(hasSaved) {
     const kind = gPreviewData.kind;
     const head = el("div", "z4ae-rec-head");
     head.textContent = String(kind === "streamer"
-        ? ui("streamerRecTitle", "Streamer Equipment")
+        ? (gData.selectedStreamerName
+            ? gData.selectedStreamerName + " " + ui("streamerSetupSuffix", "Setup")
+            : ui("streamerRecTitle", "Streamer Equipment"))
         : ui("recTitle", "Empfohlenes Equipment")).toUpperCase();
     pop.appendChild(head);
 
@@ -553,8 +555,9 @@ function buildMenuRow(label, iconName, onClick, disabled) {
 
 // Native ui-kit checkbox: layered box (background texture, border image,
 // hover overlay) + the check icon, which is slightly larger than the box.
-function buildCheckboxRow(label, checked, onClick) {
+function buildCheckboxRow(label, checked, onClick, tooltip) {
     const row = el("div", "z4ae-check-row" + (checked ? " z4ae-check-row-checked" : ""));
+    if (tooltip) row.title = tooltip;
     const check = el("div", "z4ae-check");
     check.appendChild(el("div", "z4ae-check-fill z4ae-check-bg"));
     check.appendChild(el("div", "z4ae-check-fill z4ae-check-border"));
@@ -613,17 +616,17 @@ function buildPopover() {
     // crew menu's "auto return" checkbox (not uppercased there either)
     content.appendChild(buildCheckboxRow(ui("autoLabel", "Automatisch einbauen"), !!gData.enabled, function () {
         cmd("onToggleEnabled");
-    }));
+    }, ui("autoTooltip", "Installiert das gespeicherte Equipment automatisch, sobald dieses Fahrzeug ausgewählt wird")));
     // downgrade: fall back to the standard variant when a trophy device
     // cannot be sourced for free
     content.appendChild(buildCheckboxRow(ui("downgradeLabel", "Enable Downgrade"), !!gData.downgrade, function () {
         cmd("onToggleDowngrade");
-    }));
+    }, ui("downgradeTooltip", "Weicht auf die Standard-Ausrüstung aus, falls ein Trophäen-Gerät nicht kostenlos verfügbar ist")));
     // always end on set 1: also stops donors being switched back, which is the
     // one server call the game reliably rate-limits
     content.appendChild(buildCheckboxRow(ui("alwaysSetup1Label", "Always select setup 1"), !!gData.alwaysSetup1, function () {
         cmd("onToggleAlwaysSetup1");
-    }));
+    }, ui("alwaysSetup1Tooltip", "Wählt nach dem Einbauen immer Setup 1 aus, statt beim zuletzt genutzten Setup zu bleiben")));
 
     // actions as menu rows
     content.appendChild(buildMenuRow(ui("save1", "Set 1 speichern"), "save", function () {

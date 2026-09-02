@@ -131,6 +131,7 @@ def _build_data():
         'saved2': None,
         'busy': apply_engine.is_busy(),
         'selectedStreamer': config.selected_streamer_account_id(),
+        'selectedStreamerName': config.selected_streamer_name(),
     }
     try:
         vehicle = g_currentVehicle.item
@@ -146,6 +147,46 @@ def _build_data():
     except Exception:
         LOG.exc('_build_data failed')
     return data
+
+
+def _transform_streamer_device(vehicle, device_cd):
+    """Maps one device from a streamer's shared set to what the PULLING
+    player should actually receive:
+
+        Bond (Improved) device      -> the upgraded (level 2) Bounty sibling
+        Experimental level 2 or 3   -> the level 1 Experimental sibling
+
+    Standard, plain-bounty, and already-level-1 devices pass through
+    unchanged. This only ever transforms the LOCAL COPY the viewer is about
+    to save/apply for themselves - the streamer's own stored equipment is
+    fetched read-only (streamers.fetch_vehicle_set) and never written back
+    to, so nothing here can overwrite it.
+
+    Falls back to the original device_cd whenever no compatible sibling
+    exists on this vehicle (e.g. an archetype with no bounty tier at all)
+    rather than leaving the slot empty - a device the player can still
+    source some other way beats a hole in the loadout."""
+    if not device_cd:
+        return device_cd
+    item = inventory.device_by_cd(int(device_cd))
+    if item is None:
+        return device_cd
+    try:
+        if item.isDeluxe:
+            replacement = inventory.bounty_upgraded_variant_of(vehicle, item)
+            return int(replacement.intCD) if replacement is not None else device_cd
+        if item.isModernized and getattr(item, 'level', 1) > 1:
+            replacement = inventory.experimental_level_variant_of(vehicle, item, 1)
+            return int(replacement.intCD) if replacement is not None else device_cd
+    except Exception:
+        LOG.exc('_transform_streamer_device failed for cd=%s' % device_cd)
+    return device_cd
+
+
+def _transform_streamer_set(vehicle, cds):
+    if cds is None:
+        return None
+    return [_transform_streamer_device(vehicle, cd) for cd in cds]
 
 
 def _recommended_payload(vehicle):
@@ -469,6 +510,8 @@ class AutoEquipView(ViewComponent):
             if set1 is None and set2 is None:
                 messages.push_warning(t('recNone'))
                 return
+            set1 = _transform_streamer_set(vehicle, set1)
+            set2 = _transform_streamer_set(vehicle, set2)
             config.store_sets(vehicle.invID, set1=set1, set2=set2, veh_cd=vehicle.intCD)
             push_data()
             messages.push_info(t('recSaved', veh=vehicle.userName),
@@ -488,8 +531,8 @@ class AutoEquipView(ViewComponent):
 
             def on_result(set1, set2):
                 _push_preview({'kind': 'streamer',
-                               'slots1': _set_payload(set1),
-                               'slots2': _set_payload(set2)})
+                               'slots1': _set_payload(_transform_streamer_set(vehicle, set1)),
+                               'slots2': _set_payload(_transform_streamer_set(vehicle, set2))})
             streamers.fetch_vehicle_set(streamer_id, vehicle.intCD, callback=on_result)
         except Exception:
             LOG.exc('_on_request_preview failed')
