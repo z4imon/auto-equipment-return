@@ -99,6 +99,7 @@
   "syncPairingFailed": "Could not reach the sync server.",
   "syncPairingExpired": "Pairing request expired, please try again.",
   "syncPairingMismatch": "A different account was confirmed in the browser.",
+  "syncDisconnectFailed": "Disconnect failed. Please try again.",
   "syncModListDisableLabel": "Varustuse pilv: Sees",
   "syncModListDisableTooltip": "Cloud sync is on and keeping your saved equipment in sync across PCs. Click to turn it off.",
   "syncCloudDataAvailableNotification": "Equipment sets are saved in the cloud for your account. Connect via the mod list button to load them on this PC.",

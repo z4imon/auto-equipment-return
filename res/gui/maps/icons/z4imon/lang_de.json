@@ -114,6 +114,7 @@
     "syncPairingFailed": "Sync-Server nicht erreichbar.",
     "syncPairingExpired": "Anfrage abgelaufen, bitte erneut versuchen.",
     "syncPairingMismatch": "Im Browser wurde ein anderer Account bestaetigt.",
+    "syncDisconnectFailed": "Trennen fehlgeschlagen. Bitte versuche es erneut.",
     "syncCloudDataAvailableNotification": "Fuer deinen Account sind Ausruestungs-Sets in der Cloud gespeichert. Verbinde dich ueber den Mod-Liste-Button, um sie auf diesem PC zu laden.",
     "streamerListTitle": "Streamer",
     "streamerListReset": "WoT Plus Empfehlung",

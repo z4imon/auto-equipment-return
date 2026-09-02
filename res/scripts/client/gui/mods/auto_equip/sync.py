@@ -214,14 +214,25 @@ def disconnect(account_id):
     saved equipment on the server (not just this device's data - the player
     is warned about this in the settings-panel copy before triggering it),
     and forgets the local pairing. The server delete must be attempted while
-    the token is still valid, so it happens before the token is revoked."""
+    the token is still valid, so it happens before the token is revoked.
+
+    If the server-side delete fails (offline, 5xx, ...), everything stops
+    right there: the token stays valid and the local pairing file stays put,
+    so the player is still "connected" and can just try again. Revoking the
+    token or forgetting the pairing anyway would stop the sets from ever
+    actually being deleted (the token was the only credential that could
+    retry it) while showing the player a clean "disconnected" state - the
+    data would sit there orphaned server-side and quietly resurrect itself
+    the next time this account paired anywhere."""
     token = current_token(account_id)
     if token is None:
         return
 
     def after_data_deleted(status, data):
         if status != 200:
-            LOG.warning('sync: account data delete failed (status=%s)' % status)
+            LOG.warning('sync: account data delete failed (status=%s), aborting disconnect' % status)
+            messages.push_error(t('syncDisconnectFailed'))
+            return
         call_async('DELETE', '/auth/token', token=token, callback=lambda s, d: None)
         _forget_pairing(account_id)
         _update_modlist_button(account_id)
