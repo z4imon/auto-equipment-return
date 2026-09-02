@@ -417,6 +417,28 @@ def _same_archetype(item, archetype, vehicle):
         return False
 
 
+def bounty_upgraded_variant_of(vehicle, special_item):
+    """The upgraded (level 2) bounty sibling of a Bond (Improved) device, or
+    None. Used only for equipment PULLED from a streamer's shared set - see
+    gameface.py's streamer-set transform, which never touches the streamer's
+    own stored equipment, only the copy handed to whoever pulls it. Same
+    archetype-matching approach as plain_bounty_variant_of/standard_variant_of
+    below; only the source (isDeluxe) and target (isTrophy+isUpgraded)
+    conditions differ."""
+    try:
+        archetype = special_item.descriptor.archetype
+        if not archetype:
+            return None
+        for item in all_optional_devices().itervalues():
+            if (item.isTrophy and item.isUpgraded
+                    and _same_archetype(item, archetype, vehicle)):
+                return item
+        return None
+    except Exception:
+        LOG.exc('bounty_upgraded_variant_of failed')
+        return None
+
+
 def plain_bounty_variant_of(vehicle, special_item):
     """The non-upgraded bounty sibling of an UPGRADED bounty device, or None.
 
