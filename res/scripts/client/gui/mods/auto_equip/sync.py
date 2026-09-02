@@ -122,6 +122,13 @@ def call_async(method, path, token=None, body=None, callback=None):
 # ---------------------------------------------------------------------------
 
 _POLL_INTERVAL_DEFAULT = 5
+# How long a run of back-to-back connection failures (status is None - the
+# request never even reached the server) may continue before giving up.
+# Deliberately NOT a total-pairing-duration timeout: a live server that
+# keeps answering "still pending" is left alone indefinitely, since the
+# device code's own server-side expiry (-> 404 -> syncPairingExpired)
+# already covers a player who's just slow to finish the browser step.
+_POLL_FAILURE_TIMEOUT_SECONDS = 120
 
 
 def _current_realm():
@@ -151,6 +158,11 @@ def start_pairing(account_id):
 
 
 def _poll_pairing(account_id, device_code, interval_seconds):
+    # Mutable single-element list, not a plain variable - handle_poll_response
+    # needs to write to it across calls, and Python 2 closures can't rebind an
+    # enclosing-scope name (no nonlocal).
+    failing_since = [None]
+
     def handle_poll_response(status, data):
         if status == 404:
             messages.push_error(t('syncPairingExpired'))
@@ -177,6 +189,19 @@ def _poll_pairing(account_id, device_code, interval_seconds):
             _update_modlist_button(account_id)
             _update_sharing_button(account_id)
             return
+        if status is None:
+            # The request never reached the server at all (offline/DNS/
+            # timeout) - a real "still pending" response never lands here,
+            # so this can't cut off a slow-but-connected player.
+            if failing_since[0] is None:
+                failing_since[0] = time.time()
+            elif time.time() - failing_since[0] >= _POLL_FAILURE_TIMEOUT_SECONDS:
+                LOG.warning('sync: pairing poll gave up after %ss of connection failures (account=%s)'
+                            % (_POLL_FAILURE_TIMEOUT_SECONDS, account_id))
+                messages.push_error(t('syncPairingFailed'))
+                return
+        else:
+            failing_since[0] = None  # the server answered - connection is fine
         # still pending - poll again after the server-suggested interval
         BigWorld.callback(interval_seconds, lambda: call_async(
             'POST', '/auth/token', body={'deviceCode': device_code}, callback=handle_poll_response))
