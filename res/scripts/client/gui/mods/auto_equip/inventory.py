@@ -438,28 +438,6 @@ def plain_bounty_variant_of(vehicle, special_item):
         return None
 
 
-def bounty_upgraded_variant_of(vehicle, special_item):
-    """The upgraded (level 2) bounty sibling of a Bond (Improved) device, or
-    None. Used only for equipment PULLED from a streamer's shared set - see
-    gameface.py's streamer-set transform, which never touches the streamer's
-    own stored equipment, only the copy handed to whoever pulls it. Same
-    archetype-matching approach as plain_bounty_variant_of/standard_variant_of
-    above; only the source (isDeluxe) and target (isTrophy+isUpgraded)
-    conditions differ."""
-    try:
-        archetype = special_item.descriptor.archetype
-        if not archetype:
-            return None
-        for item in all_optional_devices().itervalues():
-            if (item.isTrophy and item.isUpgraded
-                    and _same_archetype(item, archetype, vehicle)):
-                return item
-        return None
-    except Exception:
-        LOG.exc('bounty_upgraded_variant_of failed')
-        return None
-
-
 def experimental_level_variant_of(vehicle, special_item, target_level):
     """The Experimental sibling of special_item at exactly target_level, or
     None - e.g. mapping a level 2/3 Experimental device down to level 1.
