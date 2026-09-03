@@ -53,6 +53,28 @@ let gStreamerList = null;         // parsed streamerListJson, or null before the
 let gLastStreamerListJson = null;
 let gStreamerIconDataUri = "";
 let gLastStreamerIconDataUri = null;
+let gVisibleTooltip = null;   // the one check-row tooltip element currently shown, or null
+
+// Explicit JS state instead of pure CSS :hover: a tooltip sits directly above
+// its own row (bottom:100%), so it visually overlaps the row above it, and
+// relying on :hover ending "naturally" as the cursor crosses that overlap
+// left the old tooltip hanging on screen for a moment before the row above's
+// own :hover took over. Forcing the previous tooltip closed the instant a new
+// row is entered - rather than waiting for its own mouseleave - makes the
+// switch immediate no matter how that overlap is hit-tested.
+function _showTooltip(tip) {
+    if (gVisibleTooltip && gVisibleTooltip !== tip) {
+        gVisibleTooltip.classList.remove("z4ae-check-tooltip-visible");
+    }
+    tip.classList.add("z4ae-check-tooltip-visible");
+    gVisibleTooltip = tip;
+}
+function _hideTooltip(tip) {
+    tip.classList.remove("z4ae-check-tooltip-visible");
+    if (gVisibleTooltip === tip) {
+        gVisibleTooltip = null;
+    }
+}
 
 // --------------------------------------------------------------------------
 function el(tag, cls) {
@@ -576,6 +598,8 @@ function buildCheckboxRow(label, checked, onClick, tooltip) {
         const tip = el("div", "z4ae-check-tooltip");
         tip.textContent = tooltip;
         row.appendChild(tip);
+        row.addEventListener("mouseenter", function () { _showTooltip(tip); });
+        row.addEventListener("mouseleave", function () { _hideTooltip(tip); });
     }
     row.addEventListener("click", function (e) {
         e.stopPropagation();

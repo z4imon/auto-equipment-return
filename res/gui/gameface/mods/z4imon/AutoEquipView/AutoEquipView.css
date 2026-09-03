@@ -317,9 +317,16 @@
     cursor: pointer;
 }
 
-/* Custom hover tooltip for the checkbox rows - same technique as
-   .z4ae-rec-popup (display:none/:hover, absolutely positioned), since
-   Gameface's off-screen-rendered CEF never shows a native title attribute. */
+/* Custom hover tooltip for the checkbox rows - same absolutely-positioned
+   popup technique as .z4ae-rec-popup, since Gameface's off-screen-rendered
+   CEF never shows a native title attribute. Visibility is driven by JS
+   (row mouseenter/mouseleave -> the z4ae-check-tooltip-visible class, see
+   AutoEquipView.js's _showTooltip/_hideTooltip) rather than plain CSS
+   :hover: the tooltip sits directly above its own row and so overlaps the
+   row above it, and leaving that switch to :hover ending "naturally" as the
+   cursor crossed the overlap left the old tooltip hanging on screen for a
+   moment. JS forces the previous one closed the instant a new row is
+   entered, independent of how that overlap gets hit-tested. */
 .z4ae-check-tooltip {
     display: none;
     position: absolute;
@@ -344,7 +351,7 @@
        line. Purely visual: no clicks/hovers of its own to preserve. */
     pointer-events: none;
 }
-.z4ae-check-row:hover .z4ae-check-tooltip {
+.z4ae-check-tooltip-visible {
     display: block;
 }
 .z4ae-large .z4ae-check-row {
