@@ -32,6 +32,14 @@ from helpers import getPreferencesDirPath
 
 from .log import LOG
 
+# How a vehicle's sets get saved: by hand from the popover's own Save
+# buttons (the original behaviour), or automatically whenever the player
+# confirms a change in the native "edit setup" equipment window - see
+# gameface.py's _maybe_save_confirmed_equipment.
+SAVE_MODE_POPOVER = 'popover'
+SAVE_MODE_CONFIRM_EQUIPMENT = 'confirmEquipment'
+_SAVE_MODES = (SAVE_MODE_POPOVER, SAVE_MODE_CONFIRM_EQUIPMENT)
+
 _DEFAULTS = {
     'autoEquipEnabled': True,   # install saved sets automatically on vehicle selection
     'downgradeEnabled': False,  # replace unavailable special devices with their standard variant
@@ -46,6 +54,7 @@ _DEFAULTS = {
     # so the name-keyed icon cache (see streamers.py) can be found again on
     # the next hangar load without a network round trip.
     'selectedStreamerName': None,
+    'equipmentSaveMode': SAVE_MODE_POPOVER,
 }
 
 _EMPTY_ENTRY = {'set1': None, 'set2': None, 'vehicleCD': None, 'updatedAt': None, 'deleted': False}
@@ -162,6 +171,9 @@ def load_for_account(account_id):
                 'alwaysSelectSetup1': bool(data.get('alwaysSelectSetup1', True)),
                 'selectedStreamerAccountId': _as_int_or_none(data.get('selectedStreamerAccountId')),
                 'selectedStreamerName': _as_str_or_none(data.get('selectedStreamerName')),
+                'equipmentSaveMode': (data.get('equipmentSaveMode')
+                                      if data.get('equipmentSaveMode') in _SAVE_MODES
+                                      else SAVE_MODE_POPOVER),
             }
             _sets = _clean_sets(data.get('sets', {}))
             _backfill_missing_updated_at()
@@ -220,6 +232,7 @@ def save():
                 'alwaysSelectSetup1': bool(_settings['alwaysSelectSetup1']),
                 'selectedStreamerAccountId': _settings.get('selectedStreamerAccountId'),
                 'selectedStreamerName': _settings.get('selectedStreamerName'),
+                'equipmentSaveMode': _settings.get('equipmentSaveMode', SAVE_MODE_POPOVER),
                 'sets': _sets,
             }, handle, separators=(',', ':'))
     except Exception:
@@ -290,6 +303,16 @@ def set_selected_streamer(streamer_account_id, streamer_name=None):
                                           if _settings['selectedStreamerAccountId'] is not None else None)
     save()
     return _settings['selectedStreamerAccountId']
+
+
+def equipment_save_mode():
+    return _settings.get('equipmentSaveMode', SAVE_MODE_POPOVER)
+
+
+def set_equipment_save_mode(mode):
+    _settings['equipmentSaveMode'] = mode if mode in _SAVE_MODES else SAVE_MODE_POPOVER
+    save()
+    return _settings['equipmentSaveMode']
 
 
 # ---------------------------------------------------------------------------
