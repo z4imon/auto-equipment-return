@@ -331,6 +331,17 @@ def onModSettingsChanged(linkage, newSettings):
             index = int(newSettings[_VAR_SAVE_MODE])
             if 0 <= index < len(_SAVE_MODE_VALUES):
                 config.set_equipment_save_mode(_SAVE_MODE_VALUES[index])
+                # The popover reads equipmentSaveMode too (to hide its own
+                # manual Save buttons in confirmEquipment mode), but it only
+                # ever repaints on its own triggers (vehicle change, its own
+                # buttons) - a change made entirely inside THIS panel would
+                # otherwise sit stale until one of those happened to fire.
+                # Imported lazily, matching this package's usual habit for a
+                # cross-module call that only fires occasionally (see
+                # apply.py's _other_run_busy) - avoids tying this module's
+                # own load to gameface's regardless of load order.
+                from . import gameface
+                gameface.push_data()
     except Exception:
         LOG.exc('onModSettingsChanged failed')
 
