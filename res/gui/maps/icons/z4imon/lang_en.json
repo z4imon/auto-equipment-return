@@ -3,7 +3,7 @@
     "autoLabel": "Auto-install",
     "autoTooltip": "Automatically installs the saved equipment when the tank is selected. (De)activates for every tank.",
     "downgradeLabel": "Enable downgrade",
-    "downgradeTooltip": "Uses standard equipment if a trophy one isn't available.",
+    "downgradeTooltip": "Example: Uses standard equipment if a trophy one isn't available.",
     "alwaysSetup1Label": "Always select set 1",
     "alwaysSetup1Tooltip": "Always selects setup 1 after installing, instead of staying on the last used setup. For technical reasons this leads to noticeably shorter install times.",
     "saveModeLabel": "Save equipment via",

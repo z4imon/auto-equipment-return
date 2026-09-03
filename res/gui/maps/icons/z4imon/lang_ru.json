@@ -4,7 +4,7 @@
   "downgradeLabel": "Включить замену",
   "alwaysSetup1Label": "Всегда выбирать Набор 1",
   "autoTooltip": "Automatically installs the saved equipment when the tank is selected. (De)activates for every tank.",
-  "downgradeTooltip": "Uses standard equipment if a trophy one isn't available.",
+  "downgradeTooltip": "Example: Uses standard equipment if a trophy one isn't available.",
   "alwaysSetup1Tooltip": "Always selects setup 1 after installing, instead of staying on the last used setup. For technical reasons this leads to noticeably shorter install times.",
   "saveModeLabel": "Save equipment via",
   "saveModeTooltip": "Choose how saved sets get updated: manually via the Save buttons below, or automatically whenever you confirm a change in the native equipment window.",
