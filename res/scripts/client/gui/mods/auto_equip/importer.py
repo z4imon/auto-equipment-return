@@ -398,6 +398,35 @@ def _build_column(account_id, templates):
     return column
 
 
+def _get_settings_api():
+    """(g_modsSettingsApi, templates), preferring Aslain's Mod Menu over
+    whatever else may answer to the old gui.modsSettingsApi name - (None,
+    None) if neither is installed.
+
+    Aslain's own integration guide is explicit that the two names are NOT
+    interchangeable: gui.aslainMenu is only ever Aslain's menu, while
+    gui.modsSettingsApi is whichever package happened to claim that name -
+    Aslain's own menu when nothing else did, but izeberg's original or some
+    other reimplementation when another mod (often bundled in the same pack)
+    got there first. Importing gui.modsSettingsApi directly, as this used to,
+    skips that check entirely: with Aslain's Mod Menu installed alongside
+    something else that also claims the old name, this panel could silently
+    end up wired to that OTHER implementation's tooltip renderer instead of
+    Aslain's - which is the reported symptom (this panel's {HEADER}/{BODY}
+    tooltips not showing correctly under Aslain's Mod Menu), even though
+    Aslain's own renderer documents support for exactly that markup."""
+    try:
+        from gui.aslainMenu import g_modsSettingsApi, templates
+        return g_modsSettingsApi, templates
+    except ImportError:
+        pass
+    try:
+        from gui.modsSettingsApi import g_modsSettingsApi, templates
+        return g_modsSettingsApi, templates
+    except ImportError:
+        return None, None
+
+
 def register(account_id):
     """Adds the ModsSettingsAPI panel. No-op when the API isn't installed.
     Called by mod_auto_equip once the account id is known - never before.
@@ -405,9 +434,8 @@ def register(account_id):
     The panel used to bow out when there was nothing to import; it no longer
     can, because the cleanup action stands on its own."""
     global _kurzdor_files, _own_files, _account_id
-    try:
-        from gui.modsSettingsApi import g_modsSettingsApi, templates
-    except Exception:
+    g_modsSettingsApi, templates = _get_settings_api()
+    if g_modsSettingsApi is None:
         LOG.info('ModsSettingsAPI not installed - settings panel disabled')
         return
 
