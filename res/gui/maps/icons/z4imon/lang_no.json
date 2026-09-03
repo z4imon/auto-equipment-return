@@ -102,6 +102,7 @@
   "syncDisconnectFailed": "Disconnect failed. Please try again.",
   "syncModListDisableLabel": "Utstyrssky: På",
   "syncModListDisableTooltip": "Cloud sync is on and keeping your saved equipment in sync across PCs. Click to turn it off.",
+  "syncModListDisableTooltipAslain": "{BODY}Disconnects from cloud sync. Reconnecting later requires signing in via Wargaming (OAuth) again.{/BODY}{ATTENTION}Disconnecting deletes all equipment sets saved on the server for this account.{/ATTENTION}",
   "syncCloudDataAvailableNotification": "Equipment sets are saved in the cloud for your account. Connect via the mod list button to load them on this PC.",
   "streamerListTitle": "Streamers",
   "streamerListReset": "WoT Plus Recommendation",

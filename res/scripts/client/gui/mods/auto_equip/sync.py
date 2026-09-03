@@ -447,9 +447,26 @@ def _state_icon(enabled):
     return _ICON_ENABLED if enabled else _ICON_DISABLED
 
 
+def _aslain_mod_menu_installed():
+    """True only when Aslain's Mod Menu itself answers to gui.aslainMenu -
+    gates the {ATTENTION}-formatted disconnect warning below. Aslain
+    confirmed their renderer supports {HEADER}/{BODY}/{ATTENTION} markup,
+    but gui.modsListApi may just as easily be answered by something else
+    (the native mods list, or another package) that does not - sending the
+    markup there would show the raw {ATTENTION} tags instead of a
+    formatted warning band."""
+    try:
+        import gui.aslainMenu  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
 def _modlist_button_text(enabled):
     if enabled:
-        return t('syncModListDisableLabel'), t('syncModListDisableTooltip')
+        tooltip = (t('syncModListDisableTooltipAslain') if _aslain_mod_menu_installed()
+                   else t('syncModListDisableTooltip'))
+        return t('syncModListDisableLabel'), tooltip
     return t('syncCheckboxLabel'), t('syncCheckboxTooltip')
 
 
