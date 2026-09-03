@@ -638,8 +638,15 @@
     width: 16rem;
     height: 16rem;
 }
+/* .z4ae-large .z4ae-corner-btn (two classes) outranks the plain
+   .z4ae-streamer-trigger's 16rem (one class), so without this the button
+   balloons to the corner-btn's 30rem in large mode instead of staying small
+   - same specificity as that rule to win, matching the 16->18rem bump the
+   other two corner icons get in large mode. */
 .z4ae-large .z4ae-streamer-trigger {
     right: 54rem;
+    width: 18rem;
+    height: 18rem;
 }
 .z4ae-streamer-trigger-icon .z4ae-row-svg {
     width: 12rem;

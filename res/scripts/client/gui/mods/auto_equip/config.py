@@ -48,7 +48,7 @@ _DEFAULTS = {
     'selectedStreamerName': None,
 }
 
-_EMPTY_ENTRY = {'set1': None, 'set2': None, 'vehicleCD': None, 'updatedAt': None}
+_EMPTY_ENTRY = {'set1': None, 'set2': None, 'vehicleCD': None, 'updatedAt': None, 'deleted': False}
 
 _settings = dict(_DEFAULTS)
 _sets = {}
@@ -134,6 +134,7 @@ def _clean_entry(raw):
         'set2': _clean_set(raw.get('set2')),
         'vehicleCD': _as_int_or_none(raw.get('vehicleCD')),
         'updatedAt': _as_float_or_none(raw.get('updatedAt')),
+        'deleted': bool(raw.get('deleted', False)),
     }
 
 
@@ -302,7 +303,8 @@ def saved_sets(veh_inv_id):
 
 def has_saved_sets(veh_inv_id):
     entry = saved_sets(veh_inv_id)
-    return entry is not None and (entry['set1'] is not None or entry['set2'] is not None)
+    return (entry is not None and not entry.get('deleted')
+            and (entry['set1'] is not None or entry['set2'] is not None))
 
 
 def all_saved_inv_ids():
@@ -343,6 +345,9 @@ def store_sets(veh_inv_id, set1=None, set2=None, veh_cd=None, updated_at=None, n
         entry['set2'] = [int(cd) for cd in set2]
     if veh_cd is not None:
         entry['vehicleCD'] = int(veh_cd)
+    # A real local save always revives a tombstoned entry (see delete_sets) -
+    # otherwise saving again after a delete would silently stay "deleted".
+    entry['deleted'] = False
     entry['updatedAt'] = updated_at if updated_at is not None else time.time()
     save()
     if notify:
@@ -350,24 +355,44 @@ def store_sets(veh_inv_id, set1=None, set2=None, veh_cd=None, updated_at=None, n
     return entry
 
 
-def apply_remote_entry(veh_inv_id, set1, set2, veh_cd, updated_at, notify=True):
+def apply_remote_entry(veh_inv_id, set1, set2, veh_cd, updated_at, notify=True, deleted=False):
     """Applies a server-authoritative entry unconditionally - unlike store_sets,
     None here means "this set really doesn't exist," not "leave it alone."
     Used only by sync.py's merge; store_sets's own partial-update contract for
-    its other callers (e.g. save.py's single-setup saves) is untouched."""
-    entry = {'set1': set1, 'set2': set2, 'vehicleCD': veh_cd, 'updatedAt': updated_at}
+    its other callers (e.g. save.py's single-setup saves) is untouched.
+
+    deleted=True applies the server's own delete tombstone (set1/set2 are
+    already None in that case) - the listener still gets None, matching
+    delete_sets's contract, even though the entry itself stays in _sets."""
+    entry = {'set1': set1, 'set2': set2, 'vehicleCD': veh_cd, 'updatedAt': updated_at,
+             'deleted': bool(deleted)}
     _sets[str(veh_inv_id)] = entry
     save()
     if notify:
-        _notify_listeners(veh_inv_id, entry)
+        _notify_listeners(veh_inv_id, None if deleted else entry)
     return entry
 
 
 def delete_sets(veh_inv_id, notify=True):
-    """Forgets everything stored for a vehicle - both sets and the vehicleCD.
-    Returns True when there was something to forget."""
-    if _sets.pop(str(veh_inv_id), None) is None:
+    """Marks a vehicle's saved sets deleted rather than forgetting the entry
+    outright - a tombstone (deleted=True, set1/set2 cleared) that stays in
+    _sets. Returns True when there was something to forget.
+
+    Popping the entry used to be enough locally, but sync.py's
+    full_reconcile only re-pushes what all_saved_inv_ids() still names: an
+    offline (or not-yet-pushed) delete that popped the entry vanished from
+    that list too, so the next reconcile never told the server about the
+    delete - and instead pulled the server's still-live copy right back
+    down, resurrecting a set the player had just deleted. Keeping the
+    tombstone keeps the vehicle in that list until the delete has actually
+    reached the server (see sync.py's _sync_vehicle)."""
+    entry = _sets.get(str(veh_inv_id))
+    if entry is None or entry.get('deleted'):
         return False
+    _sets[str(veh_inv_id)] = {
+        'set1': None, 'set2': None, 'vehicleCD': entry.get('vehicleCD'),
+        'updatedAt': time.time(), 'deleted': True,
+    }
     save()
     if notify:
         _notify_listeners(veh_inv_id, None)
@@ -383,4 +408,8 @@ def fill_in_vehicle_cd(veh_inv_id, veh_cd):
         return False
     entry['vehicleCD'] = int(veh_cd)
     save()
+    # Without this, sync.py's push-on-change listener never sees this write,
+    # so the backfilled vehicleCD sits unpushed until some unrelated change
+    # to this same vehicle's entry happens to trigger a push.
+    _notify_listeners(veh_inv_id, entry)
     return True

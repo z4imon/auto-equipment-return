@@ -179,10 +179,10 @@ def _transform_streamer_device(vehicle, device_cd):
     documents."""
     if not device_cd:
         return device_cd
-    item = inventory.device_by_cd(int(device_cd))
-    if item is None:
-        return device_cd
     try:
+        item = inventory.device_by_cd(int(device_cd))
+        if item is None:
+            return device_cd
         if item.isTrophy:
             return device_cd
         best = None
@@ -566,7 +566,9 @@ class AutoEquipView(ViewComponent):
                 LOG.info('streamers: list fetch returned %s'
                          % ('None (failed)' if streamer_list is None else streamer_list))
                 if streamer_list is None:
-                    _push_streamer_list([])
+                    # A transient fetch failure (timeout, server hiccup) is not
+                    # the same as "the account has no streamers" - leave
+                    # whatever list is already showing rather than blanking it.
                     return
                 _push_streamer_list(streamer_list)
                 selected_id = config.selected_streamer_account_id()

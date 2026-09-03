@@ -175,13 +175,13 @@ def _poll_pairing(account_id, device_code, interval_seconds):
                 LOG.warning('sync: paired token accountId mismatch, discarding')
                 messages.push_error(t('syncPairingMismatch'))
                 return
-            if not data.get('accessToken'):
-                LOG.warning('sync: authorized poll response carried no accessToken, discarding')
+            if not data.get('accessToken') or not data.get('realm'):
+                LOG.warning('sync: authorized poll response missing accessToken/realm, discarding')
                 messages.push_error(t('syncPairingMismatch'))
                 return
             _write_pairing(account_id, {
-                'accessToken': data['accessToken'],
-                'realm': data['realm'],
+                'accessToken': data.get('accessToken'),
+                'realm': data.get('realm'),
                 'pairedAt': time.time(),
             })
             messages.push_info(t('syncPairingDone'))
@@ -292,7 +292,7 @@ def full_reconcile(account_id):
             sets = {}
         to_push = _merge_server_sets(sets)
         for veh_inv_id in to_push:
-            _push_vehicle(account_id, veh_inv_id)
+            _sync_vehicle(account_id, veh_inv_id)
 
     call_async('GET', '/accounts/%s' % account_id, token=token, callback=handle_pull)
 
@@ -307,12 +307,10 @@ def _merge_server_sets(server_sets):
             local_updated = local_entry['updatedAt'] if local_entry else None
             if local_updated is not None and local_updated >= server_entry['updatedAt']:
                 continue  # local wins or ties - stays in to_push, gets pushed below
-            if server_entry.get('deleted'):
-                config.delete_sets(inv_id, notify=False)
-            else:
-                config.apply_remote_entry(inv_id, server_entry['set1'], server_entry['set2'],
-                                          server_entry.get('vehicleCD'),
-                                          server_entry['updatedAt'], notify=False)
+            deleted = bool(server_entry.get('deleted'))
+            config.apply_remote_entry(inv_id, server_entry['set1'], server_entry['set2'],
+                                      server_entry.get('vehicleCD'),
+                                      server_entry['updatedAt'], notify=False, deleted=deleted)
             to_push.discard(inv_id)
         except Exception:
             LOG.exc('sync: failed merging server entry for %s' % (inv_id,))
@@ -326,12 +324,17 @@ def _merge_server_sets(server_sets):
 _pending_pushes = {}  # invID -> BigWorld callback id
 _PUSH_DEBOUNCE_SECONDS = 3
 
+# invIDs with a push/delete request currently in flight, and invIDs that need
+# another sync once their in-flight one completes - see _sync_vehicle().
+_in_flight_syncs = set()
+_pending_resyncs = set()
+
 
 def _on_local_change(veh_inv_id, entry):
-    _schedule_push(veh_inv_id, delete=(entry is None))
+    _schedule_push(veh_inv_id)
 
 
-def _schedule_push(veh_inv_id, delete):
+def _schedule_push(veh_inv_id):
     existing = _pending_pushes.pop(veh_inv_id, None)
     if existing is not None:
         BigWorld.cancelCallback(existing)
@@ -340,43 +343,83 @@ def _schedule_push(veh_inv_id, delete):
         _pending_pushes.pop(veh_inv_id, None)
         account_id = config.current_account_id()
         if account_id and is_paired(account_id):
-            if delete:
-                _delete_vehicle_remote(account_id, veh_inv_id)
-            else:
-                _push_vehicle(account_id, veh_inv_id)
+            _sync_vehicle(account_id, veh_inv_id)
 
     _pending_pushes[veh_inv_id] = BigWorld.callback(_PUSH_DEBOUNCE_SECONDS, fire)
 
 
-def _push_vehicle(account_id, veh_inv_id):
+def _sync_vehicle(account_id, veh_inv_id):
+    """Pushes or deletes one vehicle's saved sets - whichever the freshest
+    local state calls for - and is the single entry point both
+    full_reconcile's post-merge push and the debounced on-change push go
+    through, so at most one request for a given vehicle is ever in flight.
+
+    Without this, those two callers could each have a PUT/DELETE for the
+    same vehicle in flight at once: full_reconcile's push fires the moment
+    its pull response lands, independently of the debounce timer a local
+    edit already started. The server stamps updatedAt with ITS OWN clock at
+    request-processing time (equipment_store.py's put_vehicle/
+    delete_vehicle), not from anything the client sends - so whichever of
+    the two requests the server happens to process LAST wins, regardless of
+    which one actually reflects the more recent local edit. A call made
+    while one is already in flight is deferred instead, and re-fires - again
+    reading whatever is freshest in local config - once the first
+    completes."""
+    if veh_inv_id in _in_flight_syncs:
+        _pending_resyncs.add(veh_inv_id)
+        return
+    _in_flight_syncs.add(veh_inv_id)
+    entry = config.saved_sets(veh_inv_id)
+    if entry is not None and entry.get('deleted'):
+        _delete_vehicle_remote(account_id, veh_inv_id, _on_sync_done)
+    else:
+        _push_vehicle(account_id, veh_inv_id, _on_sync_done)
+
+
+def _on_sync_done(account_id, veh_inv_id):
+    _in_flight_syncs.discard(veh_inv_id)
+    if veh_inv_id in _pending_resyncs:
+        _pending_resyncs.discard(veh_inv_id)
+        _sync_vehicle(account_id, veh_inv_id)
+
+
+def _push_vehicle(account_id, veh_inv_id, on_done=None):
     token = current_token(account_id)
     entry = config.saved_sets(veh_inv_id)
     if token is None or entry is None:
+        if on_done:
+            on_done(account_id, veh_inv_id)
         return
     body = {'set1': entry['set1'], 'set2': entry['set2'], 'vehicleCD': entry['vehicleCD']}
 
     def handle_push(status, data):
-        if status == 200 and data:
-            config.set_updated_at(veh_inv_id, data['updatedAt'])
-        else:
-            if _handle_auth_failure(account_id, status):
-                return
-            LOG.warning('sync: push of %s failed (status=%s)' % (veh_inv_id, status))
+        try:
+            if status == 200 and data:
+                config.set_updated_at(veh_inv_id, data['updatedAt'])
+            elif not _handle_auth_failure(account_id, status):
+                LOG.warning('sync: push of %s failed (status=%s)' % (veh_inv_id, status))
+        finally:
+            if on_done:
+                on_done(account_id, veh_inv_id)
 
     call_async('PUT', '/accounts/%s/vehicles/%s' % (account_id, veh_inv_id), token=token,
               body=body, callback=handle_push)
 
 
-def _delete_vehicle_remote(account_id, veh_inv_id):
+def _delete_vehicle_remote(account_id, veh_inv_id, on_done=None):
     token = current_token(account_id)
     if token is None:
+        if on_done:
+            on_done(account_id, veh_inv_id)
         return
 
     def handle_delete(status, data):
-        if status != 200:
-            if _handle_auth_failure(account_id, status):
-                return
-            LOG.warning('sync: delete of %s failed (status=%s)' % (veh_inv_id, status))
+        try:
+            if status != 200 and not _handle_auth_failure(account_id, status):
+                LOG.warning('sync: delete of %s failed (status=%s)' % (veh_inv_id, status))
+        finally:
+            if on_done:
+                on_done(account_id, veh_inv_id)
 
     call_async('DELETE', '/accounts/%s/vehicles/%s' % (account_id, veh_inv_id), token=token,
               callback=handle_delete)

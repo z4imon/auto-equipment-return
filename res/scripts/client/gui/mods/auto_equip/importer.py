@@ -169,7 +169,7 @@ def _import_kurzdor_file(path):
         set1, set2 = _kurzdor_entry_sets(entry)
         if set1 is None:
             continue
-        if config.saved_sets(veh_inv_id) is not None:
+        if config.has_saved_sets(veh_inv_id):
             skipped += 1
             continue
         config.store_sets(veh_inv_id, set1=set1, set2=set2)
@@ -202,7 +202,7 @@ def _import_own_account_file(path):
         if veh_inv_id is None:
             unmatched += 1
             continue
-        if config.saved_sets(veh_inv_id) is not None:
+        if config.has_saved_sets(veh_inv_id):
             skipped += 1
             continue
         config.store_sets(veh_inv_id, set1=set1, set2=set2, veh_cd=veh_cd)
