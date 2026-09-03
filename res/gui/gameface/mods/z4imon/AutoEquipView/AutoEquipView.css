@@ -317,9 +317,16 @@
     cursor: pointer;
 }
 
-/* Custom hover tooltip for the checkbox rows - same technique as
-   .z4ae-rec-popup (display:none/:hover, absolutely positioned), since
-   Gameface's off-screen-rendered CEF never shows a native title attribute. */
+/* Custom hover tooltip for the checkbox rows - same absolutely-positioned
+   popup technique as .z4ae-rec-popup, since Gameface's off-screen-rendered
+   CEF never shows a native title attribute. Visibility is driven by JS
+   (row mouseenter/mouseleave -> the z4ae-check-tooltip-visible class, see
+   AutoEquipView.js's _showTooltip/_hideTooltip) rather than plain CSS
+   :hover: the tooltip sits directly above its own row and so overlaps the
+   row above it, and leaving that switch to :hover ending "naturally" as the
+   cursor crossed the overlap left the old tooltip hanging on screen for a
+   moment. JS forces the previous one closed the instant a new row is
+   entered, independent of how that overlap gets hit-tested. */
 .z4ae-check-tooltip {
     display: none;
     position: absolute;
@@ -337,8 +344,14 @@
     line-height: 1.3;
     color: rgba(238, 237, 233, 0.85);
     cursor: default;
+    /* It sits directly above the row (often over the row above it in the
+       list) - without this, the cursor lands ON the tooltip instead of
+       passing through to whatever is underneath, so reaching the row above
+       needed an overshoot-then-back-down detour instead of a straight
+       line. Purely visual: no clicks/hovers of its own to preserve. */
+    pointer-events: none;
 }
-.z4ae-check-row:hover .z4ae-check-tooltip {
+.z4ae-check-tooltip-visible {
     display: block;
 }
 .z4ae-large .z4ae-check-row {
@@ -632,8 +645,15 @@
     width: 16rem;
     height: 16rem;
 }
+/* .z4ae-large .z4ae-corner-btn (two classes) outranks the plain
+   .z4ae-streamer-trigger's 16rem (one class), so without this the button
+   balloons to the corner-btn's 30rem in large mode instead of staying small
+   - same specificity as that rule to win, matching the 16->18rem bump the
+   other two corner icons get in large mode. */
 .z4ae-large .z4ae-streamer-trigger {
     right: 54rem;
+    width: 18rem;
+    height: 18rem;
 }
 .z4ae-streamer-trigger-icon .z4ae-row-svg {
     width: 12rem;
