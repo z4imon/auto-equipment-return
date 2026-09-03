@@ -126,6 +126,7 @@ def _build_data():
         'enabled': config.is_auto_enabled(),
         'downgrade': config.is_downgrade_enabled(),
         'alwaysSetup1': config.is_always_setup1(),
+        'equipmentSaveMode': config.equipment_save_mode(),
         'hasSetup2': False,
         'saved1': None,
         'saved2': None,
@@ -292,10 +293,60 @@ def _push_icon_data_uri(data_uri):
 def _on_vehicle_changed(*args, **kwargs):
     try:
         apply_engine.on_vehicle_changed()
+        _maybe_save_confirmed_equipment(g_currentVehicle.item)
         push_data()
         _push_preview({})
     except Exception:
         LOG.exc('_on_vehicle_changed failed')
+
+
+# ---------------------------------------------------------------------------
+# "Confirm equipment" save mode - saves whichever setup is on screen the
+# moment it actually changes, instead of waiting for the popover's own Save
+# buttons. g_currentVehicle.onChanged is the only signal available for "the
+# player just confirmed something in the native setup screen" - it carries no
+# detail about WHAT changed or WHO changed it, so the only way to tell a real
+# edit apart from a no-op re-fire (onChanged storms are normal, see apply.py's
+# _last_inv_id) is comparing snapshots by hand.
+# ---------------------------------------------------------------------------
+
+_last_setup_snapshot = None   # inventory.snapshot_setups() of the last-seen vehicle
+_last_snapshot_inv_id = None
+
+
+def _maybe_save_confirmed_equipment(vehicle):
+    global _last_setup_snapshot, _last_snapshot_inv_id
+    try:
+        if config.equipment_save_mode() != config.SAVE_MODE_CONFIRM_EQUIPMENT:
+            return
+        if vehicle is None:
+            return
+        snapshot = inventory.snapshot_setups(vehicle)
+        if vehicle.invID != _last_snapshot_inv_id:
+            # A different vehicle (or the first one this session) - nothing to
+            # save yet, just a fresh baseline for the next real comparison.
+            _last_snapshot_inv_id = vehicle.invID
+            _last_setup_snapshot = snapshot
+            return
+        if snapshot == _last_setup_snapshot:
+            return
+        # The installed equipment changed. Adopt it as the new baseline
+        # regardless of what happens next, so a later comparison is never
+        # made against stale data - but only actually SAVE it when nothing of
+        # ours is currently moving devices around. Our own runs (auto-install,
+        # cleanup, the carousel's demount entry) can substitute a downgraded
+        # device and must never have that substitution saved back as the
+        # goal - see apply.py's is_busy_or_recent().
+        _last_setup_snapshot = snapshot
+        if apply_engine.is_busy_or_recent():
+            return
+        setup_idx = inventory.active_setup_index(vehicle)
+        if setup_idx == apply_engine.PRIMARY_SETUP:
+            config.store_sets(vehicle.invID, set1=snapshot['set1'], veh_cd=vehicle.intCD)
+        else:
+            config.store_sets(vehicle.invID, set2=snapshot['set2'], veh_cd=vehicle.intCD)
+    except Exception:
+        LOG.exc('_maybe_save_confirmed_equipment failed')
 
 
 def _subscribe_to_vehicle():
@@ -331,12 +382,12 @@ def _unsubscribe_from_vehicle():
 
 class AutoEquipViewModel(ViewModel):
     __slots__ = ('onJsLog', 'onToggleEnabled', 'onToggleDowngrade',
-                 'onToggleAlwaysSetup1', 'onSaveSet', 'onDeleteSets',
-                 'onSaveRecommended', 'onEquipPrimary',
+                 'onToggleAlwaysSetup1', 'onSetEquipmentSaveMode', 'onSaveSet',
+                 'onDeleteSets', 'onSaveRecommended', 'onEquipPrimary',
                  'onRequestPreview', 'onOpenStreamerList', 'onSelectStreamer')
 
     def __init__(self):
-        super(AutoEquipViewModel, self).__init__(properties=5, commands=11)
+        super(AutoEquipViewModel, self).__init__(properties=5, commands=12)
 
     def getDataJson(self):
         return self._getString(0)
@@ -379,6 +430,7 @@ class AutoEquipViewModel(ViewModel):
         self.onToggleEnabled = self._addCommand('onToggleEnabled')
         self.onToggleDowngrade = self._addCommand('onToggleDowngrade')
         self.onToggleAlwaysSetup1 = self._addCommand('onToggleAlwaysSetup1')
+        self.onSetEquipmentSaveMode = self._addCommand('onSetEquipmentSaveMode')
         self.onSaveSet = self._addCommand('onSaveSet')
         self.onDeleteSets = self._addCommand('onDeleteSets')
         self.onSaveRecommended = self._addCommand('onSaveRecommended')
@@ -418,6 +470,7 @@ class AutoEquipView(ViewComponent):
             (self.viewModel.onToggleEnabled, self._on_toggle_enabled),
             (self.viewModel.onToggleDowngrade, self._on_toggle_downgrade),
             (self.viewModel.onToggleAlwaysSetup1, self._on_toggle_always_setup1),
+            (self.viewModel.onSetEquipmentSaveMode, self._on_set_equipment_save_mode),
             (self.viewModel.onSaveSet, self._on_save_set),
             (self.viewModel.onDeleteSets, self._on_delete_sets),
             (self.viewModel.onSaveRecommended, self._on_save_recommended),
@@ -462,6 +515,14 @@ class AutoEquipView(ViewComponent):
             push_data()
         except Exception:
             LOG.exc('_on_toggle_always_setup1 failed')
+
+    def _on_set_equipment_save_mode(self, data=None):
+        try:
+            mode = (data or {}).get('mode')
+            config.set_equipment_save_mode(mode)
+            push_data()
+        except Exception:
+            LOG.exc('_on_set_equipment_save_mode failed')
 
     def _on_save_set(self, data=None):
         try:
