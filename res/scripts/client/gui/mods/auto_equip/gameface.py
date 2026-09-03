@@ -151,43 +151,56 @@ def _build_data():
 
 def _transform_streamer_device(vehicle, device_cd):
     """Maps one device from a streamer's shared set to what the PULLING
-    player should actually receive:
+    player should actually receive - always bounty, except Experimental:
 
-        Bond (Improved) device      -> standard equivalent
-        Experimental level 2 or 3   -> the level 1 Experimental sibling,
-                                        falling back to standard
+        Standard device              -> plain bounty, falling back to
+                                         standard itself
+        Bounty (plain or upgraded)   -> unchanged (already the target tier)
+        Bond (Improved) device       -> the upgraded (level 2) Bounty sibling,
+                                         falling back to standard/plain bounty
+        Experimental level 2 or 3    -> the level 1 Experimental sibling,
+                                         falling back to standard/plain bounty
+        Experimental level 1         -> unchanged (already the target tier)
 
-    Bond ("Anleihen") equipment is bought with Bonds - a separate reward
-    track from Bounty ("erbeutetes") equipment, which is earned via the
-    Battle Pass/Ranked. They are unrelated device families, not tiers of
-    each other, so a Bond device has no "upgraded Bounty sibling" to map
-    onto - it goes straight to the standard variant instead.
+    This only ever transforms the LOCAL COPY the viewer is about to
+    save/apply for themselves - the streamer's own stored equipment is
+    fetched read-only (streamers.fetch_vehicle_set) and never written back
+    to, so nothing here can overwrite it.
 
-    Standard and already-level-1 devices pass through unchanged. This only
-    ever transforms the LOCAL COPY the viewer is about to save/apply for
-    themselves - the streamer's own stored equipment is fetched read-only
-    (streamers.fetch_vehicle_set) and never written back to, so nothing here
-    can overwrite it.
-
-    A Bond or Experimental compactDescr is never left as the actual result -
-    neither is ownable or installable by an account that never bought/earned
-    it. Only once standard_variant_of() also comes up empty (no matching
-    archetype on this vehicle at all) does the original device_cd pass
+    The best (closest) sibling is tried first, but a Standard/Bond/
+    Experimental compactDescr is never left as the actual result on a match
+    failure - it falls through the same standard/plain-bounty chain
+    downgrade_candidates_of() already uses elsewhere, since a bounty device
+    the account never earned is no more ownable than a Bond one it never
+    bought. Only once every fallback in that chain also comes up empty (no
+    bounty tier for this archetype at all) does the original device_cd pass
     through, on the same "a device the player can still source some other
-    way beats a hole in the loadout" logic downgrade_candidates_of uses."""
+    way beats a hole in the loadout" logic downgrade_candidates_of
+    documents."""
     if not device_cd:
         return device_cd
     item = inventory.device_by_cd(int(device_cd))
     if item is None:
         return device_cd
     try:
+        if item.isTrophy:
+            return device_cd
+        best = None
         if item.isDeluxe:
-            replacement = inventory.standard_variant_of(vehicle, item)
-            return int(replacement.intCD) if replacement is not None else device_cd
-        if item.isModernized and getattr(item, 'level', 1) > 1:
-            replacement = (inventory.experimental_level_variant_of(vehicle, item, 1)
-                           or inventory.standard_variant_of(vehicle, item))
-            return int(replacement.intCD) if replacement is not None else device_cd
+            best = inventory.bounty_upgraded_variant_of(vehicle, item)
+        elif item.isModernized:
+            if getattr(item, 'level', 1) <= 1:
+                return device_cd
+            best = inventory.experimental_level_variant_of(vehicle, item, 1)
+        elif item.isRegular:
+            best = inventory.bounty_variant_of_standard(vehicle, item)
+        else:
+            return device_cd
+        if best is not None:
+            return int(best.intCD)
+        for fallback in inventory.downgrade_candidates_of(vehicle, item):
+            if fallback is not None:
+                return int(fallback.intCD)
     except Exception:
         LOG.exc('_transform_streamer_device failed for cd=%s' % device_cd)
     return device_cd
