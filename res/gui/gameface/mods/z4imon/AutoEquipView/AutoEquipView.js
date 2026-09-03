@@ -54,7 +54,6 @@ let gLastStreamerListJson = null;
 let gStreamerIconDataUri = "";
 let gLastStreamerIconDataUri = null;
 let gVisibleTooltip = null;   // the one check-row tooltip element currently shown, or null
-let gSaveModeListOpen = false;
 
 // Explicit JS state instead of pure CSS :hover: a tooltip sits directly above
 // its own row (bottom:100%), so it visually overlaps the row above it, and
@@ -610,72 +609,6 @@ function buildCheckboxRow(label, checked, onClick, tooltip) {
     return row;
 }
 
-// Dropdown picking equipmentSaveMode: "popover" (the existing manual Save
-// buttons) or "confirmEquipment" (auto-saves whenever the native setup
-// screen's own Save button changes the vehicle's equipment - see
-// gameface.py's _maybe_save_confirmed_equipment). Same open/close-on-select
-// mechanics as the streamer picker (buildStreamerTrigger/buildStreamerList);
-// no outside-click handling here either, matching that same precedent - the
-// popover's own root click handler stops every click from bubbling out to
-// the document-level close listener, so like the streamer list this closes
-// only via its own trigger or by picking an option.
-const SAVE_MODE_OPTIONS = ["popover", "confirmEquipment"];
-
-function _saveModeOptionLabel(mode) {
-    return mode === "confirmEquipment"
-        ? ui("saveModeConfirmEquipment", "Bestätigen im Ausrüstungsfenster")
-        : ui("saveModePopover", "Popover");
-}
-
-function buildSaveModeRow() {
-    const mode = gData.equipmentSaveMode || "popover";
-    const row = el("div", "z4ae-check-row z4ae-savemode-row");
-    const lab = el("div", "z4ae-check-label");
-    lab.textContent = ui("saveModeLabel", "Equipment speichern über");
-    row.appendChild(lab);
-
-    const tooltip = ui("saveModeTooltip", "");
-    if (tooltip) {
-        const tip = el("div", "z4ae-check-tooltip");
-        tip.textContent = tooltip;
-        row.appendChild(tip);
-        row.addEventListener("mouseenter", function () { _showTooltip(tip); });
-        row.addEventListener("mouseleave", function () { _hideTooltip(tip); });
-    }
-
-    const trigger = el("div", "z4ae-savemode-trigger");
-    const currentLabel = el("div", "z4ae-savemode-current");
-    currentLabel.textContent = _saveModeOptionLabel(mode);
-    trigger.appendChild(currentLabel);
-    trigger.appendChild(rowIconSvg("chevronDown"));
-    trigger.addEventListener("click", function (e) {
-        e.stopPropagation();
-        gSaveModeListOpen = !gSaveModeListOpen;
-        if (gPopoverOpen) renderPopover();
-    });
-    addSounds(trigger, true);
-    row.appendChild(trigger);
-
-    if (gSaveModeListOpen) {
-        const list = el("div", "z4ae-savemode-list");
-        list.addEventListener("click", function (e) { e.stopPropagation(); });
-        SAVE_MODE_OPTIONS.forEach(function (optValue) {
-            const optRow = el("div", "z4ae-savemode-option"
-                + (optValue === mode ? " z4ae-savemode-option-selected" : ""));
-            optRow.textContent = _saveModeOptionLabel(optValue);
-            optRow.addEventListener("click", function (e) {
-                e.stopPropagation();
-                gSaveModeListOpen = false;
-                cmd("onSetEquipmentSaveMode", { mode: optValue });
-            });
-            addSounds(optRow, true);
-            list.appendChild(optRow);
-        });
-        trigger.appendChild(list);
-    }
-    return row;
-}
-
 function cmd(name, args) {
     try {
         if (model.model && model.model[name]) model.model[name](args || {});
@@ -726,11 +659,11 @@ function buildPopover() {
     content.appendChild(buildCheckboxRow(ui("alwaysSetup1Label", "Always select setup 1"), !!gData.alwaysSetup1, function () {
         cmd("onToggleAlwaysSetup1");
     }, ui("alwaysSetup1Tooltip", "Wählt nach dem Einbauen immer Setup 1 aus, statt beim zuletzt genutzten Setup zu bleiben")));
-    content.appendChild(buildSaveModeRow());
 
     // actions as menu rows - the manual Save buttons are redundant (and
-    // would fight with it) once "confirmEquipment" auto-saves every change
-    // from the native setup screen.
+    // would fight with it) once "confirmEquipment" (set in the mod's
+    // ModsSettingsAPI panel, not here) auto-saves every change from the
+    // native setup screen.
     if (gData.equipmentSaveMode !== "confirmEquipment") {
         content.appendChild(buildMenuRow(ui("save1", "Set 1 speichern"), "save", function () {
             cmd("onSaveSet", { which: 1 });

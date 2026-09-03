@@ -2,8 +2,12 @@
 """The mod's optional ModsSettingsAPI panel, and the save-file importing that
 is most of what it offers.
 
-The panel holds two things:
+The panel holds three things:
 
+* the SAVE MODE setting - popover (manual Save buttons) or confirmEquipment
+  (auto-saves from the native setup screen, see gameface.py's
+  _maybe_save_confirmed_equipment). Lives here rather than in the popover
+  itself, since it is a standing setting, not a per-vehicle action;
 * the CLEANUP action (cleanup.py) - one dropdown picking how wide to go and a
   button that runs it. Always there, because it needs nothing but saved sets;
 * the IMPORT section, two ways to seed this account's saved sets instead of
@@ -66,6 +70,10 @@ _MOD_LINKAGE = 'z4imon.auto_equipment_return.kurzdor_import'
 _VAR_KURZDOR_FILE = 'kurzdorFile'
 _VAR_OWN_FILE = 'ownAccountFile'
 _VAR_CLEANUP_SCOPE = 'cleanupScope'
+_VAR_SAVE_MODE = 'equipmentSaveMode'
+
+# Dropdown index <-> config.py value, in the order the dropdown lists them.
+_SAVE_MODE_VALUES = (config.SAVE_MODE_POPOVER, config.SAVE_MODE_CONFIRM_EQUIPMENT)
 
 _SETS_PER_KURZDOR_ENTRY = 3
 
@@ -310,7 +318,21 @@ def _handle_cleanup(scope):
 
 
 def onModSettingsChanged(linkage, newSettings):
-    pass
+    """Fires on every change in the panel, not just the save-mode dropdown -
+    unlike the other rows (kurzdor/own-account import, cleanup), which are
+    one-shot actions read only at button-click time via onButtonClicked, the
+    save mode is a standing setting: it belongs in config.py, not in
+    whatever ModsSettingsAPI happens to persist under this linkage, so every
+    change here gets written straight through."""
+    if linkage != _MOD_LINKAGE:
+        return
+    try:
+        if _VAR_SAVE_MODE in newSettings:
+            index = int(newSettings[_VAR_SAVE_MODE])
+            if 0 <= index < len(_SAVE_MODE_VALUES):
+                config.set_equipment_save_mode(_SAVE_MODE_VALUES[index])
+    except Exception:
+        LOG.exc('onModSettingsChanged failed')
 
 
 # ---------------------------------------------------------------------------
@@ -357,6 +379,20 @@ def _import_button(templates):
     return templates.createButton(text=t('importButtonText'), width=70, height=23)
 
 
+def _save_mode_row(templates):
+    """No button: unlike the rows below, changing this dropdown IS the whole
+    action, picked up by onModSettingsChanged. The default index reflects
+    config.py's current value, so a player reopening the panel sees their
+    actual mode rather than always landing back on "popover"."""
+    current = config.equipment_save_mode()
+    default_index = (_SAVE_MODE_VALUES.index(current)
+                     if current in _SAVE_MODE_VALUES else 0)
+    return templates.createDropdown(
+        t('saveModeLabel'), _VAR_SAVE_MODE,
+        [t('saveModePopover'), t('saveModeConfirmEquipment')], default_index,
+        tooltip=t('saveModeTooltip'))
+
+
 def _cleanup_row(templates):
     """The cleanup action. ModsSettingsAPI has no standalone button component -
     a button only ever rides along with a control - so the scope dropdown is
@@ -386,10 +422,10 @@ def _import_rows(templates):
 
 
 def _build_column(account_id, templates):
-    """Cleanup first: it is the everyday action, while importing is a one-off
-    most players never do - and for most of them the import section is not
-    there at all."""
-    column = [_cleanup_row(templates)]
+    """Save mode first (a standing setting), then cleanup (the everyday
+    action), then importing - a one-off most players never do, and for most
+    of them the import section is not there at all."""
+    column = [_save_mode_row(templates), _cleanup_row(templates)]
     rows = _import_rows(templates)
     if rows:
         column.append(templates.createEmpty())

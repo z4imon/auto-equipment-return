@@ -438,57 +438,6 @@
     opacity: 1;
 }
 
-/* Save-mode dropdown - same row shell as the checkbox rows above
-   (z4ae-check-row), current value + chevron on the right, opening a small
-   list underneath itself. Same open/select mechanics as the streamer
-   picker's own dropdown further below. */
-.z4ae-savemode-row {
-    justify-content: space-between;
-}
-.z4ae-savemode-trigger {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 4rem;
-    cursor: pointer;
-}
-.z4ae-savemode-trigger .z4ae-row-svg {
-    width: 14rem;
-    height: 14rem;
-}
-.z4ae-savemode-current {
-    font-size: 12rem;
-    color: rgba(238, 237, 233, 0.7);
-}
-.z4ae-savemode-trigger:hover .z4ae-savemode-current {
-    color: rgba(238, 237, 233, 1);
-}
-.z4ae-savemode-list {
-    position: absolute;
-    top: 100%;
-    margin-top: 4rem;
-    right: 0;
-    min-width: 180rem;
-    z-index: 2;
-    border-width: 2rem;
-    border-style: solid;
-    border-image: url(img://gui/maps/icons/hangar/vehicleMenu/menu_border.png) 2/2rem repeat;
-    background-color: rgba(20, 20, 23, 0.98);
-    cursor: default;
-}
-.z4ae-savemode-option {
-    padding: 6rem 14rem;
-    font-size: 12rem;
-    color: rgba(238, 237, 233, 0.85);
-    cursor: pointer;
-}
-.z4ae-savemode-option:hover {
-    background-color: rgba(237, 230, 217, 0.24);
-}
-.z4ae-savemode-option-selected {
-    color: rgba(255, 221, 153, 0.95);
-}
-
 /* saved sets (own section, native palette) */
 /* Wrapper around both set blocks - only here so the bin can be anchored to the
    bottom-right corner of the whole saved-sets area rather than to one set. */
