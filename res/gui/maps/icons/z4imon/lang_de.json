@@ -3,7 +3,7 @@
     "autoLabel": "Automatisch einbauen",
     "autoTooltip": "Baut automatisch das gespeicherte Equipment ein, wenn der Panzer ausgewählt wird. (De-)Aktiviert sich für alle Panzer.",
     "downgradeLabel": "Downgrade aktivieren",
-    "downgradeTooltip": "Nimmt ein Standard Equipment, wenn ein erbeutetes nicht zur verfügung steht.",
+    "downgradeTooltip": "Beispiel: Nimmt ein Standard Equipment, wenn ein erbeutetes nicht zur verfügung steht.",
     "alwaysSetup1Label": "Immer Set 1 auswählen",
     "alwaysSetup1Tooltip": "Wählt nach dem Einbauen immer Setup 1 aus, statt beim zuletzt genutzten Setup zu bleiben. Aus technischen Gründen führt das zu deutlich kürzeren Einbauzeiten.",
     "saveModeLabel": "Equipment speichern über",
