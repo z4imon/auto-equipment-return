@@ -412,9 +412,32 @@ function buildRecommendButton() {
     // a dimmed button's hover is for.
     btn.addEventListener("mouseenter", function () {
         cmd("onRequestPreview");
+        gRecPreviewHovering = true;
+        _positionRecPreview(btn);
+    });
+    btn.addEventListener("mouseleave", function () {
+        gRecPreviewHovering = false;
     });
     addSounds(btn, !hasSaved);
     return btn;
+}
+
+// Opens upward (z4ae-rec-popup's default) unless that would push it above
+// the window - at 1080p and below the popover sits high enough in the
+// hangar that the preview's own height, added on top, clears the top edge.
+// Re-run from renderPopover() too, not just on hover: onRequestPreview's
+// response can arrive after the popup is already showing (still "Loading…"
+// on the first measurement) and rebuilds it taller, which needs the same
+// check redone against the real content - see gRecPreviewHovering.
+let gRecPreviewHovering = false;
+
+function _positionRecPreview(btn) {
+    const preview = btn.querySelector(".z4ae-rec-popup");
+    if (!preview) return;
+    preview.classList.remove("z4ae-rec-popup-below");
+    if (preview.getBoundingClientRect().top < 0) {
+        preview.classList.add("z4ae-rec-popup-below");
+    }
 }
 
 // The hover preview. Pure CSS visibility (:hover on the button); its CONTENT
@@ -715,6 +738,10 @@ function renderPopover() {
     // Child of our button: anchored above it (bottom: 60/70rem, like the native
     // VehicleMenuWidget_menu) and it rides along when the button slides up.
     gButton.appendChild(buildPopover());
+    if (gRecPreviewHovering) {
+        const recBtn = gButton.querySelector(".z4ae-sets-recommend");
+        if (recBtn) _positionRecPreview(recBtn);
+    }
 }
 
 // Open/close like the native MenuButton: the button slides up (translateY) and
