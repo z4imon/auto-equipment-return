@@ -382,12 +382,12 @@ def _unsubscribe_from_vehicle():
 
 class AutoEquipViewModel(ViewModel):
     __slots__ = ('onJsLog', 'onToggleEnabled', 'onToggleDowngrade',
-                 'onToggleAlwaysSetup1', 'onSetEquipmentSaveMode', 'onSaveSet',
-                 'onDeleteSets', 'onSaveRecommended', 'onEquipPrimary',
+                 'onToggleAlwaysSetup1', 'onSaveSet', 'onDeleteSets',
+                 'onSaveRecommended', 'onEquipPrimary',
                  'onRequestPreview', 'onOpenStreamerList', 'onSelectStreamer')
 
     def __init__(self):
-        super(AutoEquipViewModel, self).__init__(properties=5, commands=12)
+        super(AutoEquipViewModel, self).__init__(properties=5, commands=11)
 
     def getDataJson(self):
         return self._getString(0)
@@ -430,7 +430,6 @@ class AutoEquipViewModel(ViewModel):
         self.onToggleEnabled = self._addCommand('onToggleEnabled')
         self.onToggleDowngrade = self._addCommand('onToggleDowngrade')
         self.onToggleAlwaysSetup1 = self._addCommand('onToggleAlwaysSetup1')
-        self.onSetEquipmentSaveMode = self._addCommand('onSetEquipmentSaveMode')
         self.onSaveSet = self._addCommand('onSaveSet')
         self.onDeleteSets = self._addCommand('onDeleteSets')
         self.onSaveRecommended = self._addCommand('onSaveRecommended')
@@ -470,7 +469,6 @@ class AutoEquipView(ViewComponent):
             (self.viewModel.onToggleEnabled, self._on_toggle_enabled),
             (self.viewModel.onToggleDowngrade, self._on_toggle_downgrade),
             (self.viewModel.onToggleAlwaysSetup1, self._on_toggle_always_setup1),
-            (self.viewModel.onSetEquipmentSaveMode, self._on_set_equipment_save_mode),
             (self.viewModel.onSaveSet, self._on_save_set),
             (self.viewModel.onDeleteSets, self._on_delete_sets),
             (self.viewModel.onSaveRecommended, self._on_save_recommended),
@@ -515,14 +513,6 @@ class AutoEquipView(ViewComponent):
             push_data()
         except Exception:
             LOG.exc('_on_toggle_always_setup1 failed')
-
-    def _on_set_equipment_save_mode(self, data=None):
-        try:
-            mode = (data or {}).get('mode')
-            config.set_equipment_save_mode(mode)
-            push_data()
-        except Exception:
-            LOG.exc('_on_set_equipment_save_mode failed')
 
     def _on_save_set(self, data=None):
         try:
