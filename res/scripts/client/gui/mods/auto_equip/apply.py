@@ -18,6 +18,8 @@ The steps that talk to the server are separate adisp async functions so the
 run reads top-down; everything else is plain, synchronous and testable by eye.
 """
 
+import time
+
 import BigWorld
 
 from adisp import adisp_async, adisp_process
@@ -38,6 +40,11 @@ _MAX_SUMMARY_ERRORS = 8
 # selection trigger skips while it is set.
 _busy = False
 
+# How long after _busy drops back to False a caller should still treat a run
+# as "just finished" - see is_busy_or_recent().
+_BUSY_GRACE_SECONDS = 1.5
+_busy_grace_until = 0.0
+
 # Last vehicle the selection trigger reacted to; dedupes the onChanged storms
 # a cache resync produces.
 _last_inv_id = None
@@ -48,6 +55,27 @@ _refresh_callback = None
 
 def is_busy():
     return _busy
+
+
+def _release_busy():
+    """Common tail of every _busy = True ... finally block below - also
+    starts the grace window is_busy_or_recent() reads."""
+    global _busy, _busy_grace_until
+    _busy = False
+    _busy_grace_until = time.time() + _BUSY_GRACE_SECONDS
+
+
+def is_busy_or_recent():
+    """True while a run from this module is active, or for a short grace
+    period right after one just finished.
+
+    g_currentVehicle.onChanged can fire on a callback queued just after our
+    own run's finally block already flipped _busy back to False - without
+    the grace window, the confirm-equipment auto-save (gameface.py) could
+    mistake that trailing event for something the player did by hand in the
+    native setup screen, and save back whatever we just DOWNGRADED a device
+    to instead of leaving the original saved goal alone."""
+    return _busy or _other_run_busy() or time.time() < _busy_grace_until
 
 
 def _other_run_busy():
@@ -942,7 +970,7 @@ def apply_saved_sets(veh_inv_id):
         LOG.exc('apply_saved_sets failed')
     finally:
         inventory.log_donor_search_stats('apply_saved_sets(%s)' % veh_inv_id)
-        _busy = False
+        _release_busy()
         notify_refresh()
 
 
@@ -1037,7 +1065,7 @@ def equip_primary_vehicles():
             'equip_primary_vehicles(%d vehicle(s))' % totals.processed)
         if veil_shown:
             messages.hide_waiting()
-        _busy = False
+        _release_busy()
         notify_refresh()
 
 
@@ -1105,7 +1133,7 @@ def apply_confirmed(items):
             'apply_confirmed(%d vehicle(s))' % len(permitted))
         if veil_shown:
             messages.hide_waiting()
-        _busy = False
+        _release_busy()
         notify_refresh()
 
 

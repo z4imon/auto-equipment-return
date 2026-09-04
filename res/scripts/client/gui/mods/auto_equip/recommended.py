@@ -21,13 +21,13 @@ does not cover this tank at all, because a dead button on half the garage
 serves nobody.
 
 WHICH VARIANT: bounty ("erbeutet") when one exists - the UPGRADED level 2
-variant by preference - and the standard device otherwise. Never bond
-(Improved) and never Experimental: the player asked for that explicitly, and it
-is also the only rule consistent with the rest of the mod, because taking an
-Improved device off costs 200 bonds, so a saved set that asks for one turns
-every future install run into a demand the mod cannot meet for free. Bounty
-devices demount for free under WoT Plus, which is the premise this whole mod is
-built on - upgraded ones included.
+variant by preference - then Experimental level 1, and the standard device
+last. Never bond (Improved) and never Experimental level 2/3: taking an
+Improved device off costs 200 bonds, and level 2/3 Experimental devices are
+not free to demount either, so a saved set that asks for one turns every
+future install run into a demand the mod cannot meet for free. Bounty
+devices AND Experimental level 1 both demount for free under WoT Plus, which
+is the premise this whole mod is built on - upgraded bounty included.
 
 The saved set is a GOAL, not an inventory list. A recommended device the player
 does not own yet still goes in: apply.py sources only what is free and reports
@@ -66,10 +66,15 @@ def _archetype(device):
 
 
 def _is_allowed(item):
-    """Bond (Improved) and Experimental devices are out - see the module
-    docstring. Everything else is fair game."""
+    """Bond (Improved) and Experimental level 2/3 are out - see the module
+    docstring. Experimental level 1 is fair game alongside bounty and
+    standard; only levels above 1 (not free to demount) are excluded."""
     try:
-        return not item.isDeluxe and not item.isModernized
+        if item.isDeluxe:
+            return False
+        if item.isModernized:
+            return getattr(item, 'level', 1) <= 1
+        return True
     except Exception:
         return False
 
@@ -79,7 +84,8 @@ def _rank(item):
 
     1. upgraded bounty (level 2) - "verbesserte erbeutete Ausruestung",
     2. plain bounty (level 1),
-    3. standard device.
+    3. Experimental level 1,
+    4. standard device.
 
     Owning it only breaks ties WITHIN a tier, never across one: a saved set is
     a goal, not an inventory list, so it names the level 2 device even while the
@@ -89,12 +95,15 @@ def _rank(item):
     try:
         bounty = bool(item.isTrophy)
         upgraded = bool(item.isUpgraded)
+        experimental = bool(item.isModernized)
     except Exception:
-        bounty = upgraded = False
+        bounty = upgraded = experimental = False
     if bounty:
         tier = 0 if upgraded else 1
-    else:
+    elif experimental:
         tier = 2
+    else:
+        tier = 3
     return (tier, 0 if inventory.is_owned(item) else 1)
 
 

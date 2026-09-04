@@ -2,8 +2,12 @@
 """The mod's optional ModsSettingsAPI panel, and the save-file importing that
 is most of what it offers.
 
-The panel holds two things:
+The panel holds three things:
 
+* the SAVE MODE setting - popover (manual Save buttons) or confirmEquipment
+  (auto-saves from the native setup screen, see gameface.py's
+  _maybe_save_confirmed_equipment). Lives here rather than in the popover
+  itself, since it is a standing setting, not a per-vehicle action;
 * the CLEANUP action (cleanup.py) - one dropdown picking how wide to go and a
   button that runs it. Always there, because it needs nothing but saved sets;
 * the IMPORT section, two ways to seed this account's saved sets instead of
@@ -66,6 +70,10 @@ _MOD_LINKAGE = 'z4imon.auto_equipment_return.kurzdor_import'
 _VAR_KURZDOR_FILE = 'kurzdorFile'
 _VAR_OWN_FILE = 'ownAccountFile'
 _VAR_CLEANUP_SCOPE = 'cleanupScope'
+_VAR_SAVE_MODE = 'equipmentSaveMode'
+
+# Dropdown index <-> config.py value, in the order the dropdown lists them.
+_SAVE_MODE_VALUES = (config.SAVE_MODE_POPOVER, config.SAVE_MODE_CONFIRM_EQUIPMENT)
 
 _SETS_PER_KURZDOR_ENTRY = 3
 
@@ -169,7 +177,7 @@ def _import_kurzdor_file(path):
         set1, set2 = _kurzdor_entry_sets(entry)
         if set1 is None:
             continue
-        if config.saved_sets(veh_inv_id) is not None:
+        if config.has_saved_sets(veh_inv_id):
             skipped += 1
             continue
         config.store_sets(veh_inv_id, set1=set1, set2=set2)
@@ -202,7 +210,7 @@ def _import_own_account_file(path):
         if veh_inv_id is None:
             unmatched += 1
             continue
-        if config.saved_sets(veh_inv_id) is not None:
+        if config.has_saved_sets(veh_inv_id):
             skipped += 1
             continue
         config.store_sets(veh_inv_id, set1=set1, set2=set2, veh_cd=veh_cd)
@@ -310,7 +318,32 @@ def _handle_cleanup(scope):
 
 
 def onModSettingsChanged(linkage, newSettings):
-    pass
+    """Fires on every change in the panel, not just the save-mode dropdown -
+    unlike the other rows (kurzdor/own-account import, cleanup), which are
+    one-shot actions read only at button-click time via onButtonClicked, the
+    save mode is a standing setting: it belongs in config.py, not in
+    whatever ModsSettingsAPI happens to persist under this linkage, so every
+    change here gets written straight through."""
+    if linkage != _MOD_LINKAGE:
+        return
+    try:
+        if _VAR_SAVE_MODE in newSettings:
+            index = int(newSettings[_VAR_SAVE_MODE])
+            if 0 <= index < len(_SAVE_MODE_VALUES):
+                config.set_equipment_save_mode(_SAVE_MODE_VALUES[index])
+                # The popover reads equipmentSaveMode too (to hide its own
+                # manual Save buttons in confirmEquipment mode), but it only
+                # ever repaints on its own triggers (vehicle change, its own
+                # buttons) - a change made entirely inside THIS panel would
+                # otherwise sit stale until one of those happened to fire.
+                # Imported lazily, matching this package's usual habit for a
+                # cross-module call that only fires occasionally (see
+                # apply.py's _other_run_busy) - avoids tying this module's
+                # own load to gameface's regardless of load order.
+                from . import gameface
+                gameface.push_data()
+    except Exception:
+        LOG.exc('onModSettingsChanged failed')
 
 
 # ---------------------------------------------------------------------------
@@ -357,6 +390,20 @@ def _import_button(templates):
     return templates.createButton(text=t('importButtonText'), width=70, height=23)
 
 
+def _save_mode_row(templates):
+    """No button: unlike the rows below, changing this dropdown IS the whole
+    action, picked up by onModSettingsChanged. The default index reflects
+    config.py's current value, so a player reopening the panel sees their
+    actual mode rather than always landing back on "popover"."""
+    current = config.equipment_save_mode()
+    default_index = (_SAVE_MODE_VALUES.index(current)
+                     if current in _SAVE_MODE_VALUES else 0)
+    return templates.createDropdown(
+        t('saveModeLabel'), _VAR_SAVE_MODE,
+        [t('saveModePopover'), t('saveModeConfirmEquipment')], default_index,
+        tooltip=t('saveModeTooltip'))
+
+
 def _cleanup_row(templates):
     """The cleanup action. ModsSettingsAPI has no standalone button component -
     a button only ever rides along with a control - so the scope dropdown is
@@ -386,16 +433,45 @@ def _import_rows(templates):
 
 
 def _build_column(account_id, templates):
-    """Cleanup first: it is the everyday action, while importing is a one-off
-    most players never do - and for most of them the import section is not
-    there at all."""
-    column = [_cleanup_row(templates)]
+    """Save mode first (a standing setting), then cleanup (the everyday
+    action), then importing - a one-off most players never do, and for most
+    of them the import section is not there at all."""
+    column = [_save_mode_row(templates), _cleanup_row(templates)]
     rows = _import_rows(templates)
     if rows:
         column.append(templates.createEmpty())
         column.append(templates.createLabel(t('importAccountLabel', accountId=account_id)))
         column.extend(rows)
     return column
+
+
+def _get_settings_api():
+    """(g_modsSettingsApi, templates), preferring Aslain's Mod Menu over
+    whatever else may answer to the old gui.modsSettingsApi name - (None,
+    None) if neither is installed.
+
+    Aslain's own integration guide is explicit that the two names are NOT
+    interchangeable: gui.aslainMenu is only ever Aslain's menu, while
+    gui.modsSettingsApi is whichever package happened to claim that name -
+    Aslain's own menu when nothing else did, but izeberg's original or some
+    other reimplementation when another mod (often bundled in the same pack)
+    got there first. Importing gui.modsSettingsApi directly, as this used to,
+    skips that check entirely: with Aslain's Mod Menu installed alongside
+    something else that also claims the old name, this panel could silently
+    end up wired to that OTHER implementation's tooltip renderer instead of
+    Aslain's - which is the reported symptom (this panel's {HEADER}/{BODY}
+    tooltips not showing correctly under Aslain's Mod Menu), even though
+    Aslain's own renderer documents support for exactly that markup."""
+    try:
+        from gui.aslainMenu import g_modsSettingsApi, templates
+        return g_modsSettingsApi, templates
+    except ImportError:
+        pass
+    try:
+        from gui.modsSettingsApi import g_modsSettingsApi, templates
+        return g_modsSettingsApi, templates
+    except ImportError:
+        return None, None
 
 
 def register(account_id):
@@ -405,9 +481,8 @@ def register(account_id):
     The panel used to bow out when there was nothing to import; it no longer
     can, because the cleanup action stands on its own."""
     global _kurzdor_files, _own_files, _account_id
-    try:
-        from gui.modsSettingsApi import g_modsSettingsApi, templates
-    except Exception:
+    g_modsSettingsApi, templates = _get_settings_api()
+    if g_modsSettingsApi is None:
         LOG.info('ModsSettingsAPI not installed - settings panel disabled')
         return
 
@@ -430,3 +505,25 @@ def register(account_id):
                  % (len(_kurzdor_files), len(_own_files), account_id))
     except Exception:
         LOG.exc('register failed')
+    _hook_mod_menu_opened(g_modsSettingsApi)
+
+
+def _hook_mod_menu_opened(g_modsSettingsApi):
+    """Closes our popover when Aslain's Mod Menu window opens - it renders
+    into its own separate Gameface view, invisible to our own DOM/click
+    handling (see gameface.py's signal_close_popover). onWindowOpened is
+    documented on gui.aslainMenu specifically; other implementations that may
+    answer to the old gui.modsSettingsApi name are not guaranteed to have it,
+    hence the AttributeError guard rather than assuming it works."""
+    try:
+        g_modsSettingsApi.onWindowOpened += _on_mod_menu_opened
+    except Exception:
+        LOG.info('onWindowOpened not available on this ModsSettingsAPI implementation - skipping')
+
+
+def _on_mod_menu_opened():
+    try:
+        from . import gameface
+        gameface.signal_close_popover()
+    except Exception:
+        LOG.exc('_on_mod_menu_opened failed')
