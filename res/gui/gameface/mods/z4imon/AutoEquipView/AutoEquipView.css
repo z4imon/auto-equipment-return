@@ -595,9 +595,12 @@
 }
 
 /* Hover preview of what the recommendation would store. Grows UPWARDS from the
-   button's top edge (bottom: 100%), out over the popover's own top edge - the
-   button sits near the top of the popover, so downwards would have buried the
-   saved sets the preview is meant to be compared against. */
+   button's top edge (bottom: 100%) by default, out over the popover's own top
+   edge - the button sits near the top of the popover, so downwards would have
+   buried the saved sets the preview is meant to be compared against. At lower
+   resolutions/UI scales that upward growth can push it above the window
+   entirely, so AutoEquipView.js measures it on hover (_positionRecPreview)
+   and adds z4ae-rec-popup-below to flip it downward when it would. */
 .z4ae-rec-popup {
     display: none;
     position: absolute;
@@ -617,6 +620,12 @@
 }
 .z4ae-corner-btn:hover .z4ae-rec-popup {
     display: block;
+}
+.z4ae-rec-popup-below {
+    bottom: auto;
+    top: 100%;
+    margin-bottom: 0;
+    margin-top: 4rem;
 }
 .z4ae-rec-head {
     padding: 0 14rem 6rem 14rem;
