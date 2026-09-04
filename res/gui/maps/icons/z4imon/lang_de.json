@@ -111,6 +111,7 @@
     "syncModDisplayName": "Cloud-Sync",
     "syncCheckboxLabel": "Equipment Cloud: Off",
     "syncCheckboxTooltip": "Verbindet deinen Account per Wargaming-Anmeldung (OAuth) mit dem Cloud-Sync. Nach dem Verbinden werden deine gespeicherten Ausrüstungs-Sets zusätzlich auf dem Server gespeichert und automatisch mit deinen anderen PCs synchronisiert.",
+    "syncCheckboxTooltipAslain": "{BODY}Verbindet deinen Account mit dem Cloud-Sync. Nach dem Verbinden werden deine gespeicherten Ausrüstungs-Sets zusätzlich auf dem Server gespeichert und automatisch mit deinen anderen PCs synchronisiert.{/BODY}{ATTENTION}Zum Aktivieren ist eine Anmeldung über Wargaming (OAuth) nötig.{/ATTENTION}",
     "syncModListDisableLabel": "Equipment Cloud: On",
     "syncModListDisableTooltip": "Trennt die Verbindung zum Cloud-Sync. Um dich später wieder zu verbinden, ist erneut eine Anmeldung über Wargaming (OAuth) nötig. Achtung: Beim Trennen werden alle für diesen Account auf dem Server gespeicherten Ausrüstungs-Sets gelöscht.",
     "syncModListDisableTooltipAslain": "{BODY}Trennt die Verbindung zum Cloud-Sync. Um dich später wieder zu verbinden, ist erneut eine Anmeldung über Wargaming (OAuth) nötig.{/BODY}{ATTENTION}Beim Trennen werden alle für diesen Account auf dem Server gespeicherten Ausrüstungs-Sets gelöscht.{/ATTENTION}",
