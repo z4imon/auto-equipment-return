@@ -816,14 +816,10 @@ function onModelUpdate() {
         // A bump here means Python asked us to close - e.g. Aslain's Mod Menu
         // opened in its OWN separate Gameface view, which our own DOM/click
         // listeners can never see (see gameface.py's signal_close_popover).
-        // Skip the very first data load: gLastClosePopoverToken starts null,
-        // so the initial token (0 or whatever it already is) must not read
-        // as a "close" edge.
+        // gLastClosePopoverToken is seeded from the CURRENT value at startup
+        // (see engine.whenReady below) - the null check here is just a
+        // fallback for the unlikely case that seeding didn't happen.
         const closeToken = gData.closePopoverToken;
-        // TEMP DIAGNOSTIC - remove once the "closes only on the 2nd open" bug
-        // is confirmed fixed.
-        log("closePopoverToken check: new=" + closeToken + " prev=" + gLastClosePopoverToken
-            + " gPopoverOpen=" + gPopoverOpen);
         if (gLastClosePopoverToken !== null && closeToken !== gLastClosePopoverToken && gPopoverOpen) {
             setPopoverOpen(false);
         }
@@ -886,6 +882,19 @@ engine.whenReady.then(function () {
     try {
         model.onUpdate(onModelUpdate);
         model.subscribe();
+        // Python already pushes the first real dataJson (via _activate's
+        // push_data()) before this JS module finishes loading, so
+        // model.subscribe() never fires onModelUpdate for that baseline -
+        // onModelUpdate only sees changes AFTER this point. Without seeding
+        // gLastClosePopoverToken from the CURRENT value here, the very first
+        // close signal Python sends looks indistinguishable from "no prior
+        // baseline yet" and gets swallowed by the null-guard in
+        // onModelUpdate - closing the popover only from the SECOND signal on.
+        if (model.model && model.model.dataJson) {
+            gLastDataJson = model.model.dataJson;
+            gData = parseModelJson("dataJson", {});
+            gLastClosePopoverToken = gData.closePopoverToken;
+        }
     } catch (e) { err("model subscribe failed: " + e); }
 
     try {
