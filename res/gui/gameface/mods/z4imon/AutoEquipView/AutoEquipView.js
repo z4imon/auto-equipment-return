@@ -53,6 +53,7 @@ let gStreamerList = null;         // parsed streamerListJson, or null before the
 let gLastStreamerListJson = null;
 let gStreamerIconDataUri = "";
 let gLastStreamerIconDataUri = null;
+let gLastClosePopoverToken = null; // null until the first dataJson arrives
 let gVisibleTooltip = null;   // the one check-row tooltip element currently shown, or null
 
 // Explicit JS state instead of pure CSS :hover: a tooltip sits directly above
@@ -812,6 +813,17 @@ function onModelUpdate() {
         gData = parseModelJson("dataJson", {});
         gPreviewData = null;
         gLastPreviewJson = null;
+        // A bump here means Python asked us to close - e.g. Aslain's Mod Menu
+        // opened in its OWN separate Gameface view, which our own DOM/click
+        // listeners can never see (see gameface.py's signal_close_popover).
+        // Skip the very first data load: gLastClosePopoverToken starts null,
+        // so the initial token (0 or whatever it already is) must not read
+        // as a "close" edge.
+        const closeToken = gData.closePopoverToken;
+        if (gLastClosePopoverToken !== null && closeToken !== gLastClosePopoverToken && gPopoverOpen) {
+            setPopoverOpen(false);
+        }
+        gLastClosePopoverToken = closeToken;
         if (gPopoverOpen) renderPopover();
     }
     const previewJson = m.previewJson || "";

@@ -47,6 +47,7 @@ _pending_hangar_view = None     # hangar loaded before init() ran
 _initialized = False
 _subscribed_to_vehicle = False
 _has_wot_plus = None            # None = not checked yet
+_close_popover_token = 0        # bumped by signal_close_popover(), pushed to JS
 
 # ---------------------------------------------------------------------------
 # Hook: catch the hangar as it loads
@@ -133,6 +134,7 @@ def _build_data():
         'busy': apply_engine.is_busy(),
         'selectedStreamer': config.selected_streamer_account_id(),
         'selectedStreamerName': config.selected_streamer_name(),
+        'closePopoverToken': _close_popover_token,
     }
     try:
         vehicle = g_currentVehicle.item
@@ -244,6 +246,18 @@ def push_data():
         view_model.setDataJson(json.dumps(_build_data()))
     except Exception:
         LOG.exc('push_data failed')
+
+
+def signal_close_popover():
+    """Tells the popover to close itself, for triggers our own JS can't see -
+    e.g. Aslain's Mod Menu opening, which renders into its own separate
+    Gameface view (see importer.py's onWindowOpened hookup). A counter rather
+    than a bool: the JS side only needs to notice the value CHANGED, and a
+    counter can't get "stuck" the way a bool could if two closes land before
+    the popover is next opened."""
+    global _close_popover_token
+    _close_popover_token += 1
+    push_data()
 
 
 def _push_preview(payload):
