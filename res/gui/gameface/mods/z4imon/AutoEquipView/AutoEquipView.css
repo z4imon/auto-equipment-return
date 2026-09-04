@@ -600,7 +600,11 @@
    buried the saved sets the preview is meant to be compared against. At lower
    resolutions/UI scales that upward growth can push it above the window
    entirely, so AutoEquipView.js measures it on hover (_positionRecPreview)
-   and adds z4ae-rec-popup-below to flip it downward when it would. */
+   and adds z4ae-rec-popup-below to flip it downward when it would.
+   Shown via a JS class (z4ae-rec-popup-visible), not :hover: the flip check
+   needs to measure the popup in the same handler that reveals it, and plain
+   :hover's display:none -> block switch didn't reliably land before that
+   measurement ran (see _showRecPreview in AutoEquipView.js). */
 .z4ae-rec-popup {
     display: none;
     position: absolute;
@@ -618,7 +622,7 @@
     background-color: rgba(20, 20, 23, 0.98);
     cursor: default;
 }
-.z4ae-corner-btn:hover .z4ae-rec-popup {
+.z4ae-rec-popup-visible {
     display: block;
 }
 .z4ae-rec-popup-below {
