@@ -820,6 +820,10 @@ function onModelUpdate() {
         // so the initial token (0 or whatever it already is) must not read
         // as a "close" edge.
         const closeToken = gData.closePopoverToken;
+        // TEMP DIAGNOSTIC - remove once the "closes only on the 2nd open" bug
+        // is confirmed fixed.
+        log("closePopoverToken check: new=" + closeToken + " prev=" + gLastClosePopoverToken
+            + " gPopoverOpen=" + gPopoverOpen);
         if (gLastClosePopoverToken !== null && closeToken !== gLastClosePopoverToken && gPopoverOpen) {
             setPopoverOpen(false);
         }
