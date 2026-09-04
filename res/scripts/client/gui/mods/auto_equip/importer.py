@@ -516,19 +516,12 @@ def _hook_mod_menu_opened(g_modsSettingsApi):
     answer to the old gui.modsSettingsApi name are not guaranteed to have it,
     hence the AttributeError guard rather than assuming it works."""
     try:
-        # TEMP DIAGNOSTIC - remove once the "closes only on the 2nd open" bug
-        # is confirmed fixed.
-        LOG.info('_hook_mod_menu_opened: onWindowOpened attr present=%s type=%s'
-                 % (hasattr(g_modsSettingsApi, 'onWindowOpened'),
-                    type(getattr(g_modsSettingsApi, 'onWindowOpened', None))))
         g_modsSettingsApi.onWindowOpened += _on_mod_menu_opened
-        LOG.info('_hook_mod_menu_opened: subscribed OK')
     except Exception:
-        LOG.exc('onWindowOpened hookup failed')
+        LOG.info('onWindowOpened not available on this ModsSettingsAPI implementation - skipping')
 
 
 def _on_mod_menu_opened():
-    LOG.info('_on_mod_menu_opened: FIRED')  # TEMP DIAGNOSTIC
     try:
         from . import gameface
         gameface.signal_close_popover()
