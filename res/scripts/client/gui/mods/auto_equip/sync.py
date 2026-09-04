@@ -58,8 +58,17 @@ def _write_pairing(account_id, data):
     directory = os.path.dirname(path)
     if directory and not os.path.exists(directory):
         os.makedirs(directory)
-    with open(path, 'w') as handle:
+    tmp_path = path + '.tmp'
+    with open(tmp_path, 'w') as handle:
         json.dump(data, handle)
+    # os.rename() on Windows (this mod's actual target platform) refuses to
+    # replace an existing file, and this client's Python 2 has no
+    # os.replace() - remove the old file first so a crash mid-write can
+    # never leave a torn/truncated pairing file the way writing straight to
+    # `path` would.
+    if os.path.exists(path):
+        os.remove(path)
+    os.rename(tmp_path, path)
 
 
 def _forget_pairing(account_id):
@@ -69,7 +78,12 @@ def _forget_pairing(account_id):
 
 
 def is_paired(account_id):
-    return _read_pairing(account_id) is not None
+    # Requires an actual accessToken, not just a parseable pairing file -
+    # any other parseable JSON (including {}) used to count as "paired",
+    # which could strand a player in a "connected" UI state where Disconnect
+    # was also a silent no-op (current_token() returning None either way).
+    pairing = _read_pairing(account_id)
+    return bool(pairing and pairing.get('accessToken'))
 
 
 def current_token(account_id):
@@ -123,12 +137,20 @@ def call_async(method, path, token=None, body=None, callback=None):
 
 _POLL_INTERVAL_DEFAULT = 5
 # How long a run of back-to-back connection failures (status is None - the
-# request never even reached the server) may continue before giving up.
-# Deliberately NOT a total-pairing-duration timeout: a live server that
-# keeps answering "still pending" is left alone indefinitely, since the
-# device code's own server-side expiry (-> 404 -> syncPairingExpired)
-# already covers a player who's just slow to finish the browser step.
+# request never even reached the server) - or of real server-side error
+# responses (any status the poll handler doesn't otherwise recognize) - may
+# continue before giving up. Deliberately NOT a total-pairing-duration
+# timeout: a live server that keeps answering "still pending" is left alone
+# indefinitely, since the device code's own server-side expiry (-> 404 ->
+# syncPairingExpired) already covers a player who's just slow to finish the
+# browser step.
 _POLL_FAILURE_TIMEOUT_SECONDS = 120
+
+# accountIds with a pairing flow currently in progress - guards against a
+# second Connect click starting a second, independent poll loop (each with
+# its own device code) that could finish out of order and race the first to
+# write the pairing file.
+_pairing_in_progress = set()
 
 
 def _current_realm():
@@ -143,10 +165,15 @@ def start_pairing(account_id):
     """Kicks off the device-pairing flow: asks the server for a device/user
     code pair, opens the WG login page in the system browser, then polls
     until the server confirms it (or it expires)."""
+    if account_id in _pairing_in_progress:
+        LOG.info('sync: pairing already in progress for %s, ignoring extra Connect click' % account_id)
+        return
+    _pairing_in_progress.add(account_id)
     body = {'accountId': account_id, 'realm': _current_realm()}
 
     def handle_device_response(status, data):
         if status != 200 or data is None:
+            _pairing_in_progress.discard(account_id)
             LOG.warning('sync: /auth/device failed (status=%s)' % status)
             messages.push_error(t('syncPairingFailed'))
             return
@@ -163,20 +190,48 @@ def _poll_pairing(account_id, device_code, interval_seconds):
     # enclosing-scope name (no nonlocal).
     failing_since = [None]
 
+    def _finish():
+        _pairing_in_progress.discard(account_id)
+
+    def _count_failure_and_maybe_give_up(reason):
+        if failing_since[0] is None:
+            failing_since[0] = time.time()
+            return False
+        if time.time() - failing_since[0] >= _POLL_FAILURE_TIMEOUT_SECONDS:
+            LOG.warning('sync: pairing poll gave up after %ss of %s (account=%s)'
+                        % (_POLL_FAILURE_TIMEOUT_SECONDS, reason, account_id))
+            _finish()
+            messages.push_error(t('syncPairingFailed'))
+            return True
+        return False
+
     def handle_poll_response(status, data):
         if status == 404:
+            _finish()
             messages.push_error(t('syncPairingExpired'))
             return
         if status == 403:
+            _finish()
             messages.push_error(t('syncPairingMismatch'))
             return
         if status == 200 and data and data.get('status') == 'authorized':
             if data.get('accountId') != account_id:
                 LOG.warning('sync: paired token accountId mismatch, discarding')
+                _finish()
                 messages.push_error(t('syncPairingMismatch'))
                 return
-            if not data.get('accessToken') or not data.get('realm'):
-                LOG.warning('sync: authorized poll response missing accessToken/realm, discarding')
+            if data.get('realm') != _current_realm():
+                # WoT account IDs are only unique PER REALM - a realm
+                # mismatch means this "same" accountId is actually a
+                # different player on a different server.
+                LOG.warning('sync: paired token realm mismatch (got %s, expected %s), discarding'
+                            % (data.get('realm'), _current_realm()))
+                _finish()
+                messages.push_error(t('syncPairingMismatch'))
+                return
+            if not data.get('accessToken'):
+                LOG.warning('sync: authorized poll response missing accessToken, discarding')
+                _finish()
                 messages.push_error(t('syncPairingMismatch'))
                 return
             _write_pairing(account_id, {
@@ -184,25 +239,28 @@ def _poll_pairing(account_id, device_code, interval_seconds):
                 'realm': data.get('realm'),
                 'pairedAt': time.time(),
             })
+            _finish()
             messages.push_info(t('syncPairingDone'))
             full_reconcile(account_id)
             _update_modlist_button(account_id)
             _update_sharing_button(account_id)
             return
-        if status is None:
-            # The request never reached the server at all (offline/DNS/
-            # timeout) - a real "still pending" response never lands here,
-            # so this can't cut off a slow-but-connected player.
-            if failing_since[0] is None:
-                failing_since[0] = time.time()
-            elif time.time() - failing_since[0] >= _POLL_FAILURE_TIMEOUT_SECONDS:
-                LOG.warning('sync: pairing poll gave up after %ss of connection failures (account=%s)'
-                            % (_POLL_FAILURE_TIMEOUT_SECONDS, account_id))
-                messages.push_error(t('syncPairingFailed'))
+        if status == 200 and data and data.get('status') == 'pending':
+            failing_since[0] = None  # a genuine "still pending" answer - connection is fine
+        elif status is None:
+            # The request never reached the server at all (offline/DNS/timeout).
+            if _count_failure_and_maybe_give_up('connection failures'):
                 return
         else:
-            failing_since[0] = None  # the server answered - connection is fine
-        # still pending - poll again after the server-suggested interval
+            # Any other answer (persistent 400/500, malformed 200, ...) is a
+            # real failure too - the old code treated "the server answered
+            # at all" as proof the connection was fine and reset the failure
+            # timer even on error responses, which let a persistently
+            # erroring server keep this polling forever with no feedback.
+            if _count_failure_and_maybe_give_up('error responses (last status=%s)' % status):
+                return
+        # still pending (or a not-yet-timed-out failure) - poll again after
+        # the server-suggested interval
         BigWorld.callback(interval_seconds, lambda: call_async(
             'POST', '/auth/token', body={'deviceCode': device_code}, callback=handle_poll_response))
 
@@ -210,20 +268,24 @@ def _poll_pairing(account_id, device_code, interval_seconds):
 
 
 def disconnect(account_id):
-    """Revokes this PC's token server-side, deletes ALL of this account's
-    saved equipment on the server (not just this device's data - the player
-    is warned about this in the settings-panel copy before triggering it),
-    and forgets the local pairing. The server delete must be attempted while
-    the token is still valid, so it happens before the token is revoked.
+    """Revokes ALL of this account's server-side tokens - not just this PC's
+    - and deletes all of this account's saved equipment on the server (the
+    player is warned about this in the settings-panel copy before triggering
+    it), then forgets the local pairing. The server does the token
+    revocation itself as part of the same account-delete request (see
+    equipment_store.revoke_all_for_account, called from the server's
+    delete_account handler), so another PC still paired to this account
+    can't silently re-upload its local sets afterward, and there's no
+    separate revoke step here to race or to forget to wait for.
 
     If the server-side delete fails (offline, 5xx, ...), everything stops
     right there: the token stays valid and the local pairing file stays put,
-    so the player is still "connected" and can just try again. Revoking the
-    token or forgetting the pairing anyway would stop the sets from ever
-    actually being deleted (the token was the only credential that could
-    retry it) while showing the player a clean "disconnected" state - the
-    data would sit there orphaned server-side and quietly resurrect itself
-    the next time this account paired anywhere."""
+    so the player is still "connected" and can just try again. Forgetting
+    the pairing anyway would stop the sets from ever actually being deleted
+    (the token was the only credential that could retry it) while showing
+    the player a clean "disconnected" state - the data would sit there
+    orphaned server-side and quietly resurrect itself the next time this
+    account paired anywhere."""
     token = current_token(account_id)
     if token is None:
         return
@@ -233,7 +295,6 @@ def disconnect(account_id):
             LOG.warning('sync: account data delete failed (status=%s), aborting disconnect' % status)
             messages.push_error(t('syncDisconnectFailed'))
             return
-        call_async('DELETE', '/auth/token', token=token, callback=lambda s, d: None)
         _forget_pairing(account_id)
         _update_modlist_button(account_id)
         candidacy = _streamer_candidacy.get(account_id)
