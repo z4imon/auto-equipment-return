@@ -505,3 +505,25 @@ def register(account_id):
                  % (len(_kurzdor_files), len(_own_files), account_id))
     except Exception:
         LOG.exc('register failed')
+    _hook_mod_menu_opened(g_modsSettingsApi)
+
+
+def _hook_mod_menu_opened(g_modsSettingsApi):
+    """Closes our popover when Aslain's Mod Menu window opens - it renders
+    into its own separate Gameface view, invisible to our own DOM/click
+    handling (see gameface.py's signal_close_popover). onWindowOpened is
+    documented on gui.aslainMenu specifically; other implementations that may
+    answer to the old gui.modsSettingsApi name are not guaranteed to have it,
+    hence the AttributeError guard rather than assuming it works."""
+    try:
+        g_modsSettingsApi.onWindowOpened += _on_mod_menu_opened
+    except Exception:
+        LOG.info('onWindowOpened not available on this ModsSettingsAPI implementation - skipping')
+
+
+def _on_mod_menu_opened():
+    try:
+        from . import gameface
+        gameface.signal_close_popover()
+    except Exception:
+        LOG.exc('_on_mod_menu_opened failed')
