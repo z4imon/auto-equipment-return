@@ -76,6 +76,23 @@ function _hideTooltip(tip) {
     }
 }
 
+// The rec-preview popup used pure CSS :hover for its display:none/block switch
+// (like the checkbox tooltips originally did) - but unlike a plain hover
+// popup, its visibility needs to be measured (getBoundingClientRect, see
+// _positionRecPreview) in the SAME handler that reveals it, to decide whether
+// to flip it downward. Gameface's :hover pseudo-class match doesn't reliably
+// land before the mouseenter listener runs, so measuring right after showing
+// it via :hover could still see the old display:none box (rect all zero,
+// top===0, never < 0 -> flip never triggers - the 1080p bug). Showing it via
+// an explicit JS class instead removes that race: the class is applied
+// synchronously before we ever call getBoundingClientRect.
+function _showRecPreview(preview) {
+    preview.classList.add("z4ae-rec-popup-visible");
+}
+function _hideRecPreview(preview) {
+    preview.classList.remove("z4ae-rec-popup-visible");
+}
+
 // --------------------------------------------------------------------------
 function el(tag, cls) {
     const e = document.createElement(tag);
@@ -417,6 +434,8 @@ function buildRecommendButton() {
     });
     btn.addEventListener("mouseleave", function () {
         gRecPreviewHovering = false;
+        const preview = btn.querySelector(".z4ae-rec-popup");
+        if (preview) _hideRecPreview(preview);
     });
     addSounds(btn, !hasSaved);
     return btn;
@@ -429,15 +448,29 @@ function buildRecommendButton() {
 // response can arrive after the popup is already showing (still "Loading…"
 // on the first measurement) and rebuilds it taller, which needs the same
 // check redone against the real content - see gRecPreviewHovering.
+//
+// Shows the popup itself via _showRecPreview (a JS class, not :hover) before
+// measuring: measuring at the same instant :hover would first apply raced
+// with Gameface's hover-state update and consistently read the pre-hover
+// display:none box (top===0, so the < 0 check never flipped it) - the
+// closed-source 1080p bug. Showing it explicitly first removes that race.
 let gRecPreviewHovering = false;
 
 function _positionRecPreview(btn) {
     const preview = btn.querySelector(".z4ae-rec-popup");
     if (!preview) return;
+    _showRecPreview(preview);
     preview.classList.remove("z4ae-rec-popup-below");
-    if (preview.getBoundingClientRect().top < 0) {
+    const rect = preview.getBoundingClientRect();
+    // TEMP DIAGNOSTIC - remove once the 1080p clipping bug is confirmed fixed.
+    log("_positionRecPreview: rect.top=" + rect.top + " rect.bottom=" + rect.bottom
+        + " rect.height=" + rect.height + " innerHeight=" + window.innerHeight
+        + " display=" + getComputedStyle(preview).display
+        + " classes=" + preview.className);
+    if (rect.top < 0) {
         preview.classList.add("z4ae-rec-popup-below");
     }
+    log("_positionRecPreview: after-check classes=" + preview.className);
 }
 
 // The hover preview. Pure CSS visibility (:hover on the button); its CONTENT
