@@ -461,16 +461,9 @@ function _positionRecPreview(btn) {
     if (!preview) return;
     _showRecPreview(preview);
     preview.classList.remove("z4ae-rec-popup-below");
-    const rect = preview.getBoundingClientRect();
-    // TEMP DIAGNOSTIC - remove once the 1080p clipping bug is confirmed fixed.
-    log("_positionRecPreview: rect.top=" + rect.top + " rect.bottom=" + rect.bottom
-        + " rect.height=" + rect.height + " innerHeight=" + window.innerHeight
-        + " display=" + getComputedStyle(preview).display
-        + " classes=" + preview.className);
-    if (rect.top < 0) {
+    if (preview.getBoundingClientRect().top < 0) {
         preview.classList.add("z4ae-rec-popup-below");
     }
-    log("_positionRecPreview: after-check classes=" + preview.className);
 }
 
 // The hover preview. Pure CSS visibility (:hover on the button); its CONTENT
