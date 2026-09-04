@@ -111,6 +111,7 @@
     "syncModDisplayName": "Cloud Sync",
     "syncCheckboxLabel": "Equipment Cloud: Off",
     "syncCheckboxTooltip": "Connects your account to cloud sync via a Wargaming sign-in (OAuth). Once connected, your saved equipment sets are also stored on the server and automatically synced with your other PCs.",
+    "syncCheckboxTooltipAslain": "{BODY}Connects your account to cloud sync. Once connected, your saved equipment sets are also stored on the server and automatically synced with your other PCs.{/BODY}{ATTENTION}Activating this requires signing in via Wargaming (OAuth).{/ATTENTION}",
     "syncModListDisableLabel": "Equipment Cloud: On",
     "syncModListDisableTooltip": "Disconnects from cloud sync. Reconnecting later requires signing in via Wargaming (OAuth) again. Warning: disconnecting deletes all equipment sets saved on the server for this account.",
     "syncModListDisableTooltipAslain": "{BODY}Disconnects from cloud sync. Reconnecting later requires signing in via Wargaming (OAuth) again.{/BODY}{ATTENTION}Disconnecting deletes all equipment sets saved on the server for this account.{/ATTENTION}",

@@ -98,6 +98,7 @@
   "syncModDisplayName": "Cloud Sync",
   "syncCheckboxLabel": "Oblak opreme: Isključeno",
   "syncCheckboxTooltip": "Verifies your Wargaming account once in the browser, then keeps your saved equipment in sync between every PC you play on.",
+  "syncCheckboxTooltipAslain": "{BODY}Connects your account to cloud sync. Once connected, your saved equipment sets are also stored on the server and automatically synced with your other PCs.{/BODY}{ATTENTION}Activating this requires signing in via Wargaming (OAuth).{/ATTENTION}",
   "syncPairingStarted": "Please continue in your browser.",
   "syncPairingDone": "Cloud sync connected.",
   "syncPairingFailed": "Could not reach the sync server.",

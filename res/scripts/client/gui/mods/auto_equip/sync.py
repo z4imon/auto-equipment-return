@@ -467,7 +467,9 @@ def _modlist_button_text(enabled):
         tooltip = (t('syncModListDisableTooltipAslain') if _aslain_mod_menu_installed()
                    else t('syncModListDisableTooltip'))
         return t('syncModListDisableLabel'), tooltip
-    return t('syncCheckboxLabel'), t('syncCheckboxTooltip')
+    tooltip = (t('syncCheckboxTooltipAslain') if _aslain_mod_menu_installed()
+               else t('syncCheckboxTooltip'))
+    return t('syncCheckboxLabel'), tooltip
 
 
 def _update_modlist_button(account_id):
