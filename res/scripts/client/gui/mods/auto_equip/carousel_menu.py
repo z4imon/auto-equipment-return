@@ -24,16 +24,24 @@ from adisp import adisp_async, adisp_process
 from gui.Scaleform.daapi.view.lobby.hangar.hangar_cm_handlers import VehicleContextMenuHandler
 from gui.shared.notifications import NotificationPriorityLevel
 
-from . import config, inventory, messages, rpc
+from . import cleanup, config, inventory, messages, rpc
 from . import apply as apply_engine
 from .i18n import t
 from .log import LOG
 
 _OPTION_ID = 'z4imonDemountFree'
 
-# One run at a time, and never on top of an apply run - both move the same
-# devices around.
+# One run at a time, and never on top of an apply or cleanup run - all three
+# move the same devices around.
 _busy = False
+
+
+def is_busy():
+    return _busy
+
+
+def _other_run_busy():
+    return apply_engine.is_busy() or cleanup.is_busy()
 
 
 # ---------------------------------------------------------------------------
@@ -69,9 +77,13 @@ def _demount_option(handler):
     vehicle = inventory.vehicle_by_inv_id(handler.getVehInvID())
     if vehicle is None:
         return None
+    if inventory.is_mode_only_vehicle(vehicle):
+        # Hidden, not greyed out: nothing the player could do would ever make
+        # this work, so a disabled row would only invite them to wonder why.
+        return None
     enabled = (not vehicle.isLocked
                and not _busy
-               and not apply_engine.is_busy()
+               and not _other_run_busy()
                and bool(_free_devices(vehicle)))
     return handler._makeItem(_OPTION_ID, t('cmDemountFree'), {'enabled': enabled})
 
@@ -128,7 +140,7 @@ def fini():
 @adisp_process
 def demount_free_equipment(veh_inv_id):
     global _busy
-    if _busy or apply_engine.is_busy():
+    if _busy or _other_run_busy():
         LOG.info('carousel demount: another run is busy, ignoring')
         return
     vehicle = inventory.vehicle_by_inv_id(veh_inv_id)
@@ -136,6 +148,10 @@ def demount_free_equipment(veh_inv_id):
         return
     if vehicle.isLocked:
         LOG.warning('carousel demount: %s is locked, aborting' % veh_inv_id)
+        return
+    if inventory.is_mode_only_vehicle(vehicle):
+        LOG.warning('carousel demount: %s is a mode-only loaner, aborting'
+                    % vehicle.userName)
         return
 
     _busy = True
@@ -218,8 +234,8 @@ def _clear_slot(veh_inv_id, setup_idx, slot_idx, callback=None):
                      % item.userName)
             return
 
-        code, extra = yield rpc.equip_device(vehicle.invID, 0, slot_idx,
-                                             True, not item.isRemovable)
+        code, extra = yield rpc.equip_device(
+            vehicle.invID, 0, slot_idx, True, not item.isRemovable)
         if not rpc.is_success(code):
             LOG.warning('carousel demount: %s failed (code %s, %s)'
                         % (item.userName, code, extra))

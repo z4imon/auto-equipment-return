@@ -8,6 +8,7 @@ Gui items are recreated on every cache sync, so nothing here is ever cached:
 each helper re-fetches what it needs.
 """
 
+import sys
 import time
 
 from gui.shared.gui_items import GUI_ITEM_TYPE
@@ -113,6 +114,76 @@ def all_optional_devices():
                                          REQ_CRITERIA.EMPTY)
 
 
+def devices_by_archetype(vehicle, archetype):
+    """Every optional device of one archetype ('rammer', 'stereoscope', ...)
+    that fits this vehicle.
+
+    The equipment assistant names devices by archetype rather than by intCD -
+    it says "a rammer", not "which rammer" - so this is the join between its
+    recommendation and real items. Archetype is the key the client's own
+    easy-tank-equip screen joins on; tags are checked as well because the
+    assistant's sorting code matches plain devices by tag."""
+    try:
+        criteria = (REQ_CRITERIA.OPTIONAL_DEVICE.HAS_ANY_BY_ARCHETYPE(archetype)
+                    | REQ_CRITERIA.OPTIONAL_DEVICE.IS_COMPATIBLE_WITH_VEHICLE(vehicle))
+        found = list(_items_cache().items.getItems(
+            GUI_ITEM_TYPE.OPTIONALDEVICE, criteria=criteria).itervalues())
+        if found:
+            return found
+        criteria = (REQ_CRITERIA.OPTIONAL_DEVICE.HAS_ANY_FROM_TAGS({archetype})
+                    | REQ_CRITERIA.OPTIONAL_DEVICE.IS_COMPATIBLE_WITH_VEHICLE(vehicle))
+        return list(_items_cache().items.getItems(
+            GUI_ITEM_TYPE.OPTIONALDEVICE, criteria=criteria).itervalues())
+    except Exception:
+        LOG.exc('devices_by_archetype(%s) failed' % archetype)
+        return []
+
+
+def is_owned(item):
+    """True when the account already has this device somewhere - in the depot
+    or mounted on any vehicle. Not a promise that it can be had for free; that
+    is apply.py's job."""
+    try:
+        if item.inventoryCount > 0:
+            return True
+    except Exception:
+        pass
+    for vehicle in owned_vehicles():
+        try:
+            if vehicle.optDevices.setupLayouts.containsIntCD(item.intCD):
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def recommended_presets(vehicle):
+    """The equipment assistant's two recommendations for a vehicle, as
+    (source, sourceVehicleCD, [VehicleLoadout]) pairs - or an empty tuple.
+
+    This is the WoT Plus "most used devices" data. Two independent gates sit in
+    front of it in the client: the subscription, and a prebattle-type check that
+    only passes for the random/squad context. Both are the client's own
+    business; an empty result simply means "no recommendation to show"."""
+    try:
+        return _wot_plus().getOptDeviceAssistPresets(vehicle) or ()
+    except Exception:
+        LOG.exc('recommended_presets failed')
+        return ()
+
+
+def most_popular_loadout(vehicle):
+    """The single most-used loadout, read straight from the client's local
+    config. Unlike recommended_presets() this path has no prebattle gate, so it
+    still answers when the player is in a context the assistant panel hides
+    itself in."""
+    try:
+        return _wot_plus().getMostPopularOptDevicesLoadout(vehicle)
+    except Exception:
+        LOG.exc('most_popular_loadout failed')
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Setup layouts
 # ---------------------------------------------------------------------------
@@ -179,50 +250,120 @@ def locate_device_on_vehicle(vehicle, device_cd):
 # Every lookup walks the player's whole vehicle list, so this is where a slow
 # run actually spends its time. The counters let one aggregate line be logged
 # per run instead of per-vehicle spam.
+#
+# Timed on _now() rather than time.time(): under Windows the latter resolves to
+# about 15.6 ms, so a scan that takes 3 ms reads as either 0 or 15.6 - which is
+# how these counters could report 0.000s for real work.
 # ---------------------------------------------------------------------------
 
-_donor_search_seconds = 0.0
+# time.clock() is the high-resolution wall clock on Windows in Python 2; on
+# anything else it measures CPU time, which is the wrong thing, so fall back.
+if sys.platform == 'win32':
+    _now = time.clock
+else:
+    _now = time.time
+
+_donor_search_ms = 0.0
 _donor_search_count = 0
 
 
 def reset_donor_search_stats():
-    global _donor_search_seconds, _donor_search_count
-    _donor_search_seconds = 0.0
+    global _donor_search_ms, _donor_search_count
+    _donor_search_ms = 0.0
     _donor_search_count = 0
 
 
 def log_donor_search_stats(context):
     LOG.info('%s: spent %.3fs scanning other vehicles for donors (%d lookup%s)'
-             % (context, _donor_search_seconds, _donor_search_count,
+             % (context, _donor_search_ms / 1000.0, _donor_search_count,
                 '' if _donor_search_count == 1 else 's'))
 
 
+# Vehicles the game hands out for one mode only. They arrive with equipment
+# already fitted that the server refuses to release, so every attempt to move
+# it fails - and worse, the mod would be asking to strip a loadout the player
+# never chose and cannot rebuild.
+#
+# Checked as tags on the vehicle (VEHICLE_TAGS.COMP7_BATTLES and friends), which
+# is the same test the client itself uses. Onslaught ("Ansturm") is the one that
+# actually bit; the others are the same kind of loaner and are listed so the
+# next mode's rental does not reopen this bug.
+_MODE_ONLY_FLAGS = (
+    'isOnlyForComp7Battles',        # Onslaught / Ansturm - the reported case
+    'isOnlyForClanWarsBattles',
+    'isOnlyForBattleRoyaleBattles',
+    'isOnlyForEpicBattles',
+    'isOnlyForEventBattles',
+    'isOnlyForMapsTrainingBattles',
+)
+
+
+def is_mode_only_vehicle(vehicle):
+    """True for a mode-locked loaner whose equipment must not be touched.
+
+    NOT a general "is this vehicle special" test - regular tanks taken into
+    Frontline or Onslaught are untagged and stay fully in scope, including for
+    the batch run over Primary vehicles."""
+    if vehicle is None:
+        return False
+    for flag in _MODE_ONLY_FLAGS:
+        try:
+            if getattr(vehicle, flag, False):
+                return True
+        except Exception:
+            continue
+    return False
+
+
 def find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids=None):
-    """First unlocked vehicle (not in battle, queue or a prebattle) carrying
-    the device in any of its setups. excluded_inv_ids rules out further
-    vehicles - the batch run uses it so Primary vehicles never cannibalise
-    each other's freshly installed equipment."""
-    global _donor_search_seconds, _donor_search_count
-    started = time.time()
+    """The cheapest unlocked vehicle (not in battle, queue or a prebattle)
+    carrying the device. excluded_inv_ids rules out further vehicles - the batch
+    run uses it so Primary vehicles never cannibalise each other's freshly
+    installed equipment.
+
+    CHEAPEST, not first: a donor whose ACTIVE setup holds the device costs one
+    server call, a donor that keeps it in the other setup costs three, because
+    slot indices only ever address the active setup and it has to be switched
+    there and back. Measured on the baseline run, those switches were 42 of 80
+    change_setup calls and a quarter of the whole run's server time - while only
+    16% of borrows actually needed one. With a few hundred vehicles there is
+    almost always a candidate that needs none, and looking for it costs client
+    time, which the same measurement showed to be 1.8% of the total.
+
+    Mode-locked loaners are never donors: their equipment cannot be released,
+    so picking one only produces a failed demount and a skipped install."""
+    global _donor_search_ms, _donor_search_count
+    started = _now()
     try:
         return _find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids)
     finally:
-        _donor_search_seconds += time.time() - started
+        _donor_search_ms += (_now() - started) * 1000.0
         _donor_search_count += 1
 
 
 def _find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids):
+    # A donor that needs a setup switch is kept only as a fallback: it is used
+    # when the whole list holds nobody cheaper, which is the behaviour this
+    # search always had.
+    needs_switch = None
     for vehicle in owned_vehicles():
         if vehicle.invID == exclude_inv_id:
             continue
         if excluded_inv_ids and vehicle.invID in excluded_inv_ids:
             continue
+        if is_mode_only_vehicle(vehicle):
+            continue
         try:
-            if vehicle_has_device(vehicle, device_cd) and not vehicle.isLocked:
-                return vehicle
+            if vehicle.isLocked or not vehicle_has_device(vehicle, device_cd):
+                continue
+            if vehicle_has_device(vehicle, device_cd,
+                                  setup_idx=active_setup_index(vehicle)):
+                return vehicle          # one call instead of three
+            if needs_switch is None:
+                needs_switch = vehicle
         except Exception:
             continue
-    return None
+    return needs_switch
 
 
 # ---------------------------------------------------------------------------
@@ -261,12 +402,123 @@ def standard_variant_of(vehicle, special_item):
 
 def _is_standard_variant(item, archetype, vehicle):
     try:
-        if not item.isRegular or item.descriptor.archetype != archetype:
+        return item.isRegular and _same_archetype(item, archetype, vehicle)
+    except Exception:
+        return False
+
+
+def _same_archetype(item, archetype, vehicle):
+    try:
+        if item.descriptor.archetype != archetype:
             return False
         fits, _ = item.descriptor.checkCompatibilityWithVehicle(vehicle.descriptor)
         return fits
     except Exception:
         return False
+
+
+def bounty_upgraded_variant_of(vehicle, special_item):
+    """The upgraded (level 2) bounty sibling of a Bond (Improved) device, or
+    None. Used only for equipment PULLED from a streamer's shared set - see
+    gameface.py's streamer-set transform, which never touches the streamer's
+    own stored equipment, only the copy handed to whoever pulls it. Same
+    archetype-matching approach as plain_bounty_variant_of/standard_variant_of
+    below; only the source (isDeluxe) and target (isTrophy+isUpgraded)
+    conditions differ."""
+    try:
+        archetype = special_item.descriptor.archetype
+        if not archetype:
+            return None
+        for item in all_optional_devices().itervalues():
+            if (item.isTrophy and item.isUpgraded
+                    and _same_archetype(item, archetype, vehicle)):
+                return item
+        return None
+    except Exception:
+        LOG.exc('bounty_upgraded_variant_of failed')
+        return None
+
+
+def bounty_variant_of_standard(vehicle, special_item):
+    """The plain (level 1) bounty counterpart of a STANDARD device, or None.
+    Used only for equipment PULLED from a streamer's shared set - see
+    gameface.py's streamer-set transform. Mirrors bounty_upgraded_variant_of
+    above; deliberately a separate function rather than reusing
+    plain_bounty_variant_of below, since that one is also used by the
+    unrelated "Enable downgrade" feature in apply.py and is gated to only
+    fire for an UPGRADED bounty source - loosening that gate would let a
+    plain-bounty device downgrade "sideways" into itself there."""
+    try:
+        archetype = special_item.descriptor.archetype
+        if not archetype:
+            return None
+        for item in all_optional_devices().itervalues():
+            if (item.isTrophy and item.isUpgradable
+                    and _same_archetype(item, archetype, vehicle)):
+                return item
+        return None
+    except Exception:
+        LOG.exc('bounty_variant_of_standard failed')
+        return None
+
+
+def plain_bounty_variant_of(vehicle, special_item):
+    """The non-upgraded bounty sibling of an UPGRADED bounty device, or None.
+
+    Both are trophy devices of the same archetype and differ only in level. It
+    is the LAST fallback, not the first - see downgrade_candidates_of()."""
+    try:
+        if not (special_item.isTrophy and special_item.isUpgraded):
+            return None
+        archetype = special_item.descriptor.archetype
+        if not archetype:
+            return None
+        for item in all_optional_devices().itervalues():
+            if (item.isTrophy and item.isUpgradable
+                    and _same_archetype(item, archetype, vehicle)):
+                return item
+        return None
+    except Exception:
+        LOG.exc('plain_bounty_variant_of failed')
+        return None
+
+
+def experimental_level_variant_of(vehicle, special_item, target_level):
+    """The Experimental sibling of special_item at exactly target_level, or
+    None - e.g. mapping a level 2/3 Experimental device down to level 1.
+    Same archetype-matching approach as the other *_variant_of helpers; only
+    .level (not tier/trophy/deluxe) distinguishes siblings within the
+    Experimental family. Also used only for streamer-set pulls."""
+    try:
+        archetype = special_item.descriptor.archetype
+        if not archetype:
+            return None
+        for item in all_optional_devices().itervalues():
+            if (item.isModernized and getattr(item, 'level', None) == target_level
+                    and _same_archetype(item, archetype, vehicle)):
+                return item
+        return None
+    except Exception:
+        LOG.exc('experimental_level_variant_of failed')
+        return None
+
+
+def downgrade_candidates_of(vehicle, special_item):
+    """What a special device that cannot be sourced may fall back to, STRONGEST
+    first:
+
+        upgraded bounty  ->  standard  ->  plain bounty
+
+    The standard device comes before the level 1 bounty one on purpose. It looks
+    like the bigger step down, but a standard device gets the slot's category
+    bonus and a level 1 bounty device does not, so the boosted standard device
+    is the better of the two in the slot it ends up in.
+
+    For everything but an upgraded bounty device this is exactly one entry, the
+    standard variant - the behaviour this has always had."""
+    candidates = [standard_variant_of(vehicle, special_item),
+                  plain_bounty_variant_of(vehicle, special_item)]
+    return [item for item in candidates if item is not None]
 
 
 def _credit_price(item):
