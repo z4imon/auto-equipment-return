@@ -1,0 +1,36 @@
+{
+    "notes": [
+        {
+            "version": "1.3",
+            "de": [
+                "Neu: Alle Panzer in der Playlist ausstatten",
+                "Bugfixes"
+            ],
+            "en": [
+                "New: Equip all tanks in a playlist",
+                "Bugfixes"
+            ]
+        },
+        {
+            "version": "1.2",
+            "de": [
+                "Deutliche Effizienzsteigerungen",
+                "Neu: Ausrüstungsempfehlungen",
+                "Neu: Cloud-Synchronisierung",
+                "Neu: Empfehlungen von Streamern",
+                "Neu: Eine weitere Möglichkeit, die Ausrüstung zu speichern",
+                "Neu: Schutz davor, dass Bonds-Ausrüstung eingebaut wird",
+                "Überarbeitete Optik"
+            ],
+            "en": [
+                "Massive performance increases",
+                "New: Added setup recommendations",
+                "New: Added cloud sync",
+                "New: Added streamer recommendations",
+                "New: Added a new way to save the equipment",
+                "New: Added a shield, preventing bond equipment being mounted",
+                "Visual rework"
+            ]
+        }
+    ]
+}

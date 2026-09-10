@@ -60,6 +60,10 @@ _DEFAULTS = {
 _EMPTY_ENTRY = {'set1': None, 'set2': None, 'vehicleCD': None, 'updatedAt': None, 'deleted': False}
 
 _settings = dict(_DEFAULTS)
+
+# True when load_for_account() found no config file at all - an install rather
+# than an upgrade. Read by patchnotes.py, which stays silent in that case.
+_was_fresh_install = False
 _sets = {}
 
 # Account whose file is currently loaded (0 = none yet).
@@ -158,7 +162,7 @@ def _clean_sets(raw):
 def load_for_account(account_id):
     """(Re)loads the config for `account_id`. Must only be called once that is
     a real account id - see mod_auto_equip's account-load sequence."""
-    global _account_id, _settings, _sets
+    global _account_id, _settings, _sets, _was_fresh_install
     _account_id = account_id
     path = _config_path(account_id)
     try:
@@ -175,6 +179,7 @@ def load_for_account(account_id):
                                       if data.get('equipmentSaveMode') in _SAVE_MODES
                                       else SAVE_MODE_POPOVER),
             }
+            _was_fresh_install = False
             _sets = _clean_sets(data.get('sets', {}))
             _backfill_missing_updated_at()
         else:
@@ -182,6 +187,7 @@ def load_for_account(account_id):
             # save for the same account id a chance to seed it.
             _settings = dict(_DEFAULTS)
             _sets = {}
+            _was_fresh_install = True
             _import_kurzdor_save_once()
             save()
     except Exception:
@@ -303,6 +309,11 @@ def set_selected_streamer(streamer_account_id, streamer_name=None):
                                           if _settings['selectedStreamerAccountId'] is not None else None)
     save()
     return _settings['selectedStreamerAccountId']
+
+
+def was_fresh_install():
+    """Whether this account's config was created from scratch on load."""
+    return _was_fresh_install
 
 
 def equipment_save_mode():

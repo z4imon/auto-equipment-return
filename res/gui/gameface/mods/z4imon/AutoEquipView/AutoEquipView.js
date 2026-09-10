@@ -733,6 +733,13 @@ function buildPopover() {
         content.appendChild(buildMenuRow(ui("equipPrimary", "Alle Primärpanzer ausstatten"), "star", function () {
             cmd("onEquipPrimary");
         }));
+        // Only present while a playlist is selected - Python sends the
+        // finished label, so there is nothing to decide here.
+        if (gData.playlistLabel) {
+            content.appendChild(buildMenuRow(gData.playlistLabel, "apply", function () {
+                cmd("onEquipPlaylist");
+            }));
+        }
     }
 
     pop.appendChild(content);
@@ -787,7 +794,13 @@ function setPopoverOpen(open) {
     // The native button plays this from an effect on the closed -> open edge,
     // i.e. after the menu is on screen and only when it really opened —
     // renderPopover() bailing out must not leave a sound behind.
-    if (open && !wasOpen && gPopoverOpen) snd(SND_MENU_OPEN);
+    if (open && !wasOpen && gPopoverOpen) {
+        snd(SND_MENU_OPEN);
+        // Ask Python for fresh data: the selected playlist can change without
+        // any event the mod can subscribe to, so the row for it would
+        // otherwise only appear after the next vehicle change.
+        cmd("onPopoverOpened");
+    }
 }
 
 function togglePopover() {

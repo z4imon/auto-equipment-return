@@ -64,6 +64,11 @@ def init():
     LOG.info('loaded %d string(s) for language=%s' % (len(_strings), _language))
 
 
+def language():
+    """The language code actually loaded, after the fallback was applied."""
+    return _language
+
+
 def ui_strings():
     """Flat dict pushed to the popover JS as uiJson (same shape the JS side
     already expects — only where the data now comes from changed)."""

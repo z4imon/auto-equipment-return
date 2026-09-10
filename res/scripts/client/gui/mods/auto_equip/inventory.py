@@ -580,6 +580,64 @@ def filtered_primary_vehicles():
         return []
 
 
+def selected_playlist():
+    """(title, set of vehicle intCDs) of the playlist the player has selected,
+    or (None, None) when the feature is off or nothing is selected.
+
+    The playlist lives in the client's own IVehiclePlaylistsController; its
+    'list' field holds vehicle intCDs, the same keys getVehicles() is indexed
+    by. Imported inside the function so a client without the controller costs
+    nothing at module load.
+    """
+    try:
+        from skeletons.gui.game_control import IVehiclePlaylistsController
+        controller = dependency.instance(IVehiclePlaylistsController)
+        if not controller.isEnabled:
+            return (None, None)
+        selected_id = controller.getSelectedID()
+        if not selected_id:
+            return (None, None)
+        for playlist_id, raw in controller.iterPlaylists():
+            if playlist_id != selected_id:
+                continue
+            playlist = controller.simplePlayListParser(raw)
+            if playlist is None:
+                LOG.warning('selected playlist %s could not be parsed' % selected_id)
+                return (None, None)
+            return (playlist.title, set(playlist.list))
+        LOG.warning('selected playlist %s is not in the cache' % selected_id)
+        return (None, None)
+    except Exception:
+        LOG.exc('could not read the selected playlist')
+        return (None, None)
+
+
+def playlist_vehicles():
+    """(vehicles, missing count) for the selected playlist, best tier first.
+
+    Only vehicles the player actually owns and that the current hangar allows
+    can be equipped; everything else in the playlist is counted so the summary
+    can say so instead of quietly dropping it. The carousel filter is
+    deliberately NOT applied - a playlist is an explicit choice by the player
+    and must not be narrowed by whatever the carousel happens to show.
+    """
+    title, device_cds = selected_playlist()
+    if not device_cds:
+        return ([], 0)
+    query = REQ_CRITERIA.INVENTORY | REQ_CRITERIA.IN_CD_LIST(list(device_cds))
+    query |= _eligibility_criteria(REQ_CRITERIA, hangar.active_mode())
+    try:
+        vehicles = _items_cache().items.getVehicles(query)
+        targets = sorted(vehicles.itervalues(), key=lambda v: (-v.level, v.userName))
+        missing = len(device_cds) - len(targets)
+        LOG.info('playlist "%s": %d of %d entr(ies) usable here'
+                 % (title, len(targets), len(device_cds)))
+        return (targets, max(0, missing))
+    except Exception:
+        LOG.exc('playlist_vehicles failed')
+        return ([], 0)
+
+
 def _random_battle_criteria(criteria):
     """The gate the random-battle carousel applies: everything except vehicles
     that exist only for some other mode."""

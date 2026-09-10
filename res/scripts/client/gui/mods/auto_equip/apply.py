@@ -49,8 +49,41 @@ _busy_grace_until = 0.0
 # a cache resync produces.
 _last_inv_id = None
 
+# True until the first selection has been observed since subscribing. The
+# vehicle the hangar loads with must not be mistaken for one the player just
+# picked: taking a device off it, or moving it to another slot, makes the items
+# cache resync, and that resync's onChanged is indistinguishable from a real
+# switch - so the trigger would re-mount exactly what the player just removed.
+# It happened only once per session and only to that one vehicle, because
+# afterwards _last_inv_id dedupes, and every other vehicle gets a genuine
+# selection event first.
+_awaiting_first_selection = True
+
 # Set by the UI so the popover can redraw after anything changed.
 _refresh_callback = None
+
+
+def prime_selection():
+    """Record the current selection without acting on it.
+
+    Called right after subscribing to g_currentVehicle.onChanged. The items
+    cache is not necessarily synced at that point - when no vehicle is readable
+    yet, the first event that does carry one primes instead of installing.
+    """
+    global _last_inv_id, _awaiting_first_selection
+    try:
+        vehicle = g_currentVehicle.item
+    except Exception:
+        LOG.exc('could not read the selected vehicle while priming')
+        vehicle = None
+    if vehicle is None:
+        _last_inv_id = None
+        _awaiting_first_selection = True
+        LOG.info('selection trigger armed, waiting for the first vehicle')
+        return
+    _last_inv_id = vehicle.invID
+    _awaiting_first_selection = False
+    LOG.info('selection trigger primed with the loaded vehicle (%s)' % vehicle.invID)
 
 
 def is_busy():
@@ -977,13 +1010,18 @@ def apply_saved_sets(veh_inv_id):
 def on_vehicle_changed():
     """Hooked to g_currentVehicle.onChanged: applies the saved sets whenever
     the selection moves to a different vehicle."""
-    global _last_inv_id
+    global _last_inv_id, _awaiting_first_selection
     try:
         vehicle = g_currentVehicle.item
         if vehicle is None or vehicle.invID == _last_inv_id:
             return
         _last_inv_id = vehicle.invID
         notify_refresh()
+        if _awaiting_first_selection:
+            # The first vehicle seen since subscribing is the one the hangar
+            # loaded with, not one the player moved to.
+            _awaiting_first_selection = False
+            return
         if not config.is_auto_enabled() or not config.has_saved_sets(vehicle.invID):
             return
         # Let the selection settle first, then start - unless the player
@@ -1063,6 +1101,74 @@ def equip_primary_vehicles():
     finally:
         inventory.log_donor_search_stats(
             'equip_primary_vehicles(%d vehicle(s))' % totals.processed)
+        if veil_shown:
+            messages.hide_waiting()
+        _release_busy()
+        notify_refresh()
+
+
+@adisp_process
+def equip_playlist_vehicles():
+    """Popover button: same run as equip_primary_vehicles(), but the targets
+    come from the playlist the player has selected in the hangar instead of
+    from the Primary flag plus carousel filter.
+
+    Only offered while a playlist is selected - the popover hides the row
+    otherwise, driven by the same inventory.selected_playlist() this reads, so
+    button and action can never disagree about what is selected."""
+    global _busy
+    if _busy or _other_run_busy():
+        messages.push_warning(t('alreadyRunning'))
+        return
+
+    title, _ = inventory.selected_playlist()
+    if title is None:
+        messages.push_warning(t('batchPlaylistNoTargets'))
+        return
+    owned, missing = inventory.playlist_vehicles()
+    targets = [vehicle for vehicle in owned
+               if not inventory.is_mode_only_vehicle(vehicle)]
+    if not targets:
+        messages.push_warning(t('batchPlaylistNoTargets'))
+        return
+    with_sets = [v for v in targets if config.has_saved_sets(v.invID)]
+    without_sets = len(targets) - len(with_sets)
+    if not with_sets:
+        messages.push_warning(t('batchPlaylistNoSavedSets', count=len(targets)))
+        return
+
+    # Same reason as the Primary batch: vehicles inside the batch must not
+    # donate to each other, or they just pass devices around.
+    options = RunOptions(watch_selection=False, force_downgrade=True,
+                         show_veil=False, push_summary=False,
+                         excluded_donor_inv_ids=set(v.invID for v in with_sets))
+
+    _busy = True
+    notify_refresh()
+    inventory.reset_donor_search_stats()
+    veil_shown = messages.show_waiting()
+    totals = _BatchTotals()
+    try:
+        LOG.info('equip_playlist_vehicles("%s"): %d target(s), %d entr(ies) not usable: %s'
+                 % (title, len(with_sets), missing, [v.userName for v in with_sets]))
+        for vehicle in with_sets:
+            outcome = yield apply_to_vehicle(vehicle.invID, options)
+            totals.add(vehicle, outcome)
+
+        messages.push_lines(totals.summary_lines(without_sets,
+                                                 summary_key='batchPlaylistSummary'),
+                            warning=bool(totals.errors))
+        if totals.missing_counts:
+            messages.push_error(u'<br/>'.join(totals.missing_lines()))
+        _ask_about_paid_installs(totals.confirm_runs)
+        _disable_auto_install_after_batch()
+        LOG.info('equip_playlist_vehicles: done - processed=%d installed=%d missing=%s'
+                 % (totals.processed, totals.installed, totals.missing_counts))
+    except Exception:
+        LOG.exc('equip_playlist_vehicles failed')
+    finally:
+        inventory.log_donor_search_stats(
+            'equip_playlist_vehicles(%d vehicle(s))' % totals.processed)
         if veil_shown:
             messages.hide_waiting()
         _release_busy()
@@ -1166,8 +1272,8 @@ class _BatchTotals(object):
         if outcome.needs_confirm:
             self.confirm_runs.append((vehicle.invID, outcome))
 
-    def summary_lines(self, without_sets):
-        lines = [t('batchSummary', processed=self.processed, installed=self.installed)]
+    def summary_lines(self, without_sets, summary_key='batchSummary'):
+        lines = [t(summary_key, processed=self.processed, installed=self.installed)]
         if self.donated:
             lines.append(t('batchDonated', count=self.donated))
         for special_name, standard_name in self.downgraded:

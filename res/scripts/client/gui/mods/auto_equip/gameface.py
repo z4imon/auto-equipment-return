@@ -15,7 +15,7 @@ import BigWorld
 from CurrentVehicle import g_currentVehicle
 from gui.shared.notifications import NotificationPriorityLevel
 
-from . import config, hangar, i18n, inventory, messages, recommended, save, streamers
+from . import config, hangar, i18n, inventory, messages, patchnotes, recommended, save, streamers
 from . import apply as apply_engine
 from .i18n import t
 from .log import LOG
@@ -120,6 +120,19 @@ def _set_payload(device_cds):
     return [_slot_payload(cd) for cd in device_cds]
 
 
+def _playlist_label():
+    """The row's label, or None when no playlist is selected - which is what
+    makes the popover hide the row."""
+    try:
+        title, _ = inventory.selected_playlist()
+        if not title:
+            return None
+        return t('equipPlaylist', title=title)
+    except Exception:
+        LOG.exc('could not build the playlist button label')
+        return None
+
+
 def _build_data():
     data = {
         'vehicleName': u'',
@@ -135,6 +148,10 @@ def _build_data():
         'selectedStreamer': config.selected_streamer_account_id(),
         'selectedStreamerName': config.selected_streamer_name(),
         'closePopoverToken': _close_popover_token,
+        # Finished label, not a flag plus a name: the row exists exactly when
+        # a playlist is selected, and formatting it here keeps the wording in
+        # the language files instead of teaching the JS to interpolate.
+        'playlistLabel': _playlist_label(),
     }
     try:
         vehicle = g_currentVehicle.item
@@ -328,11 +345,36 @@ _last_setup_snapshot = None   # inventory.snapshot_setups() of the last-seen veh
 _last_snapshot_inv_id = None
 
 
+def _prime_setup_snapshot():
+    """Take the comparison baseline when the hangar subscribes, not later.
+
+    Nothing else calls _maybe_save_confirmed_equipment, so without this the
+    player's FIRST edit after a game start landed in the "different vehicle"
+    branch below and only established the baseline it should have been compared
+    against - the edit itself was silently dropped. It only showed up when the
+    items cache was already synced at subscribe time; otherwise the cache-sync
+    event happened to prime first, which is why it looked intermittent.
+
+    No vehicle readable yet means the cache is still syncing: that sync event
+    primes on its own, and it is not a player edit, so skipping here is right.
+    """
+    global _last_setup_snapshot, _last_snapshot_inv_id
+    try:
+        vehicle = g_currentVehicle.item
+        if vehicle is None:
+            _last_snapshot_inv_id = None
+            _last_setup_snapshot = None
+            return
+        _last_snapshot_inv_id = vehicle.invID
+        _last_setup_snapshot = inventory.snapshot_setups(vehicle)
+        LOG.info('equipment baseline primed for the loaded vehicle (%s)' % vehicle.invID)
+    except Exception:
+        LOG.exc('could not prime the equipment baseline')
+
+
 def _maybe_save_confirmed_equipment(vehicle):
     global _last_setup_snapshot, _last_snapshot_inv_id
     try:
-        if config.equipment_save_mode() != config.SAVE_MODE_CONFIRM_EQUIPMENT:
-            return
         if vehicle is None:
             return
         snapshot = inventory.snapshot_setups(vehicle)
@@ -342,16 +384,22 @@ def _maybe_save_confirmed_equipment(vehicle):
             _last_snapshot_inv_id = vehicle.invID
             _last_setup_snapshot = snapshot
             return
-        if snapshot == _last_setup_snapshot:
-            return
-        # The installed equipment changed. Adopt it as the new baseline
-        # regardless of what happens next, so a later comparison is never
-        # made against stale data - but only actually SAVE it when nothing of
-        # ours is currently moving devices around. Our own runs (auto-install,
-        # cleanup, the carousel's demount entry) can substitute a downgraded
-        # device and must never have that substitution saved back as the
-        # goal - see apply.py's is_busy_or_recent().
+        changed = snapshot != _last_setup_snapshot
+        # Adopt the new baseline regardless of what happens next, so a later
+        # comparison is never made against stale data.
         _last_setup_snapshot = snapshot
+        if not changed:
+            return
+        # Only SAVING is gated on the mode, never the bookkeeping above: while
+        # the mode was off this returned before taking a baseline, so the first
+        # edit after switching it on had nothing to compare against and was
+        # silently swallowed - the mode appeared to work only from the second
+        # edit onwards.
+        if config.equipment_save_mode() != config.SAVE_MODE_CONFIRM_EQUIPMENT:
+            return
+        # Our own runs (auto-install, cleanup, the carousel's demount entry) can
+        # substitute a downgraded device and must never have that substitution
+        # saved back as the goal - see apply.py's is_busy_or_recent().
         if apply_engine.is_busy_or_recent():
             return
         setup_idx = inventory.active_setup_index(vehicle)
@@ -371,6 +419,11 @@ def _subscribe_to_vehicle():
         except Exception:
             pass    # not currently subscribed
         g_currentVehicle.onChanged += _on_vehicle_changed
+        # The vehicle already selected at this point must not count as a
+        # selection the player just made, and its current setup is the baseline
+        # the player's first edit has to be compared against.
+        apply_engine.prime_selection()
+        _prime_setup_snapshot()
         if not _subscribed_to_vehicle:
             LOG.info('subscribed to g_currentVehicle.onChanged')
         _subscribed_to_vehicle = True
@@ -397,11 +450,12 @@ def _unsubscribe_from_vehicle():
 class AutoEquipViewModel(ViewModel):
     __slots__ = ('onJsLog', 'onToggleEnabled', 'onToggleDowngrade',
                  'onToggleAlwaysSetup1', 'onSaveSet', 'onDeleteSets',
-                 'onSaveRecommended', 'onEquipPrimary',
+                 'onSaveRecommended', 'onEquipPrimary', 'onEquipPlaylist',
+                 'onPopoverOpened',
                  'onRequestPreview', 'onOpenStreamerList', 'onSelectStreamer')
 
     def __init__(self):
-        super(AutoEquipViewModel, self).__init__(properties=5, commands=11)
+        super(AutoEquipViewModel, self).__init__(properties=5, commands=13)
 
     def getDataJson(self):
         return self._getString(0)
@@ -448,6 +502,8 @@ class AutoEquipViewModel(ViewModel):
         self.onDeleteSets = self._addCommand('onDeleteSets')
         self.onSaveRecommended = self._addCommand('onSaveRecommended')
         self.onEquipPrimary = self._addCommand('onEquipPrimary')
+        self.onEquipPlaylist = self._addCommand('onEquipPlaylist')
+        self.onPopoverOpened = self._addCommand('onPopoverOpened')
         self.onRequestPreview = self._addCommand('onRequestPreview')
         self.onOpenStreamerList = self._addCommand('onOpenStreamerList')
         self.onSelectStreamer = self._addCommand('onSelectStreamer')
@@ -487,6 +543,8 @@ class AutoEquipView(ViewComponent):
             (self.viewModel.onDeleteSets, self._on_delete_sets),
             (self.viewModel.onSaveRecommended, self._on_save_recommended),
             (self.viewModel.onEquipPrimary, self._on_equip_primary),
+            (self.viewModel.onEquipPlaylist, self._on_equip_playlist),
+            (self.viewModel.onPopoverOpened, self._on_popover_opened),
             (self.viewModel.onRequestPreview, self._on_request_preview),
             (self.viewModel.onOpenStreamerList, self._on_open_streamer_list),
             (self.viewModel.onSelectStreamer, self._on_select_streamer),
@@ -672,6 +730,30 @@ class AutoEquipView(ViewComponent):
         except Exception:
             LOG.exc('_on_select_streamer failed')
 
+    def _on_popover_opened(self, data=None):
+        """The popover is showing: refresh what it displays.
+
+        Needed because some of it can change without any event we could hook.
+        The selected vehicle playlist is the case in point - the client's
+        VehiclePlaylistsController.setSelectedID() only writes its cache and
+        fires nothing, so picking a playlist left the popover showing data from
+        the last vehicle change. Pushing here also re-renders the popover
+        itself (its JS re-renders on a dataJson change), and an unchanged
+        payload is compared away on the JS side, so this costs nothing when
+        nothing moved.
+        """
+        try:
+            push_data()
+        except Exception:
+            LOG.exc('_on_popover_opened failed')
+
+    def _on_equip_playlist(self, data=None):
+        try:
+            apply_engine.equip_playlist_vehicles()
+            _close_popover()
+        except Exception:
+            LOG.exc('_on_equip_playlist failed')
+
     def _on_equip_primary(self, data=None):
         try:
             apply_engine.equip_primary_vehicles()
@@ -692,6 +774,10 @@ def _on_hangar_loaded(view):
     if not _initialized:
         _pending_hangar_view = view
         return
+    # Before the Plus gate on purpose: the notes are about the mod the player
+    # just installed, and a Plus check that is still pending must not swallow
+    # them. Cheap to call repeatedly - patchnotes.py is one-shot by itself.
+    patchnotes.maybe_show()
     if _has_wot_plus is True:
         _activate(view)
     else:
