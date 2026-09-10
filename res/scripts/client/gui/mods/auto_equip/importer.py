@@ -117,12 +117,23 @@ def _list_kurzdor_files():
     return sorted(paths, key=lambda path: (not _belongs_to_this_account(path), path))
 
 
+def _looks_like_account_file(path):
+    """Only <accountId>.json holds saved sets.
+
+    The pairing file <accountId>.sync.json (see sync.py) sits in the same
+    directory, and "everything that is not THIS account" counted it as another
+    account - it showed up in the dropdown labelled "<id>.sync". An account id
+    is always digits, so anything else in there is not a save.
+    """
+    return _file_label(path).isdigit()
+
+
 def _list_own_account_files():
     directory = config.account_files_dir()
     if not os.path.isdir(directory):
         return []
     return [path for path in sorted(glob.glob(os.path.join(directory, '*.json')))
-            if not _belongs_to_this_account(path)]
+            if _looks_like_account_file(path) and not _belongs_to_this_account(path)]
 
 
 # ---------------------------------------------------------------------------
