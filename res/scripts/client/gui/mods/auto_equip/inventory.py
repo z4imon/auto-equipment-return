@@ -47,8 +47,10 @@ def has_wot_plus():
 def is_free_to_demount(item):
     """True only if demounting this device is guaranteed to cost nothing.
     Removable devices (binoculars & co.) always demount for free; everything
-    else only under the WoT Plus free-demount rules (regular, trophy and
-    experimental level 1 - but NOT improved, NOT experimental level 2/3)."""
+    else only under the realm's free-demount rules. On WG that covers regular,
+    trophy and experimental level 1 - but NOT improved, NOT experimental
+    level 2/3. The 360 China Plus subscription free-demounts improved (purple)
+    as well - see improved_demount_is_free()."""
     try:
         if item.isRemovable:
             return True
@@ -56,6 +58,35 @@ def is_free_to_demount(item):
     except Exception:
         LOG.exc('is_free_to_demount failed for %s' % getattr(item, 'name', '?'))
         return False
+
+
+# Cached after the first successful probe - free-demount rules do not change
+# mid-session. Failures are NOT cached: the items cache may simply not be
+# ready yet on the first call.
+_improved_free_cache = None
+
+
+def improved_demount_is_free():
+    """True when this realm's free-demount rules cover Improved (purple)
+    devices.
+
+    WG's WoT Plus does not; the 360 China Plus subscription does (issue #33).
+    Probed against a real deluxe item so the game's own IWotPlusController
+    stays the source of truth - no hardcoded realm list that could drift with
+    a publisher rename."""
+    global _improved_free_cache
+    if _improved_free_cache is not None:
+        return _improved_free_cache
+    try:
+        for item in all_optional_devices().itervalues():
+            if getattr(item, 'isDeluxe', False):
+                _improved_free_cache = is_free_to_demount(item)
+                LOG.info('improved free-demount on this realm: %s'
+                         % _improved_free_cache)
+                return _improved_free_cache
+    except Exception:
+        LOG.exc('improved_demount_is_free probe failed')
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -419,12 +450,13 @@ def _same_archetype(item, archetype, vehicle):
 
 def bounty_upgraded_variant_of(vehicle, special_item):
     """The upgraded (level 2) bounty sibling of a Bond (Improved) device, or
-    None. Used only for equipment PULLED from a streamer's shared set - see
-    gameface.py's streamer-set transform, which never touches the streamer's
-    own stored equipment, only the copy handed to whoever pulls it. Same
-    archetype-matching approach as plain_bounty_variant_of/standard_variant_of
-    below; only the source (isDeluxe) and target (isTrophy+isUpgraded)
-    conditions differ."""
+    None.
+
+    Used for equipment PULLED from a streamer's shared set - see gameface.py's
+    streamer-set transform - and as the first downgrade fallback of an Improved
+    device (downgrade_candidates_of). Same archetype-matching approach as
+    plain_bounty_variant_of/standard_variant_of below; only the source
+    (isDeluxe) and target (isTrophy+isUpgraded) conditions differ."""
     try:
         archetype = special_item.descriptor.archetype
         if not archetype:
@@ -507,17 +539,25 @@ def downgrade_candidates_of(vehicle, special_item):
     """What a special device that cannot be sourced may fall back to, STRONGEST
     first:
 
-        upgraded bounty  ->  standard  ->  plain bounty
+        Improved (purple)  ->  upgraded bounty  ->  standard  ->  plain bounty
+        upgraded bounty    ->  standard  ->  plain bounty
+        everything else    ->  standard
 
     The standard device comes before the level 1 bounty one on purpose. It looks
     like the bigger step down, but a standard device gets the slot's category
     bonus and a level 1 bounty device does not, so the boosted standard device
     is the better of the two in the slot it ends up in.
 
-    For everything but an upgraded bounty device this is exactly one entry, the
-    standard variant - the behaviour this has always had."""
-    candidates = [standard_variant_of(vehicle, special_item),
-                  plain_bounty_variant_of(vehicle, special_item)]
+    Improved devices get the upgraded-bounty step first (issue #33): on the 360
+    China server Plus free-demounts purple, so a saved purple that cannot be
+    sourced itself should fall through to tier 2 red rather than jumping
+    straight to white. On WG, where purple cannot be demounted for free at all,
+    the same chain is still the better of the two remaining options."""
+    candidates = []
+    if getattr(special_item, 'isDeluxe', False):
+        candidates.append(bounty_upgraded_variant_of(vehicle, special_item))
+    candidates.append(standard_variant_of(vehicle, special_item))
+    candidates.append(plain_bounty_variant_of(vehicle, special_item))
     return [item for item in candidates if item is not None]
 
 

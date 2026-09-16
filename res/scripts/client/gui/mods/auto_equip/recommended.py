@@ -20,14 +20,16 @@ with a cheaper device swapped in. It is only used when the best-players data
 does not cover this tank at all, because a dead button on half the garage
 serves nobody.
 
-WHICH VARIANT: bounty ("erbeutet") when one exists - the UPGRADED level 2
-variant by preference - then Experimental level 1, and the standard device
-last. Never bond (Improved) and never Experimental level 2/3: taking an
-Improved device off costs 200 bonds, and level 2/3 Experimental devices are
-not free to demount either, so a saved set that asks for one turns every
-future install run into a demand the mod cannot meet for free. Bounty
-devices AND Experimental level 1 both demount for free under WoT Plus, which
-is the premise this whole mod is built on - upgraded bounty included.
+WHICH VARIANT: Improved (purple) when the realm free-demounts it - the 360
+China Plus subscription does - then bounty ("erbeutet") when one exists, the
+UPGRADED level 2 variant by preference, then Experimental level 1, and the
+standard device last. Never bond on realms where demounting it costs 200
+bonds (WG), and never Experimental level 2/3: taking an Improved device off
+for money, or a level 2/3 Experimental one, turns every future install run
+into a demand the mod cannot meet for free. Bounty devices, Experimental
+level 1, and Improved on the 360 China server all demount for free under
+Plus, which is the premise this whole mod is built on - upgraded bounty
+included.
 
 The saved set is a GOAL, not an inventory list. A recommended device the player
 does not own yet still goes in: apply.py sources only what is free and reports
@@ -66,12 +68,13 @@ def _archetype(device):
 
 
 def _is_allowed(item):
-    """Bond (Improved) and Experimental level 2/3 are out - see the module
-    docstring. Experimental level 1 is fair game alongside bounty and
-    standard; only levels above 1 (not free to demount) are excluded."""
+    """Bond (Improved) is out on realms where demounting it costs money (WG);
+    it is allowed when free (360 China Plus) - see the module docstring.
+    Experimental level 1 is fair game alongside bounty and standard; only
+    levels above 1 (not free to demount) are excluded."""
     try:
         if item.isDeluxe:
-            return False
+            return inventory.improved_demount_is_free()
         if item.isModernized:
             return getattr(item, 'level', 1) <= 1
         return True
@@ -82,6 +85,7 @@ def _is_allowed(item):
 def _rank(item):
     """Sort key picking the device to save for one archetype. Lower is better:
 
+    0. Improved (purple) - only when free to demount (360 China Plus),
     1. upgraded bounty (level 2) - "verbesserte erbeutete Ausruestung",
     2. plain bounty (level 1),
     3. Experimental level 1,
@@ -93,17 +97,20 @@ def _rank(item):
     free and reports the rest, and the slot upgrades itself the day the player
     upgrades the device."""
     try:
+        deluxe = bool(item.isDeluxe)
         bounty = bool(item.isTrophy)
         upgraded = bool(item.isUpgraded)
         experimental = bool(item.isModernized)
     except Exception:
-        bounty = upgraded = experimental = False
-    if bounty:
-        tier = 0 if upgraded else 1
+        deluxe = bounty = upgraded = experimental = False
+    if deluxe:
+        tier = 0
+    elif bounty:
+        tier = 1 if upgraded else 2
     elif experimental:
-        tier = 2
-    else:
         tier = 3
+    else:
+        tier = 4
     return (tier, 0 if inventory.is_owned(item) else 1)
 
 
@@ -115,7 +122,7 @@ def _device_for(vehicle, generic_device):
     candidates = [item for item in inventory.devices_by_archetype(vehicle, archetype)
                   if _is_allowed(item)]
     if not candidates:
-        LOG.warning('no bounty or standard device for archetype "%s" on %s'
+        LOG.warning('no free-demountable device for archetype "%s" on %s'
                     % (archetype, vehicle.userName))
         return None
     candidates.sort(key=_rank)
@@ -195,7 +202,7 @@ def for_vehicle(vehicle):
                 # is passed over and the next one down the ranking takes its
                 # place. Saving it with a gap would silently strip a slot.
                 LOG.info('recommendation #%d for %s skipped: %d slot(s) have no '
-                         'bounty or standard device'
+                         'free-demountable device'
                          % (rank + 1, vehicle.userName, cds.count(0)))
                 continue
             entries.append({'source': name,
