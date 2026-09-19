@@ -125,5 +125,14 @@
     "sharingModListDisableTooltip": "Stops showing your equipment to other players. Your existing cloud-synced sets are unaffected - only public visibility changes.",
     "sharingModListDisabledLabel": "Equipment Sharing (enable Cloud Sync first)",
     "sharingModListDisabledTooltip": "You've been invited to share your equipment publicly. Enable Equipment Cloud Sync first, then you can turn sharing on here.",
-    "sharingToggleFailed": "Could not change equipment sharing."
+    "sharingToggleFailed": "Could not change equipment sharing.",
+    "statsTitle": "Aprīkojuma statistika",
+    "statsTabAll": "Visa tehnika",
+    "statsTabPrimary": "Iecienītā tehnika",
+    "statsTabPlaylist": "Saraksts",
+    "statsColEquipment": "Aprīkojums",
+    "statsColSaved": "Saglabāts",
+    "statsColOwned": "Pieejams",
+    "statsVehicles": "Tehnika",
+    "statsEmpty": "Šeit nav tehnikas ar saglabātiem komplektiem."
 }

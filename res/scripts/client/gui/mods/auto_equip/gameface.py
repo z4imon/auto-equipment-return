@@ -15,7 +15,7 @@ import BigWorld
 from CurrentVehicle import g_currentVehicle
 from gui.shared.notifications import NotificationPriorityLevel
 
-from . import config, hangar, i18n, inventory, messages, patchnotes, recommended, save, streamers
+from . import config, hangar, i18n, inventory, messages, patchnotes, recommended, save, stats, streamers
 from . import apply as apply_engine
 from .i18n import t
 from .log import LOG
@@ -48,6 +48,7 @@ _initialized = False
 _subscribed_to_vehicle = False
 _has_wot_plus = None            # None = not checked yet
 _close_popover_token = 0        # bumped by signal_close_popover(), pushed to JS
+_stats_token = 0                # bumped per statistics request, see _on_open_stats
 
 # ---------------------------------------------------------------------------
 # Hook: catch the hangar as it loads
@@ -171,31 +172,28 @@ def _build_data():
 
 def _transform_streamer_device(vehicle, device_cd):
     """Maps one device from a streamer's shared set to what the PULLING
-    player should actually receive - always bounty, except Experimental:
+    player should actually receive: the tier THIS realm wants, which
+    inventory.preferred_variant_of() decides -
 
-        Standard device              -> plain bounty, falling back to
-                                         standard itself
-        Bounty (plain or upgraded)   -> unchanged (already the target tier)
-        Bond (Improved) device       -> the upgraded (level 2) Bounty sibling,
-                                         falling back to standard/plain bounty
-        Experimental level 2 or 3    -> the level 1 Experimental sibling,
-                                         falling back to standard/plain bounty
-        Experimental level 1         -> unchanged (already the target tier)
+        WG         upgraded bounty (red lvl 2)  +  Experimental level 1
+        360 China  Improved (purple)            +  Experimental level 1
+
+    so a streamer's standard, red lvl 1, red lvl 2 or purple device all resolve
+    to the one device the realm actually wants in that slot, and an Experimental
+    level 2/3 one drops to level 1.
 
     This only ever transforms the LOCAL COPY the viewer is about to
     save/apply for themselves - the streamer's own stored equipment is
     fetched read-only (streamers.fetch_vehicle_set) and never written back
     to, so nothing here can overwrite it.
 
-    The best (closest) sibling is tried first, but a Standard/Bond/
-    Experimental compactDescr is never left as the actual result on a match
-    failure - it falls through the same standard/plain-bounty chain
-    downgrade_candidates_of() already uses elsewhere, since a bounty device
-    the account never earned is no more ownable than a Bond one it never
-    bought. Only once every fallback in that chain also comes up empty (no
-    bounty tier for this archetype at all) does the original device_cd pass
-    through, on the same "a device the player can still source some other
-    way beats a hole in the loadout" logic downgrade_candidates_of
+    When the archetype has no preferred variant here - five of the twelve
+    classic archetypes have no bounty device at all, three have no Improved one
+    - the device falls through the same chain downgrade_candidates_of() uses
+    elsewhere, since a device the account never earned is no more ownable than
+    one it never bought. Only once that also comes up empty does the original
+    device_cd pass through, on the same "a device the player can still source
+    some other way beats a hole in the loadout" logic downgrade_candidates_of
     documents."""
     if not device_cd:
         return device_cd
@@ -203,19 +201,7 @@ def _transform_streamer_device(vehicle, device_cd):
         item = inventory.device_by_cd(int(device_cd))
         if item is None:
             return device_cd
-        if item.isTrophy:
-            return device_cd
-        best = None
-        if item.isDeluxe:
-            best = inventory.bounty_upgraded_variant_of(vehicle, item)
-        elif item.isModernized:
-            if getattr(item, 'level', 1) <= 1:
-                return device_cd
-            best = inventory.experimental_level_variant_of(vehicle, item, 1)
-        elif item.isRegular:
-            best = inventory.bounty_variant_of_standard(vehicle, item)
-        else:
-            return device_cd
+        best = inventory.preferred_variant_of(vehicle, item)
         if best is not None:
             return int(best.intCD)
         for fallback in inventory.downgrade_candidates_of(vehicle, item):
@@ -452,10 +438,11 @@ class AutoEquipViewModel(ViewModel):
                  'onToggleAlwaysSetup1', 'onSaveSet', 'onDeleteSets',
                  'onSaveRecommended', 'onEquipPrimary', 'onEquipPlaylist',
                  'onPopoverOpened',
-                 'onRequestPreview', 'onOpenStreamerList', 'onSelectStreamer')
+                 'onRequestPreview', 'onOpenStreamerList', 'onSelectStreamer',
+                 'onOpenStats')
 
     def __init__(self):
-        super(AutoEquipViewModel, self).__init__(properties=5, commands=13)
+        super(AutoEquipViewModel, self).__init__(properties=6, commands=14)
 
     def getDataJson(self):
         return self._getString(0)
@@ -487,6 +474,12 @@ class AutoEquipViewModel(ViewModel):
     def setStreamerIconDataUri(self, value):
         self._setString(4, value)
 
+    def getStatsJson(self):
+        return self._getString(5)
+
+    def setStatsJson(self, value):
+        self._setString(5, value)
+
     def _initialize(self):
         super(AutoEquipViewModel, self)._initialize()
         self._addStringProperty('dataJson', '{}')
@@ -494,6 +487,7 @@ class AutoEquipViewModel(ViewModel):
         self._addStringProperty('previewJson', '{}')
         self._addStringProperty('streamerListJson', '[]')
         self._addStringProperty('streamerIconDataUri', '')
+        self._addStringProperty('statsJson', '{}')
         self.onJsLog = self._addCommand('onJsLog')
         self.onToggleEnabled = self._addCommand('onToggleEnabled')
         self.onToggleDowngrade = self._addCommand('onToggleDowngrade')
@@ -507,6 +501,7 @@ class AutoEquipViewModel(ViewModel):
         self.onRequestPreview = self._addCommand('onRequestPreview')
         self.onOpenStreamerList = self._addCommand('onOpenStreamerList')
         self.onSelectStreamer = self._addCommand('onSelectStreamer')
+        self.onOpenStats = self._addCommand('onOpenStats')
         gf_mod_inject(self, _VIEW_ALIAS,
                       styles=['%s/AutoEquipView.css' % _VIEW_DIR],
                       modules=['%s/AutoEquipView.js' % _VIEW_DIR])
@@ -548,6 +543,7 @@ class AutoEquipView(ViewComponent):
             (self.viewModel.onRequestPreview, self._on_request_preview),
             (self.viewModel.onOpenStreamerList, self._on_open_streamer_list),
             (self.viewModel.onSelectStreamer, self._on_select_streamer),
+            (self.viewModel.onOpenStats, self._on_open_stats),
         )
 
     def _on_js_log(self, data=None):
@@ -729,6 +725,44 @@ class AutoEquipView(ViewComponent):
                 streamers.ensure_icon_cached(account_id, streamer_name, callback=_push_icon_data_uri)
         except Exception:
             LOG.exc('_on_select_streamer failed')
+
+    def _on_open_stats(self, data=None):
+        """The statistics panel opened, or its tab changed: answer with the
+        numbers for that scope.
+
+        Asked for on demand rather than shipped with every push_data(), because
+        the "owned" half walks every vehicle's two setups - thousands of lookups
+        in a large garage - and most refreshes happen while nobody is looking at
+        the panel. The scope arrives as a flat string: an object anywhere in a
+        command argument makes Gameface drop the whole call.
+
+        Every answer carries a fresh token, so the pushed string is never
+        byte-identical to the one already in the model. Without it, reopening
+        the panel on an unchanged garage produced the SAME json, the property
+        never counted as changed, no update reached the JS - and the panel sat
+        on its placeholder until some unrelated push happened to redraw it.
+        Same reason closePopoverToken is a counter and not a flag.
+        """
+        global _stats_token
+        try:
+            scope = str((data or {}).get('scope') or stats.ALL)
+            result = stats.collect(scope)
+            _stats_token += 1
+            result['token'] = _stats_token
+            # stats.py counts; the device's name, icon and tier overlay come
+            # from the same _slot_payload() the saved sets are drawn with, so
+            # a statistics row renders with the JS that already exists.
+            rows = []
+            for row in result.get('rows', []):
+                payload = _slot_payload(row['cd']) or {}
+                payload['saved'] = row['saved']
+                payload['owned'] = row['owned']
+                rows.append(payload)
+            result['rows'] = rows
+            if self.viewModel is not None:
+                self.viewModel.setStatsJson(json.dumps(result))
+        except Exception:
+            LOG.exc('_on_open_stats failed')
 
     def _on_popover_opened(self, data=None):
         """The popover is showing: refresh what it displays.

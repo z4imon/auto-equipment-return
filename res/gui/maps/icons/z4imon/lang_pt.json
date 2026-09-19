@@ -125,5 +125,14 @@
     "sharingModListDisableTooltip": "Stops showing your equipment to other players. Your existing cloud-synced sets are unaffected - only public visibility changes.",
     "sharingModListDisabledLabel": "Equipment Sharing (enable Cloud Sync first)",
     "sharingModListDisabledTooltip": "You've been invited to share your equipment publicly. Enable Equipment Cloud Sync first, then you can turn sharing on here.",
-    "sharingToggleFailed": "Could not change equipment sharing."
+    "sharingToggleFailed": "Could not change equipment sharing.",
+    "statsTitle": "Estatísticas de equipamento",
+    "statsTabAll": "Todos os veículos",
+    "statsTabPrimary": "Veículos favoritos",
+    "statsTabPlaylist": "Lista",
+    "statsColEquipment": "Equipamento",
+    "statsColSaved": "Guardado",
+    "statsColOwned": "Na posse",
+    "statsVehicles": "Veículos",
+    "statsEmpty": "Não há veículos com conjuntos guardados aqui."
 }

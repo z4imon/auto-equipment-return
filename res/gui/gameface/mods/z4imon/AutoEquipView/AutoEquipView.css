@@ -711,3 +711,230 @@
 .z4ae-streamer-row:hover {
     background-color: rgba(237, 230, 217, 0.24);
 }
+
+/* ==========================================================================
+   Statistics panel
+   ========================================================================== */
+
+/* Third corner button, vertically centred between recommend (top: 0) and
+   delete (bottom: 6rem). translate is safe here - the popover already uses
+   translate(-50%, -50%) elsewhere. */
+.z4ae-sets-stats {
+    top: 50%;
+    transform: translateY(-50%);
+}
+.z4ae-sets-stats-icon {
+    width: 16rem;
+    height: 16rem;
+    pointer-events: none;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: contain;
+}
+.z4ae-large .z4ae-sets-stats-icon {
+    width: 18rem;
+    height: 18rem;
+}
+
+/* Opens to the RIGHT of the button, unlike the streamer list which drops
+   below it. Same native menu art. */
+.z4ae-stats-panel {
+    position: absolute;
+    /* left:100% is the BUTTON's right edge, and the button sits 16rem inside
+       the popover (.z4ae-corner-btn right: 16rem) - .z4ae-list-content has no
+       horizontal padding, so the popover edge is exactly those 16rem further
+       right. Anything below that overlaps the popover;
+       Holds in large mode too: the corner button grows,
+       but its right offset does not. */
+    left: 100%;
+    margin-left: 16rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 260rem;
+    padding: 8rem 0;
+    z-index: 3;
+    border-width: 2rem;
+    border-style: solid;
+    border-image: url(img://gui/maps/icons/hangar/vehicleMenu/menu_border.png) 2/2rem repeat;
+    background: url(img://gui/maps/icons/hangar/vehicleMenu/menu_background.png) center no-repeat;
+    background-size: 100% 100%;
+    background-color: rgba(20, 20, 23, 0.98);
+    cursor: default;
+}
+.z4ae-stats-head {
+    padding: 0 12rem 6rem 12rem;
+    font-size: 10rem;
+    letter-spacing: 0.05em;
+    color: rgba(238, 237, 233, 0.5);
+}
+
+/* Segmented control - flex, not float: float is dropped by Cohtml. */
+.z4ae-seg {
+    display: flex;
+    margin: 0 12rem 8rem 12rem;
+    border-radius: 2rem;
+    background-color: rgba(0, 0, 0, 0.35);
+}
+.z4ae-seg-cell {
+    flex: 1 1 0;
+    padding: 4rem 2rem;
+    text-align: center;
+    font-size: 10rem;
+    color: rgba(238, 237, 233, 0.55);
+    cursor: pointer;
+    border-radius: 2rem;
+    transition: background-color 0.1s ease-out;
+    /* Translated labels are far longer than the English ones and three tabs
+       share ~79rem each. Without nowrap they WRAP, which makes tabs of
+       different heights and a ragged bar; clipping with an ellipsis is the
+       lesser evil and keeps the bar one line in every language. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.z4ae-seg-cell:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: rgba(238, 237, 233, 0.85);
+}
+.z4ae-seg-cell-active {
+    background-color: rgba(255, 255, 255, 0.14);
+    color: rgb(238, 237, 233);
+    cursor: default;
+}
+
+/* Only the rows scroll. The panel itself must NOT, or the title, the tabs and
+   the vehicle count scroll away with them - and a row clipped mid-icon at the
+   bottom edge reads as a rendering fault rather than as "there is more". Same
+   max-height + overflow-y pair the streamer list uses. */
+/* Only the rows scroll - title, tabs, column heads and the vehicle count stay
+   put. overflow:hidden, NOT auto: scrollTop is driven from JS, because Cohtml
+   scrolls the wheel the wrong way round and draws no scrollbar of its own
+   (see makeStatsScroller). */
+.z4ae-stats-wrap {
+    display: flex;
+    flex-direction: row;
+    max-height: 260rem;
+    padding-left: 12rem;
+}
+.z4ae-stats-body {
+    flex: 1 1 0;
+    width: 0;
+    overflow: hidden;
+}
+.z4ae-stats-body::-webkit-scrollbar { width: 0; height: 0; }
+/* The rows carry the left padding via the wrap, so drop their own. */
+.z4ae-stats-body .z4ae-stats-row { padding-left: 0; }
+
+/* WoT's scrollbar (post_battle lib.css VerticalBar/Thumb); images set from JS.
+   Same structure and metrics as InformativeBattleResults' damage log. */
+.z4ae-scroll {
+    position: relative;
+    flex: 0 0 9rem;
+    width: 9rem;
+    margin: 0 4rem;
+    display: flex;
+    flex-direction: column;
+}
+.z4ae-scroll-track { flex: 1 1 0; min-height: 0; position: relative; cursor: pointer; }
+.z4ae-scroll-rail { position: absolute; left: 4rem; width: 1rem; opacity: 0.5; pointer-events: none; }
+.z4ae-scroll-rail-top { top: 0; background-position: top; }
+.z4ae-scroll-rail-bottom { bottom: 0; background-position: bottom; }
+.z4ae-scroll:hover .z4ae-scroll-rail { opacity: 1; }
+.z4ae-scroll-button {
+    flex: 0 0 8rem; width: 11rem; height: 8rem; opacity: 0.2; cursor: pointer;
+    background-size: contain; background-repeat: no-repeat; background-position: top left;
+}
+.z4ae-scroll-up { transform: translateX(-1rem); }
+.z4ae-scroll-down { transform: translateX(-1rem) rotate(180deg); }
+.z4ae-scroll:hover .z4ae-scroll-button { opacity: 1; }
+.z4ae-scroll .z4ae-scroll-disabled { opacity: 0.2; cursor: default; }
+.z4ae-thumb { position: absolute; left: 3rem; width: 3rem; z-index: 1; cursor: pointer; }
+.z4ae-thumb-background, .z4ae-thumb-border,
+.z4ae-thumb-inner, .z4ae-thumb-grip { position: absolute; pointer-events: none; }
+.z4ae-thumb-background, .z4ae-thumb-border { top: 0; right: 0; bottom: 0; left: 0; }
+.z4ae-thumb-background {
+    opacity: 0.6; background-position: center;
+    background-size: 100% auto; background-repeat: repeat-y;
+}
+.z4ae-thumb-active .z4ae-thumb-background { opacity: 1; }
+.z4ae-thumb-border {
+    border-style: solid; border-width: 0;
+    border-image-slice: 4; border-image-width: 4rem; border-image-repeat: round;
+}
+.z4ae-thumb-inner { top: 1rem; right: 1rem; bottom: 1rem; left: 1rem; background-color: #000; opacity: 0.2; }
+.z4ae-thumb-active .z4ae-thumb-inner { border: 1rem solid #000; background-color: transparent; }
+.z4ae-thumb-grip {
+    top: 50%; left: 2rem; right: 2rem; height: 8rem; transform: translateY(-50%);
+    background-position: top center; background-size: 5rem 9rem; background-repeat: no-repeat;
+}
+.z4ae-stats-row {
+    display: flex;
+    align-items: center;
+    padding: 3rem 12rem;
+}
+.z4ae-stats-header {
+    font-size: 9rem;
+    letter-spacing: 0.04em;
+    color: rgba(238, 237, 233, 0.4);
+    padding-bottom: 4rem;
+    /* The header sits OUTSIDE the scroll viewport, so it has to reserve the
+       same right-hand strip the scrollbar takes from the rows below it
+       (9rem bar + 2x4rem margin), or "Owned" stands 5rem off its numbers. */
+    padding-right: 17rem;
+}
+.z4ae-stats-cell-name {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+}
+.z4ae-stats-cell-num {
+    /* 46rem fitted "Saved"/"Owned" but not their translations - Greek
+       "Αποθηκευμένα" and Turkish "Sahip olunan" need ~56rem. The numbers
+       themselves are two or three digits, so the width is set by the header
+       labels; the device name column absorbs the difference and already
+       ellipsises. */
+    flex: 0 0 58rem;
+    text-align: right;
+    font-size: 11rem;
+    color: rgba(238, 237, 233, 0.85);
+    white-space: nowrap;
+}
+.z4ae-stats-icon {
+    position: relative;
+    flex: 0 0 22rem;
+    width: 22rem;
+    height: 22rem;
+    margin-right: 6rem;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: contain;
+}
+.z4ae-stats-icon-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: contain;
+}
+.z4ae-stats-name {
+    font-size: 11rem;
+    color: rgba(238, 237, 233, 0.85);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* The one thing the table exists to show: saved outruns owned. */
+.z4ae-stats-row-short .z4ae-stats-name,
+.z4ae-stats-row-short .z4ae-stats-cell-num {
+    color: rgb(222, 138, 96);
+}
+.z4ae-stats-empty,
+.z4ae-stats-foot {
+    padding: 6rem 12rem 0 12rem;
+    font-size: 10rem;
+    color: rgba(238, 237, 233, 0.45);
+}

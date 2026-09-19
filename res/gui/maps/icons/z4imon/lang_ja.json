@@ -125,5 +125,14 @@
     "sharingModListDisableTooltip": "Stops showing your equipment to other players. Your existing cloud-synced sets are unaffected - only public visibility changes.",
     "sharingModListDisabledLabel": "Equipment Sharing (enable Cloud Sync first)",
     "sharingModListDisabledTooltip": "You've been invited to share your equipment publicly. Enable Equipment Cloud Sync first, then you can turn sharing on here.",
-    "sharingToggleFailed": "Could not change equipment sharing."
+    "sharingToggleFailed": "Could not change equipment sharing.",
+    "statsTitle": "装備の統計",
+    "statsTabAll": "すべての車輌",
+    "statsTabPrimary": "お気に入り車輌",
+    "statsTabPlaylist": "プレイリスト",
+    "statsColEquipment": "装備",
+    "statsColSaved": "保存済み",
+    "statsColOwned": "所持数",
+    "statsVehicles": "車輌",
+    "statsEmpty": "保存されたセットを持つ車輌がありません。"
 }
