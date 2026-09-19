@@ -53,6 +53,10 @@ let gStreamerList = null;         // parsed streamerListJson, or null before the
 let gLastStreamerListJson = null;
 let gStreamerIconDataUri = "";
 let gLastStreamerIconDataUri = null;
+let gStatsOpen = false;
+let gStatsScope = "all";          // which tab of the statistics panel is active
+let gStatsData = null;            // parsed statsJson, or null before the first open
+let gLastStatsJson = null;
 let gLastClosePopoverToken = null; // null until the first dataJson arrives
 let gVisibleTooltip = null;   // the one check-row tooltip element currently shown, or null
 
@@ -148,6 +152,10 @@ const SVGNS = "http://www.w3.org/2000/svg";
 
 const BUTTON_ICON = "img://gui/maps/icons/z4imon/AutoEquipmentIcon.png";
 const BIN_ICON = "img://gui/maps/icons/z4imon/bin.png";
+// Deliberately NOT called TankStats.png: TankStatsInHangar ships a file
+// under that exact name, and two mods must never publish the same
+// resource path or one of them is dropped wholesale.
+const STATS_ICON = "img://gui/maps/icons/z4imon/statistics.png";
 
 // Native button art ships in per-resolution folders; same mapping the native
 // MenuButton (and the Tank-Stats button) uses.
@@ -659,6 +667,378 @@ function buildCheckboxRow(label, checked, onClick, tooltip) {
     return row;
 }
 
+// --------------------------------------------------------------------------
+// Statistics panel
+// --------------------------------------------------------------------------
+// Answers "is my depot deep enough for what I saved?". Rows are this realm's
+// target tier (red lvl 2 on WG, purple on 360 China); Python decides which,
+// this side only draws what it is handed.
+
+// Which scopes exist depends on the data: the playlist tab is offered exactly
+// while a playlist is selected, the same condition that shows the playlist
+// equip row (gData.playlistLabel).
+function statsScopes() {
+    const scopes = [
+        { id: "all", label: ui("statsTabAll", "All tanks") },
+        { id: "primary", label: ui("statsTabPrimary", "Primary vehicles") },
+    ];
+    if (gData.playlistLabel) {
+        scopes.push({ id: "playlist", label: ui("statsTabPlaylist", "Playlist") });
+    }
+    return scopes;
+}
+
+function requestStats(scope) {
+    // Reset the change-detector so a repeat request that happens to return
+    // byte-identical numbers still re-renders instead of being skipped as
+    // "unchanged" - same reason setStreamerListOpen does it.
+    gLastStatsJson = null;
+    cmd("onOpenStats", { scope: scope });
+}
+
+function setStatsOpen(open) {
+    gStatsOpen = open;
+    if (open) {
+        // A scope that no longer exists (playlist deselected while the panel
+        // was closed) would ask Python for numbers the tab bar cannot show.
+        const ids = statsScopes().map(function (s) { return s.id; });
+        if (ids.indexOf(gStatsScope) === -1) gStatsScope = "all";
+        requestStats(gStatsScope);
+    } else {
+        gStatsData = null;
+        gLastStatsJson = null;
+    }
+    renderPopover();
+}
+
+// N-way segmented control. Deliberately not the Challenges mod's switch: that
+// one is a boolean toggle, and the tab count here is 2 or 3 depending on the
+// playlist. One code path for both beats two near-identical ones.
+function buildSegments(segments, activeId, onPick) {
+    const bar = el("div", "z4ae-seg");
+    segments.forEach(function (seg) {
+        const isActive = seg.id === activeId;
+        const cell = el("div", "z4ae-seg-cell" + (isActive ? " z4ae-seg-cell-active" : ""));
+        cell.textContent = seg.label;
+        if (!isActive) {
+            cell.addEventListener("click", function (e) {
+                e.stopPropagation();
+                onPick(seg.id);
+            });
+            addSounds(cell, true);
+        }
+        bar.appendChild(cell);
+    });
+    return bar;
+}
+
+// `highlight` false draws the numbers plain even when saved outruns owned.
+// Across the WHOLE garage a shortage is the normal state - sets get saved for
+// far more tanks than are ever equipped at once - so colouring it there would
+// mark everything and mean nothing. In the two batch scopes the same shortage
+// is a real prediction: that run will not be able to finish.
+function buildStatsRow(row, highlight) {
+    const short = highlight && (row.saved || 0) > (row.owned || 0);
+    const line = el("div", "z4ae-stats-row" + (short ? " z4ae-stats-row-short" : ""));
+
+    const nameCell = el("div", "z4ae-stats-cell-name");
+    const icon = el("div", "z4ae-stats-icon");
+    if (row.icon) bg(icon, DEVICE_ICON(row.icon));
+    if (row.overlay) {
+        const ov = el("div", "z4ae-stats-icon-overlay");
+        bg(ov, OVERLAY_ICON(row.overlay));
+        icon.appendChild(ov);
+    }
+    nameCell.appendChild(icon);
+    const label = el("div", "z4ae-stats-name");
+    label.textContent = row.name || "?";
+    nameCell.appendChild(label);
+    line.appendChild(nameCell);
+
+    const saved = el("div", "z4ae-stats-cell-num");
+    saved.textContent = String(row.saved || 0);
+    line.appendChild(saved);
+
+    const owned = el("div", "z4ae-stats-cell-num");
+    owned.textContent = String(row.owned || 0);
+    line.appendChild(owned);
+
+    return line;
+}
+
+// Scrolling, ported from InformativeBattleResults' damage log (render.js
+// makeScroller). Three things Cohtml gets wrong for a plain overflow:auto box,
+// all of which that mod already solved:
+//   * it reports wheel deltaY with the OPPOSITE sign of a browser, so native
+//     scrolling runs backwards,
+//   * setting scrollTop inside the wheel handler loses against the engine's
+//     own scrolling - it has to happen a tick later,
+//   * it draws no scrollbar at all.
+// So the viewport is overflow:hidden and scrollTop is driven by hand.
+const STATS_WHEEL_STEP = 3 * 28;   // three rows
+const STATS_THUMB_MIN = 20;
+const UI_KIT = "coui://gui/maps/icons/ui_kit/";
+
+function remPx() {
+    const size = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    return size > 0 ? size : 1;
+}
+
+function setClass(node, name, on) {
+    const names = (node.className || "").split(" ").filter(function (n) {
+        return n && n !== name;
+    });
+    if (on) names.push(name);
+    node.className = names.join(" ");
+}
+
+function isInside(node, root) {
+    while (node) {
+        if (node === root) return true;
+        node = node.parentNode;
+    }
+    return false;
+}
+
+// WoT's own scrollbar art (post_battle lib.css VerticalBar + Thumb), rebuilt
+// from gui/maps/icons/ui_kit. WG's hashed class names change per patch, so the
+// structure and its images are copied rather than reused.
+function buildStatsScrollbar(bar) {
+    const up = el("div", "z4ae-scroll-button z4ae-scroll-up");
+    const track = el("div", "z4ae-scroll-track");
+    const railTop = el("div", "z4ae-scroll-rail z4ae-scroll-rail-top");
+    const railBottom = el("div", "z4ae-scroll-rail z4ae-scroll-rail-bottom");
+    const thumb = el("div", "z4ae-thumb");
+    const down = el("div", "z4ae-scroll-button z4ae-scroll-down");
+    const parts = ["z4ae-thumb-background", "z4ae-thumb-border",
+                   "z4ae-thumb-inner", "z4ae-thumb-grip"].map(function (name) {
+        const part = el("div", name);
+        thumb.appendChild(part);
+        return part;
+    });
+    parts[0].style.backgroundImage = "url(" + UI_KIT + "scroll/vertical_texture.png)";
+    parts[1].style.borderImageSource = "url(" + UI_KIT + "scroll/border.png)";
+    parts[3].style.backgroundImage = "url(" + UI_KIT + "scroll/vertical_grip.png)";
+    [railTop, railBottom].forEach(function (rail) {
+        rail.style.backgroundImage = "url(" + UI_KIT + "patterns/dark_noise.png)";
+    });
+    [up, down].forEach(function (button) {
+        button.style.backgroundImage = "url(" + UI_KIT + "scroll/vertical_arrow.png)";
+    });
+    track.appendChild(railTop);
+    track.appendChild(thumb);
+    track.appendChild(railBottom);
+    bar.appendChild(up);
+    bar.appendChild(track);
+    bar.appendChild(down);
+    return { up: up, track: track, thumb: thumb,
+             railTop: railTop, railBottom: railBottom, down: down };
+}
+
+function makeStatsScroller(viewport, wrap, bar) {
+    const parts = buildStatsScrollbar(bar);
+    const track = parts.track, thumb = parts.thumb;
+
+    function max() {
+        return Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+    }
+
+    function update() {
+        const limit = max();
+        bar.style.visibility = limit > 0 ? "visible" : "hidden";
+        if (limit <= 0) return;
+        const trackHeight = track.clientHeight || viewport.clientHeight;
+        const thumbHeight = Math.max(STATS_THUMB_MIN,
+            Math.floor(trackHeight * viewport.clientHeight / viewport.scrollHeight));
+        const thumbTop = Math.round((trackHeight - thumbHeight)
+                                    * Math.min(1, viewport.scrollTop / limit));
+        thumb.style.height = thumbHeight + "px";
+        thumb.style.top = thumbTop + "px";
+        parts.railTop.style.height = Math.max(0, thumbTop) + "px";
+        parts.railBottom.style.height =
+            Math.max(0, trackHeight - thumbTop - thumbHeight) + "px";
+        setClass(parts.up, "z4ae-scroll-disabled", viewport.scrollTop <= 0);
+        setClass(parts.down, "z4ae-scroll-disabled", viewport.scrollTop >= limit - 1);
+    }
+
+    function scrollTo(target) {
+        viewport.scrollTop = Math.min(max(), Math.max(0, target));
+        update();
+    }
+
+    wrap.addEventListener("wheel", function (event) {
+        // Nothing to scroll: leave the wheel to whatever is underneath.
+        if (max() <= 0) return;
+        const before = viewport.scrollTop;
+        // Inverted on purpose - see the comment above the constants.
+        const down = (event.deltaY || 0) < 0;
+        if (event.preventDefault) event.preventDefault();
+        if (event.stopPropagation) event.stopPropagation();
+        setTimeout(function () {
+            scrollTo(before + (down ? 1 : -1) * STATS_WHEEL_STEP * remPx());
+        }, 0);
+    });
+    viewport.addEventListener("scroll", update);
+
+    [[parts.up, -1], [parts.down, 1]].forEach(function (pair) {
+        pair[0].addEventListener("mousedown", function (event) {
+            event.stopPropagation();
+            scrollTo(viewport.scrollTop + pair[1] * STATS_WHEEL_STEP * remPx());
+        });
+    });
+
+    let dragFrom = null;
+    thumb.addEventListener("mousedown", function (event) {
+        dragFrom = { y: event.clientY, top: viewport.scrollTop };
+        setClass(thumb, "z4ae-thumb-active", true);
+        if (event.preventDefault) event.preventDefault();
+        if (event.stopPropagation) event.stopPropagation();
+    });
+    track.addEventListener("mousedown", function (event) {
+        if (isInside(event.target, thumb)) return;
+        const box = thumb.getBoundingClientRect();
+        scrollTo(viewport.scrollTop
+                 + viewport.clientHeight * (event.clientY < box.top ? -1 : 1));
+    });
+    document.addEventListener("mousemove", function (event) {
+        if (!dragFrom) return;
+        const trackHeight = track.clientHeight || viewport.clientHeight;
+        const span = Math.max(1, trackHeight - (thumb.clientHeight || STATS_THUMB_MIN));
+        scrollTo(dragFrom.top + (event.clientY - dragFrom.y) * (max() / span));
+    });
+    document.addEventListener("mouseup", function () {
+        dragFrom = null;
+        setClass(thumb, "z4ae-thumb-active", false);
+    });
+    return { update: update, scrollTo: scrollTo };
+}
+
+// The hangar document is full-screen but hands the top strip to the LOBBY
+// HEADER, which is a separate Cohtml document composited on top of it and
+// declared as `--external-padding-top` on the hangar root (82rem as of 2.4).
+// Anything of ours reaching into that strip still renders, but the header
+// swallows every click - no z-index can help, because CSS stacking works per
+// document. At 1920x1080 the vertically centred panel put its tab bar exactly
+// there, so the tabs were visible and dead. Push the whole panel down until it
+// clears the strip.
+const HEADER_STRIP_FALLBACK_REM = 82;
+
+function headerStripPx() {
+    // The client SETS this at runtime (setProperty("--external-padding-top",
+    // `${n}rem`)), so it is not a constant and must be read live rather than
+    // hardcoded - it varies with the media class. Custom properties inherit,
+    // so whichever element the client set it on, documentElement or body
+    // resolves it; the fallback only covers it having gone away entirely.
+    const roots = [document.documentElement, document.body];
+    for (let i = 0; i < roots.length; i++) {
+        if (!roots[i]) continue;
+        try {
+            const rem = parseFloat(getComputedStyle(roots[i])
+                .getPropertyValue("--external-padding-top"));
+            if (rem > 0) return rem * remPx();
+        } catch (e) {
+            // try the next one
+        }
+    }
+    warn("--external-padding-top unreadable, using "
+         + HEADER_STRIP_FALLBACK_REM + "rem");
+    return HEADER_STRIP_FALLBACK_REM * remPx();
+}
+
+function clampStatsPanel(panel) {
+    try {
+        panel.style.marginTop = "0px";
+        const limit = headerStripPx();
+        const top = panel.getBoundingClientRect().top;
+        if (top < limit) {
+            panel.style.marginTop = Math.ceil(limit - top) + "px";
+        }
+    } catch (e) {
+        err("clampStatsPanel failed: " + e);
+    }
+}
+
+function buildStatsPanel() {
+    const panel = el("div", "z4ae-stats-panel");
+    panel.addEventListener("click", function (e) { e.stopPropagation(); });
+
+    const head = el("div", "z4ae-stats-head");
+    head.textContent = String(ui("statsTitle", "Equipment Statistics")).toUpperCase();
+    panel.appendChild(head);
+
+    panel.appendChild(buildSegments(statsScopes(), gStatsScope, function (id) {
+        gStatsScope = id;
+        requestStats(id);
+        renderPopover();
+    }));
+
+    const header = el("div", "z4ae-stats-row z4ae-stats-header");
+    const hName = el("div", "z4ae-stats-cell-name");
+    hName.textContent = ui("statsColEquipment", "Equipment");
+    header.appendChild(hName);
+    const hSaved = el("div", "z4ae-stats-cell-num");
+    hSaved.textContent = ui("statsColSaved", "Saved");
+    header.appendChild(hSaved);
+    const hOwned = el("div", "z4ae-stats-cell-num");
+    hOwned.textContent = ui("statsColOwned", "Owned");
+    header.appendChild(hOwned);
+    panel.appendChild(header);
+
+    const rows = (gStatsData && gStatsData.rows) || [];
+    if (!rows.length) {
+        const empty = el("div", "z4ae-stats-empty");
+        // No data yet and no data at all look the same in the DOM, so say the
+        // honest thing while the round trip is still in flight.
+        empty.textContent = gStatsData
+            ? ui("statsEmpty", "No vehicles with saved sets here.")
+            : "…";
+        panel.appendChild(empty);
+    } else {
+        const highlight = gStatsScope !== "all";
+        // viewport (overflow:hidden, scrolled by hand) + its own scrollbar,
+        // side by side - the damage log's layout.
+        const wrap = el("div", "z4ae-stats-wrap");
+        const body = el("div", "z4ae-stats-body");
+        rows.forEach(function (row) { body.appendChild(buildStatsRow(row, highlight)); });
+        const bar = el("div", "z4ae-scroll");
+        wrap.appendChild(body);
+        wrap.appendChild(bar);
+        panel.appendChild(wrap);
+        // Sizes are only measurable once the panel is in the document, so the
+        // thumb is laid out on the next tick rather than here.
+        const scroller = makeStatsScroller(body, wrap, bar);
+        setTimeout(function () { scroller.update(); }, 0);
+    }
+
+    if (gStatsData) {
+        const foot = el("div", "z4ae-stats-foot");
+        foot.textContent = ui("statsVehicles", "Vehicles") + ": "
+                         + String(gStatsData.vehicleCount || 0);
+        panel.appendChild(foot);
+    }
+    // Both need the panel to be laid out first, and the clamp has to run for
+    // EVERY state - the placeholder panel is shorter, so it lands somewhere
+    // else than the filled one and needs measuring in its own right.
+    setTimeout(function () { clampStatsPanel(panel); }, 0);
+    return panel;
+}
+
+// Third corner button, vertically between recommend (top) and delete
+// (bottom) - see AutoEquipView.css.
+function buildStatsButton() {
+    const btn = el("div", "z4ae-corner-btn z4ae-sets-stats");
+    const icon = el("div", "z4ae-corner-icon z4ae-sets-stats-icon");
+    bg(icon, STATS_ICON);
+    btn.appendChild(icon);
+    btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        setStatsOpen(!gStatsOpen);
+    });
+    if (gStatsOpen) btn.appendChild(buildStatsPanel());
+    addSounds(btn, true);
+    return btn;
+}
+
 function cmd(name, args) {
     try {
         if (model.model && model.model[name]) model.model[name](args || {});
@@ -689,6 +1069,7 @@ function buildPopover() {
     }
     sets.appendChild(buildRecommendButton());
     sets.appendChild(buildStreamerTrigger());
+    sets.appendChild(buildStatsButton());
     sets.appendChild(buildDeleteButton());
     content.appendChild(sets);
 
@@ -785,6 +1166,12 @@ function setPopoverOpen(open) {
     gPopoverOpen = open;
     if (!open) {
         gStreamerListOpen = false;
+        // Drop the statistics with the popover: the numbers are a snapshot of
+        // the garage, and showing a stale one on the next open would be worse
+        // than the brief "..." while the fresh request comes back.
+        gStatsOpen = false;
+        gStatsData = null;
+        gLastStatsJson = null;
     }
     if (gButton && gButton.classList) {
         gButton.classList.toggle("z4ae-menu-btn-opened", open);
@@ -857,6 +1244,12 @@ function onModelUpdate() {
         gLastStreamerIconDataUri = streamerIconDataUri;
         gStreamerIconDataUri = streamerIconDataUri;
         if (gPopoverOpen) renderPopover();
+    }
+    const statsJson = m.statsJson || "";
+    if (statsJson !== gLastStatsJson) {
+        gLastStatsJson = statsJson;
+        gStatsData = parseModelJson("statsJson", null);
+        if (gPopoverOpen && gStatsOpen) renderPopover();
     }
 }
 

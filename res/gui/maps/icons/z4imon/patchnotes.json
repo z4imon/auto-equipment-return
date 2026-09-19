@@ -1,6 +1,17 @@
 {
     "notes": [
         {
+            "version": "1.4",
+            "de": [
+                "Neu: Statistik-Seite",
+                "Bugfixes"
+            ],
+            "en": [
+                "New: Statistics page",
+                "Bugfixes"
+            ]
+        },
+        {
             "version": "1.3",
             "de": [
                 "Neu: Alle Panzer in der Playlist ausstatten",

@@ -125,5 +125,14 @@
     "sharingModListDisableTooltip": "Stops showing your equipment to other players. Your existing cloud-synced sets are unaffected - only public visibility changes.",
     "sharingModListDisabledLabel": "Equipment Sharing (enable Cloud Sync first)",
     "sharingModListDisabledTooltip": "You've been invited to share your equipment publicly. Enable Equipment Cloud Sync first, then you can turn sharing on here.",
-    "sharingToggleFailed": "Could not change equipment sharing."
+    "sharingToggleFailed": "Could not change equipment sharing.",
+    "statsTitle": "Utstyrsstatistikk",
+    "statsTabAll": "Alle kjøretøy",
+    "statsTabPrimary": "Favorittkjøretøy",
+    "statsTabPlaylist": "Liste",
+    "statsColEquipment": "Utstyr",
+    "statsColSaved": "Lagret",
+    "statsColOwned": "Eid",
+    "statsVehicles": "Kjøretøy",
+    "statsEmpty": "Ingen kjøretøy med lagrede sett her."
 }

@@ -15,7 +15,7 @@ import BigWorld
 from CurrentVehicle import g_currentVehicle
 from gui.shared.notifications import NotificationPriorityLevel
 
-from . import config, hangar, i18n, inventory, messages, patchnotes, recommended, save, streamers
+from . import config, hangar, i18n, inventory, messages, patchnotes, recommended, save, stats, streamers
 from . import apply as apply_engine
 from .i18n import t
 from .log import LOG
@@ -48,6 +48,7 @@ _initialized = False
 _subscribed_to_vehicle = False
 _has_wot_plus = None            # None = not checked yet
 _close_popover_token = 0        # bumped by signal_close_popover(), pushed to JS
+_stats_token = 0                # bumped per statistics request, see _on_open_stats
 
 # ---------------------------------------------------------------------------
 # Hook: catch the hangar as it loads
@@ -437,10 +438,11 @@ class AutoEquipViewModel(ViewModel):
                  'onToggleAlwaysSetup1', 'onSaveSet', 'onDeleteSets',
                  'onSaveRecommended', 'onEquipPrimary', 'onEquipPlaylist',
                  'onPopoverOpened',
-                 'onRequestPreview', 'onOpenStreamerList', 'onSelectStreamer')
+                 'onRequestPreview', 'onOpenStreamerList', 'onSelectStreamer',
+                 'onOpenStats')
 
     def __init__(self):
-        super(AutoEquipViewModel, self).__init__(properties=5, commands=13)
+        super(AutoEquipViewModel, self).__init__(properties=6, commands=14)
 
     def getDataJson(self):
         return self._getString(0)
@@ -472,6 +474,12 @@ class AutoEquipViewModel(ViewModel):
     def setStreamerIconDataUri(self, value):
         self._setString(4, value)
 
+    def getStatsJson(self):
+        return self._getString(5)
+
+    def setStatsJson(self, value):
+        self._setString(5, value)
+
     def _initialize(self):
         super(AutoEquipViewModel, self)._initialize()
         self._addStringProperty('dataJson', '{}')
@@ -479,6 +487,7 @@ class AutoEquipViewModel(ViewModel):
         self._addStringProperty('previewJson', '{}')
         self._addStringProperty('streamerListJson', '[]')
         self._addStringProperty('streamerIconDataUri', '')
+        self._addStringProperty('statsJson', '{}')
         self.onJsLog = self._addCommand('onJsLog')
         self.onToggleEnabled = self._addCommand('onToggleEnabled')
         self.onToggleDowngrade = self._addCommand('onToggleDowngrade')
@@ -492,6 +501,7 @@ class AutoEquipViewModel(ViewModel):
         self.onRequestPreview = self._addCommand('onRequestPreview')
         self.onOpenStreamerList = self._addCommand('onOpenStreamerList')
         self.onSelectStreamer = self._addCommand('onSelectStreamer')
+        self.onOpenStats = self._addCommand('onOpenStats')
         gf_mod_inject(self, _VIEW_ALIAS,
                       styles=['%s/AutoEquipView.css' % _VIEW_DIR],
                       modules=['%s/AutoEquipView.js' % _VIEW_DIR])
@@ -533,6 +543,7 @@ class AutoEquipView(ViewComponent):
             (self.viewModel.onRequestPreview, self._on_request_preview),
             (self.viewModel.onOpenStreamerList, self._on_open_streamer_list),
             (self.viewModel.onSelectStreamer, self._on_select_streamer),
+            (self.viewModel.onOpenStats, self._on_open_stats),
         )
 
     def _on_js_log(self, data=None):
@@ -714,6 +725,44 @@ class AutoEquipView(ViewComponent):
                 streamers.ensure_icon_cached(account_id, streamer_name, callback=_push_icon_data_uri)
         except Exception:
             LOG.exc('_on_select_streamer failed')
+
+    def _on_open_stats(self, data=None):
+        """The statistics panel opened, or its tab changed: answer with the
+        numbers for that scope.
+
+        Asked for on demand rather than shipped with every push_data(), because
+        the "owned" half walks every vehicle's two setups - thousands of lookups
+        in a large garage - and most refreshes happen while nobody is looking at
+        the panel. The scope arrives as a flat string: an object anywhere in a
+        command argument makes Gameface drop the whole call.
+
+        Every answer carries a fresh token, so the pushed string is never
+        byte-identical to the one already in the model. Without it, reopening
+        the panel on an unchanged garage produced the SAME json, the property
+        never counted as changed, no update reached the JS - and the panel sat
+        on its placeholder until some unrelated push happened to redraw it.
+        Same reason closePopoverToken is a counter and not a flag.
+        """
+        global _stats_token
+        try:
+            scope = str((data or {}).get('scope') or stats.ALL)
+            result = stats.collect(scope)
+            _stats_token += 1
+            result['token'] = _stats_token
+            # stats.py counts; the device's name, icon and tier overlay come
+            # from the same _slot_payload() the saved sets are drawn with, so
+            # a statistics row renders with the JS that already exists.
+            rows = []
+            for row in result.get('rows', []):
+                payload = _slot_payload(row['cd']) or {}
+                payload['saved'] = row['saved']
+                payload['owned'] = row['owned']
+                rows.append(payload)
+            result['rows'] = rows
+            if self.viewModel is not None:
+                self.viewModel.setStatsJson(json.dumps(result))
+        except Exception:
+            LOG.exc('_on_open_stats failed')
 
     def _on_popover_opened(self, data=None):
         """The popover is showing: refresh what it displays.

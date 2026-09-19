@@ -582,6 +582,30 @@ def preferred_variant_of(vehicle, item):
         return None
 
 
+def target_devices():
+    """Every device of this realm's target tier, garage-wide and sorted by
+    name - red lvl 2 on WG, Improved (purple) on 360 China. One per archetype,
+    since the game gives each archetype exactly one device per tier.
+
+    Same realm decision as preferred_variant_of(), but deliberately NOT that
+    function: it answers per vehicle, because matching an archetype includes
+    checkCompatibilityWithVehicle(). A garage-wide table has no vehicle to ask
+    about, so it enumerates the tier directly."""
+    try:
+        want_deluxe = improved_demount_is_free()
+        found = []
+        for item in all_optional_devices().itervalues():
+            if want_deluxe:
+                if item.isDeluxe:
+                    found.append(item)
+            elif item.isTrophy and item.isUpgraded:
+                found.append(item)
+        return sorted(found, key=lambda i: i.userName)
+    except Exception:
+        LOG.exc('target_devices failed')
+        return []
+
+
 def downgrade_candidates_of(vehicle, special_item):
     """What a special device that cannot be sourced may fall back to, STRONGEST
     first:
@@ -668,13 +692,44 @@ _CAROUSEL_FILTERS = {
 }
 
 
+def _selected_playlist_criteria():
+    """Narrows a query to the selected vehicle playlist, or restricts nothing
+    when none is selected.
+
+    The client's carousel filter does NOT cover playlists - they live in their
+    own IVehiclePlaylistsController and no filter/criteria code references it -
+    but selecting one is what actually changes which vehicles the carousel
+    SHOWS. So the batch run has to intersect with it separately, or it reaches
+    vehicles the hangar is not displaying.
+
+    An empty playlist restricts nothing rather than everything: a query that
+    matched no vehicle would be reported as "no targets", which says the player
+    has nothing to equip when the truth is that the filter is meaningless."""
+    try:
+        _title, device_cds = selected_playlist()
+        if not device_cds:
+            return REQ_CRITERIA.EMPTY
+        return REQ_CRITERIA.IN_CD_LIST(list(device_cds))
+    except Exception:
+        LOG.exc('_selected_playlist_criteria failed')
+        return REQ_CRITERIA.EMPTY
+
+
 def filtered_primary_vehicles():
     """Favourite vehicles of the hangar the player is currently in that pass
-    that hangar's carousel filter, best tier first."""
+    that hangar's carousel filter AND the selected vehicle playlist, best tier
+    first.
+
+    The playlist is a second, independent narrowing on top of the carousel
+    filter - see _selected_playlist_criteria(). Deliberately different from
+    playlist_vehicles(), which backs the separate "equip <playlist>" button and
+    ignores the carousel filter: that button IS the explicit choice of a
+    playlist, while this one means "everything I am looking at right now"."""
     mode = hangar.active_mode()
     query = REQ_CRITERIA.INVENTORY | REQ_CRITERIA.VEHICLE.FAVORITE
     query |= _eligibility_criteria(REQ_CRITERIA, mode)
     query |= _carousel_filter_criteria(mode)
+    query |= _selected_playlist_criteria()
     try:
         vehicles = _items_cache().items.getVehicles(query)
         targets = sorted(vehicles.itervalues(), key=lambda v: (-v.level, v.userName))

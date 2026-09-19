@@ -125,5 +125,14 @@
     "sharingModListDisableTooltip": "Zeigt dein Equipment anderen Spielern nicht mehr. Deine gespeicherten Sets per Cloud-Sync bleiben unverändert - nur die öffentliche Sichtbarkeit ändert sich.",
     "sharingModListDisabledLabel": "Equipment-Teilen (zuerst Cloud-Sync aktivieren)",
     "sharingModListDisabledTooltip": "Du wurdest eingeladen, dein Equipment öffentlich zu teilen. Aktiviere zuerst Equipment Cloud Sync, danach kannst du das Teilen hier aktivieren.",
-    "sharingToggleFailed": "Equipment-Teilen konnte nicht geändert werden."
+    "sharingToggleFailed": "Equipment-Teilen konnte nicht geändert werden.",
+    "statsTitle": "Ausrüstungsstatistik",
+    "statsTabAll": "Alle Panzer",
+    "statsTabPrimary": "Primärpanzer",
+    "statsTabPlaylist": "Playlist",
+    "statsColEquipment": "Ausrüstung",
+    "statsColSaved": "Gespeichert",
+    "statsColOwned": "Im Besitz",
+    "statsVehicles": "Fahrzeuge",
+    "statsEmpty": "Keine Fahrzeuge mit gespeicherten Sets."
 }
