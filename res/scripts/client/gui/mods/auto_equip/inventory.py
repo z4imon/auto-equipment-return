@@ -60,9 +60,9 @@ def is_free_to_demount(item):
         return False
 
 
-# Cached after the first successful probe - free-demount rules do not change
-# mid-session. Failures are NOT cached: the items cache may simply not be
-# ready yet on the first call.
+# Cached after the first MEANINGFUL probe - free-demount rules do not change
+# mid-session. Nothing else is cached: neither an unready items cache nor an
+# unsynced subscription says anything about the realm.
 _improved_free_cache = None
 
 
@@ -73,10 +73,20 @@ def improved_demount_is_free():
     WG's WoT Plus does not; the 360 China Plus subscription does (issue #33).
     Probed against a real deluxe item so the game's own IWotPlusController
     stays the source of truth - no hardcoded realm list that could drift with
-    a publisher rename."""
+    a publisher rename.
+
+    Only asked while the subscription is known to be live. isFreeToDemount()
+    ends in hasSubscription(), so without it EVERY device answers "not free" -
+    an answer about the account, not about the realm. Caching that would pin a
+    360 China player to WG rules for the rest of the session, and the hangar
+    does call in early: gameface._check_wot_plus() polls for precisely this
+    reason, because subscription data is regularly not synced yet when the
+    hangar first loads."""
     global _improved_free_cache
     if _improved_free_cache is not None:
         return _improved_free_cache
+    if not has_wot_plus():
+        return False
     try:
         for item in all_optional_devices().itervalues():
             if getattr(item, 'isDeluxe', False):
@@ -471,36 +481,20 @@ def bounty_upgraded_variant_of(vehicle, special_item):
         return None
 
 
-def bounty_variant_of_standard(vehicle, special_item):
-    """The plain (level 1) bounty counterpart of a STANDARD device, or None.
-    Used only for equipment PULLED from a streamer's shared set - see
-    gameface.py's streamer-set transform. Mirrors bounty_upgraded_variant_of
-    above; deliberately a separate function rather than reusing
-    plain_bounty_variant_of below, since that one is also used by the
-    unrelated "Enable downgrade" feature in apply.py and is gated to only
-    fire for an UPGRADED bounty source - loosening that gate would let a
-    plain-bounty device downgrade "sideways" into itself there."""
-    try:
-        archetype = special_item.descriptor.archetype
-        if not archetype:
-            return None
-        for item in all_optional_devices().itervalues():
-            if (item.isTrophy and item.isUpgradable
-                    and _same_archetype(item, archetype, vehicle)):
-                return item
-        return None
-    except Exception:
-        LOG.exc('bounty_variant_of_standard failed')
-        return None
-
-
 def plain_bounty_variant_of(vehicle, special_item):
-    """The non-upgraded bounty sibling of an UPGRADED bounty device, or None.
+    """The level 1 bounty device of this archetype, for a source that outranks
+    it - an UPGRADED bounty or an Improved (Bond) device - or None.
 
-    Both are trophy devices of the same archetype and differ only in level. It
-    is the LAST fallback, not the first - see downgrade_candidates_of()."""
+    It is the LAST fallback, not the first - see downgrade_candidates_of().
+
+    The source gate is what keeps this from handing a device back to itself: a
+    plain bounty device must never "downgrade" sideways into the very item it
+    already is. Improved passes the gate because it sits a full tier above,
+    which is why the Improved chain can end here instead of at the standard
+    device."""
     try:
-        if not (special_item.isTrophy and special_item.isUpgraded):
+        if not ((special_item.isTrophy and special_item.isUpgraded)
+                or special_item.isDeluxe):
             return None
         archetype = special_item.descriptor.archetype
         if not archetype:
@@ -520,7 +514,8 @@ def experimental_level_variant_of(vehicle, special_item, target_level):
     None - e.g. mapping a level 2/3 Experimental device down to level 1.
     Same archetype-matching approach as the other *_variant_of helpers; only
     .level (not tier/trophy/deluxe) distinguishes siblings within the
-    Experimental family. Also used only for streamer-set pulls."""
+    Experimental family. Used for streamer-set pulls and as the first
+    downgrade step of a level 2/3 device (downgrade_candidates_of)."""
     try:
         archetype = special_item.descriptor.archetype
         if not archetype:
@@ -535,27 +530,98 @@ def experimental_level_variant_of(vehicle, special_item, target_level):
         return None
 
 
+def deluxe_variant_of(vehicle, special_item):
+    """The Improved (purple) sibling of this archetype, or None. Mirrors
+    bounty_upgraded_variant_of; only the target condition (isDeluxe) differs."""
+    try:
+        archetype = special_item.descriptor.archetype
+        if not archetype:
+            return None
+        for item in all_optional_devices().itervalues():
+            if item.isDeluxe and _same_archetype(item, archetype, vehicle):
+                return item
+        return None
+    except Exception:
+        LOG.exc('deluxe_variant_of failed')
+        return None
+
+
+def preferred_variant_of(vehicle, item):
+    """The device this realm wants to see in item's slot, or None.
+
+        WG         upgraded bounty (red lvl 2)  +  Experimental level 1
+        360 China  Improved (purple)            +  Experimental level 1
+
+    This is the TARGET tier - what a saved set should aim at - not what can be
+    sourced right now; downgrade_candidates_of() handles the latter.
+
+    Plain bounty (red lvl 1) is never a target on any realm. It is strictly
+    worse than the slot-boosted standard device, and dropping it costs no
+    coverage: the game gives red lvl 1 and red lvl 2 the exact same seven
+    archetypes.
+
+    Experimental devices have their own archetype namespace, so they can only
+    resolve inside their own family. Level 1 is the only tier of it that
+    demounts for free on any realm, so that is the target and a level 1 device
+    is already there.
+
+    None means this archetype has no preferred variant HERE: of the twelve
+    classic archetypes five have no bounty device at all, and three have no
+    Improved one either. The caller keeps the standard device rather than
+    leaving a hole in the loadout."""
+    try:
+        if getattr(item, 'isModernized', False):
+            if getattr(item, 'level', 1) <= 1:
+                return item
+            return experimental_level_variant_of(vehicle, item, 1)
+        if improved_demount_is_free():
+            return deluxe_variant_of(vehicle, item)
+        return bounty_upgraded_variant_of(vehicle, item)
+    except Exception:
+        LOG.exc('preferred_variant_of failed')
+        return None
+
+
 def downgrade_candidates_of(vehicle, special_item):
     """What a special device that cannot be sourced may fall back to, STRONGEST
     first:
 
-        Improved (purple)  ->  upgraded bounty  ->  standard  ->  plain bounty
-        upgraded bounty    ->  standard  ->  plain bounty
-        everything else    ->  standard
+        Improved (purple)     ->  upgraded bounty -> standard -> plain bounty
+        upgraded bounty       ->  standard -> plain bounty
+        Experimental lvl 2/3  ->  Experimental level 1
+        everything else       ->  standard
 
     The standard device comes before the level 1 bounty one on purpose. It looks
     like the bigger step down, but a standard device gets the slot's category
     bonus and a level 1 bounty device does not, so the boosted standard device
     is the better of the two in the slot it ends up in.
 
-    Improved devices get the upgraded-bounty step first (issue #33): on the 360
-    China server Plus free-demounts purple, so a saved purple that cannot be
-    sourced itself should fall through to tier 2 red rather than jumping
-    straight to white. On WG, where purple cannot be demounted for free at all,
-    the same chain is still the better of the two remaining options."""
+    An Experimental device can ONLY fall back inside its own family, and level 1
+    is the only tier of it that demounts for free on any realm (the client
+    hardcodes that in IWotPlusController.isFreeToDemount). There is no standard
+    step after it because no standard device can ever match: Experimental
+    devices are COMBO devices - one merges two classic devices - so the game
+    gives them their own archetype namespace ('modernizedTurbochargerRotation-
+    Mechanism' and three siblings, see item_defs/vehicles/common/
+    optional_devices/modernized_devices.xml), which does not overlap the
+    standard/trophy/deluxe archetypes at all. standard_variant_of() is still
+    asked below purely for uniformity; for this family it always answers None.
+    A level 1 Experimental device therefore has no fallback whatsoever, and
+    apply.py reports it as skipped rather than downgrading it.
+
+    All of these are realm-independent on purpose. Issue #33 surfaced the
+    Improved chain on the 360 China server, where Plus free-demounts purple,
+    but the ordering is about how strong the device is in the slot, not about
+    what a realm demounts for free - so WG gets the same ladder. Whether any of
+    these candidates may actually be used is decided per realm, one layer up:
+    apply.py takes the first one _is_free_to_obtain() accepts, so a realm that
+    cannot source a step simply falls through it."""
     candidates = []
     if getattr(special_item, 'isDeluxe', False):
         candidates.append(bounty_upgraded_variant_of(vehicle, special_item))
+    if (getattr(special_item, 'isModernized', False)
+            and getattr(special_item, 'level', 1) > 1):
+        candidates.append(experimental_level_variant_of(vehicle, special_item, 1))
     candidates.append(standard_variant_of(vehicle, special_item))
     candidates.append(plain_bounty_variant_of(vehicle, special_item))
     return [item for item in candidates if item is not None]

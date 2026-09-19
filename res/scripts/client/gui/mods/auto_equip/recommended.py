@@ -20,16 +20,28 @@ with a cheaper device swapped in. It is only used when the best-players data
 does not cover this tank at all, because a dead button on half the garage
 serves nobody.
 
-WHICH VARIANT: Improved (purple) when the realm free-demounts it - the 360
-China Plus subscription does - then bounty ("erbeutet") when one exists, the
-UPGRADED level 2 variant by preference, then Experimental level 1, and the
-standard device last. Never bond on realms where demounting it costs 200
-bonds (WG), and never Experimental level 2/3: taking an Improved device off
-for money, or a level 2/3 Experimental one, turns every future install run
-into a demand the mod cannot meet for free. Bounty devices, Experimental
-level 1, and Improved on the 360 China server all demount for free under
-Plus, which is the premise this whole mod is built on - upgraded bounty
-included.
+WHICH VARIANT: the tier this realm wants, which is
+
+    WG         upgraded bounty (red lvl 2)  +  Experimental level 1
+    360 China  Improved (purple)            +  Experimental level 1
+
+with the standard device as the floor beneath both, and upgraded bounty still
+ranked in on 360 China below Improved.
+
+Never Improved on a realm where demounting it costs 200 bonds (WG), and never
+Experimental level 2/3: taking such a device off for money turns every future
+install run into a demand the mod cannot meet for free. Improved on the 360
+China server, bounty devices and Experimental level 1 all demount for free
+under Plus, which is the premise this whole mod is built on.
+
+Never plain bounty (red lvl 1) anywhere, either: a standard device gets the
+slot's category bonus and a level 1 bounty device does not, so naming the
+bounty one would name the WEAKER device. It costs no coverage - the game gives
+red lvl 1 and red lvl 2 the exact same seven archetypes.
+
+The standard device has to stay as the floor: of the twelve classic archetypes
+five have no bounty device at all and three have no Improved one, and a slot
+left empty makes for_vehicle() discard the whole loadout.
 
 The saved set is a GOAL, not an inventory list. A recommended device the player
 does not own yet still goes in: apply.py sources only what is free and reports
@@ -70,11 +82,19 @@ def _archetype(device):
 def _is_allowed(item):
     """Bond (Improved) is out on realms where demounting it costs money (WG);
     it is allowed when free (360 China Plus) - see the module docstring.
-    Experimental level 1 is fair game alongside bounty and standard; only
-    levels above 1 (not free to demount) are excluded."""
+    Experimental level 1 is fair game; levels above 1 are not free to demount
+    and are excluded.
+
+    Plain bounty (red lvl 1) is excluded everywhere. A standard device gets the
+    slot's category bonus and a level 1 bounty device does not, so recommending
+    the bounty one would name the WEAKER device - and it costs no coverage,
+    because the game gives red lvl 1 and red lvl 2 the exact same seven
+    archetypes. Wherever a red lvl 1 exists, its red lvl 2 sibling does too."""
     try:
         if item.isDeluxe:
             return inventory.improved_demount_is_free()
+        if item.isTrophy:
+            return bool(item.isUpgraded)
         if item.isModernized:
             return getattr(item, 'level', 1) <= 1
         return True
@@ -87,9 +107,18 @@ def _rank(item):
 
     0. Improved (purple) - only when free to demount (360 China Plus),
     1. upgraded bounty (level 2) - "verbesserte erbeutete Ausruestung",
-    2. plain bounty (level 1),
-    3. Experimental level 1,
-    4. standard device.
+    2. Experimental level 1,
+    3. standard device,
+    4. plain bounty (level 1) - unreachable, _is_allowed() drops it first.
+
+    Tiers 0-2 never compete with tier 3 by accident: Experimental devices carry
+    their own archetype, so a slot offers either the classic family or the
+    Experimental one, never both.
+
+    Plain bounty sits BELOW the standard device, not above it - a standard
+    device gets the slot's category bonus and a level 1 bounty device does not.
+    _is_allowed() already filters it out; the ordering is kept so this function
+    still answers correctly if it is ever called unfiltered.
 
     Owning it only breaks ties WITHIN a tier, never across one: a saved set is
     a goal, not an inventory list, so it names the level 2 device even while the
@@ -106,11 +135,11 @@ def _rank(item):
     if deluxe:
         tier = 0
     elif bounty:
-        tier = 1 if upgraded else 2
+        tier = 1 if upgraded else 4
     elif experimental:
-        tier = 3
+        tier = 2
     else:
-        tier = 4
+        tier = 3
     return (tier, 0 if inventory.is_owned(item) else 1)
 
 

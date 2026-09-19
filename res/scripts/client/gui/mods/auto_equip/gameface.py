@@ -171,31 +171,28 @@ def _build_data():
 
 def _transform_streamer_device(vehicle, device_cd):
     """Maps one device from a streamer's shared set to what the PULLING
-    player should actually receive - always bounty, except Experimental:
+    player should actually receive: the tier THIS realm wants, which
+    inventory.preferred_variant_of() decides -
 
-        Standard device              -> plain bounty, falling back to
-                                         standard itself
-        Bounty (plain or upgraded)   -> unchanged (already the target tier)
-        Bond (Improved) device       -> the upgraded (level 2) Bounty sibling,
-                                         falling back to standard/plain bounty
-        Experimental level 2 or 3    -> the level 1 Experimental sibling,
-                                         falling back to standard/plain bounty
-        Experimental level 1         -> unchanged (already the target tier)
+        WG         upgraded bounty (red lvl 2)  +  Experimental level 1
+        360 China  Improved (purple)            +  Experimental level 1
+
+    so a streamer's standard, red lvl 1, red lvl 2 or purple device all resolve
+    to the one device the realm actually wants in that slot, and an Experimental
+    level 2/3 one drops to level 1.
 
     This only ever transforms the LOCAL COPY the viewer is about to
     save/apply for themselves - the streamer's own stored equipment is
     fetched read-only (streamers.fetch_vehicle_set) and never written back
     to, so nothing here can overwrite it.
 
-    The best (closest) sibling is tried first, but a Standard/Bond/
-    Experimental compactDescr is never left as the actual result on a match
-    failure - it falls through the same standard/plain-bounty chain
-    downgrade_candidates_of() already uses elsewhere, since a bounty device
-    the account never earned is no more ownable than a Bond one it never
-    bought. Only once every fallback in that chain also comes up empty (no
-    bounty tier for this archetype at all) does the original device_cd pass
-    through, on the same "a device the player can still source some other
-    way beats a hole in the loadout" logic downgrade_candidates_of
+    When the archetype has no preferred variant here - five of the twelve
+    classic archetypes have no bounty device at all, three have no Improved one
+    - the device falls through the same chain downgrade_candidates_of() uses
+    elsewhere, since a device the account never earned is no more ownable than
+    one it never bought. Only once that also comes up empty does the original
+    device_cd pass through, on the same "a device the player can still source
+    some other way beats a hole in the loadout" logic downgrade_candidates_of
     documents."""
     if not device_cd:
         return device_cd
@@ -203,19 +200,7 @@ def _transform_streamer_device(vehicle, device_cd):
         item = inventory.device_by_cd(int(device_cd))
         if item is None:
             return device_cd
-        if item.isTrophy:
-            return device_cd
-        best = None
-        if item.isDeluxe:
-            best = inventory.bounty_upgraded_variant_of(vehicle, item)
-        elif item.isModernized:
-            if getattr(item, 'level', 1) <= 1:
-                return device_cd
-            best = inventory.experimental_level_variant_of(vehicle, item, 1)
-        elif item.isRegular:
-            best = inventory.bounty_variant_of_standard(vehicle, item)
-        else:
-            return device_cd
+        best = inventory.preferred_variant_of(vehicle, item)
         if best is not None:
             return int(best.intCD)
         for fallback in inventory.downgrade_candidates_of(vehicle, item):
