@@ -78,8 +78,21 @@ def ui_strings():
 def t(key, **kwargs):
     """One localized, formatted string. Missing key/file -> the raw key
     wrapped in !!...!! (loud on purpose: a silent fallback would hide a typo
-    or missing key behind mixed-language text during testing)."""
+    or missing key behind mixed-language text during testing).
+
+    A value of `@otherKey` reuses that other entry in the same language file
+    so duplicated menu labels do not have to be copied by hand."""
     template = _strings.get(key)
+    seen = set([key])
+    while (template is not None and isinstance(template, basestring)
+            and len(template) > 1 and template[0] == '@'):
+        ref = template[1:]
+        if ref in seen:
+            LOG.warning('translation alias cycle at %s -> %s' % (key, ref))
+            template = None
+            break
+        seen.add(ref)
+        template = _strings.get(ref)
     if template is None:
         LOG.warning('missing translation key: %s' % key)
         return u'!!%s!!' % key

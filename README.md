@@ -4,18 +4,36 @@
 - Saves your tank equipment and automatically reinstalls it when selecting the tank
 - Allows you to equip all your tanks with bounty equipment
 - The equipment is pulled from depot or other tanks (only if demounting is free)
-- *Downgrade:* if activated, installs a standard equipment instead of 
+- *Downgrade:* if activated, installs a standard equipment instead of
  the bounty or bond equipment if there is none available.
-- *Equip all primary vehicles:* if clicked, installs the equipment for all the (filtered) 
+- *Equip primary vehicles:* if clicked, installs the equipment for all the (filtered)
   primary vehicles in your garage. Ideal for **Frontline**, **Onslaught** and **Onslaught light**.
   Using this, you have all your tanks for those game modes available within seconds.
   - Depending on the amount of vehicles, this takes time, this is normal!
-  - After all equipments are succesfully equipped, the automatic equipment return is disabled 
+  - After all equipments are succesfully equipped, the automatic equipment return is disabled
     to allow browsing the other tanks.
+- *Equip playlist vehicles:* same batch install, but for the tanks in the current playlist.
+  The carousel filter is ignored here unless you turn it on under *Feature Toggles (Behavior)*.
 - *Demount equipment:* right-click a tank in the carousel to demount all equipment
   that demounts for free.
+- *Demount bounty equipment:* right-click a tank in the carousel to demount only
+  bounty equipment that demounts for free. Off by default, turn it on under
+  *Feature Toggles (Tank Carousel Menu)*.
+- *Demount all bounty equipment:* if clicked, demounts bounty equipment
+  from every tank in the hangar. Off by default, turn it on under
+  *Feature Toggles (Icon Menu)*. Ideal for **Frontline**, **Onslaught** and **Onslaught light**.
+  Using this, your limited bounty equipment goes back to the depot. Afterwards the
+  automatic equipment return is disabled, so browsing tanks does not put it straight
+  back. Turn auto-install on again and select the tanks you want to prioritize
+  in your upcoming session. Once a notification indicates that auto-install is
+  stealing equipment from other tanks, you know that you used up all your free
+  bounty equipment.
+- *Feature Toggles* in the ModsSettingsAPI panel:
+  - **Behavior:** Changes behavior of specific mod features.
+  - **Icon Menu:** Show/hide specific rows of the hangar icon menu.
+  - **Tank Carousel Menu:** Show/hide specific rows of the tank carousel menu.
 - Allows you to import saved equipment from kurzdor's auto equipment return (only for the same account)
-  - Done automatically on the first start of the mod or later over the modsettings 
+  - Done automatically on the first start of the mod or later over the modsettings
 - Allows you to import saved equipments from other accounts (within the mod)
 
 ## Dependencies
@@ -42,20 +60,32 @@ next to the customization button.
 - **Always select set 1:** If turned on the mod automatically switches to set 1 after the equipment was installed. Turn it off if you want every tank put back on the set it was on before
 - **Save set 1** / **Save set 2** / **Save both sets:** saves the equipment
   currently mounted on the selected tank
-- **Equip all primary vehicles:** equips all your filtered primary vehicles
-  with their saved equipment
+- **Demount all bounty equipment:** takes bounty equipment off every tank
+  in the hangar and leaves other equipment mounted.
+- **Equip primary vehicles:** equips all your filtered primary vehicles.
+- **Equip playlist vehicles:** equips all your filtered playlist vehicles.
+
 
 **Demount equipment** is added to the right-click menu of every tank in the carousel.
-It removes everything that can be demounted for free and leaves the rest mounted.
+It removes everything from that tank that can be demounted for free and leaves the rest mounted.
 
-**Demount equipment that is not in the saved set** is in the mod's ModsSettingsAPI
-settings panel. Pick the scope — all tanks with a saved set, or only the primary
-tanks of the current hangar — and press *Demount*. It takes off every device that
-is not sitting in exactly the slot its tank's saved set gives it and puts it back
-in the depot. This is mainly for downgraded equipment: when a bounty device could
-not be found, the mod installs the standard one instead, and that one is not what
-the saved set asks for. Tanks without a saved set are never touched, and nothing
-is removed that would cost credits, gold or a demount kit.
+**Demount bounty equipment** is also added to the right-click menu of every tank in the carousel.
+It removes only bounty equipment from that tank if it can be demounted for free and leaves the rest mounted.
+
+
+## Mod Menu Settings
+The ModsSettingsAPI panel lists various options that can tweak the mod.
+For example:
+- Feature Toggles (Behavior)
+- Feature Toggles (Icon Menu)
+- Feature Toggles (Tank Carousel Menu)
+- Demount equipment that is not in the saved set:
+  Pick the scope (all tanks with a saved set, or only primary tanks in this hangar)
+  and press *Demount*. Every device that is not in the slot its saved set names
+  goes back to the depot. This is mainly for downgraded equipment: when a bounty
+  device could not be found, the mod fitted the standard one instead. Tanks without
+  a saved set are never touched, and nothing is removed that would cost credits,
+  gold or a demount kit.
 
 ## Installation
 - Download the mod from the official WoT Mods webside
@@ -65,9 +95,9 @@ is removed that would cost credits, gold or a demount kit.
 
 ## Contributing
 Want to improve the mod? Please do! Fork the repository, make your changes and
-open a pull request. 
+open a pull request.
 
-Bug reports and ideas are welcome in my channel of the official WoT discord: [Z4imon's mods](https://discord.com/channels/161053416796323840/1496838335857954887) 
+Bug reports and ideas are welcome in my channel of the official WoT discord: [Z4imon's mods](https://discord.com/channels/161053416796323840/1496838335857954887)
 
 ## License
 Copyright (C) 2026 Z4imon

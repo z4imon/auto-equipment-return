@@ -1046,9 +1046,10 @@ def _start_if_still_selected(veh_inv_id):
 
 @adisp_process
 def equip_primary_vehicles():
-    """Popover button: equip every filtered Primary vehicle with its saved
-    sets, special devices falling back to their standard variant. Posts one
-    summary, plus a second message listing shortages."""
+    """Popover button: equip every Primary vehicle with its saved sets,
+    special devices falling back to their standard variant. Posts one
+    summary, plus a second message listing shortages. Carousel filter
+    follows the Mod Menu behaviour toggle."""
     global _busy
     if _busy or _other_run_busy():
         messages.push_warning(t('alreadyRunning'))
@@ -1057,7 +1058,8 @@ def equip_primary_vehicles():
     # Mode loaners drop out here rather than inside the run: apply_to_vehicle
     # would refuse them anyway, but counting them as "processed" in the summary
     # would claim work that never happened.
-    targets = [vehicle for vehicle in inventory.filtered_primary_vehicles()
+    targets = [vehicle for vehicle in inventory.filtered_primary_vehicles(
+                   use_carousel_filter=config.equip_primary_uses_filter())
                if not inventory.is_mode_only_vehicle(vehicle)]
     if not targets:
         messages.push_warning(t('batchNoTargets'))
@@ -1093,7 +1095,7 @@ def equip_primary_vehicles():
         if totals.missing_counts:
             messages.push_error(u'<br/>'.join(totals.missing_lines()))
         _ask_about_paid_installs(totals.confirm_runs)
-        _disable_auto_install_after_batch()
+        disable_auto_install_after_batch()
         LOG.info('equip_primary_vehicles: done - processed=%d installed=%d missing=%s'
                  % (totals.processed, totals.installed, totals.missing_counts))
     except Exception:
@@ -1111,7 +1113,8 @@ def equip_primary_vehicles():
 def equip_playlist_vehicles():
     """Popover button: same run as equip_primary_vehicles(), but the targets
     come from the playlist the player has selected in the hangar instead of
-    from the Primary flag plus carousel filter.
+    from the Primary flag. Carousel filter follows the Mod Menu behaviour
+    toggle, same as equip_primary_vehicles().
 
     Only offered while a playlist is selected - the popover hides the row
     otherwise, driven by the same inventory.selected_playlist() this reads, so
@@ -1125,7 +1128,8 @@ def equip_playlist_vehicles():
     if title is None:
         messages.push_warning(t('batchPlaylistNoTargets'))
         return
-    owned, missing = inventory.playlist_vehicles()
+    owned, missing = inventory.playlist_vehicles(
+        use_carousel_filter=config.equip_playlist_uses_filter())
     targets = [vehicle for vehicle in owned
                if not inventory.is_mode_only_vehicle(vehicle)]
     if not targets:
@@ -1161,7 +1165,7 @@ def equip_playlist_vehicles():
         if totals.missing_counts:
             messages.push_error(u'<br/>'.join(totals.missing_lines()))
         _ask_about_paid_installs(totals.confirm_runs)
-        _disable_auto_install_after_batch()
+        disable_auto_install_after_batch()
         LOG.info('equip_playlist_vehicles: done - processed=%d installed=%d missing=%s'
                  % (totals.processed, totals.installed, totals.missing_counts))
     except Exception:
@@ -1293,7 +1297,7 @@ class _BatchTotals(object):
         return lines
 
 
-def _disable_auto_install_after_batch():
+def disable_auto_install_after_batch():
     """Auto-install would otherwise re-shuffle equipment the moment the player
     browses through their OTHER vehicles right after a batch: each selection
     re-triggers a run, which can pull a device straight back off a Primary
@@ -1302,7 +1306,9 @@ def _disable_auto_install_after_batch():
 
     The cleanup run deliberately does NOT do this: it hands equipment back to
     the depot, and the normal per-vehicle install is what should redistribute
-    it."""
+    it. The garage-wide bounty demount (carousel_menu.py) does, so the freed
+    bounty devices wait in the depot until the player turns auto-install back
+    on and picks the tanks that should get them first."""
     if not config.is_auto_enabled():
         return
     config.set_auto_enabled(False)

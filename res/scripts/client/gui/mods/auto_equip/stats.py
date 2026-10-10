@@ -58,9 +58,11 @@ def _scope_vehicles(scope):
     next to it would be worse than no statistic."""
     try:
         if scope == PRIMARY:
-            candidates = inventory.filtered_primary_vehicles()
+            candidates = inventory.filtered_primary_vehicles(
+                use_carousel_filter=config.equip_primary_uses_filter())
         elif scope == PLAYLIST:
-            candidates, _missing = inventory.playlist_vehicles()
+            candidates, _missing = inventory.playlist_vehicles(
+                use_carousel_filter=config.equip_playlist_uses_filter())
         elif scope == ALL:
             candidates = inventory.owned_vehicles()
         else:

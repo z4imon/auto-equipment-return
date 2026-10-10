@@ -55,11 +55,33 @@ _DEFAULTS = {
     # the next hangar load without a network round trip.
     'selectedStreamerName': None,
     'equipmentSaveMode': SAVE_MODE_POPOVER,
+    # Visibility of hangar popover (icon menu) rows. Each flag only hides the
+    # UI; it does not change the underlying setting (downgrade / set 1).
+    # Defaults match the menus before these toggles existed: every old row
+    # shown, the newer bounty-demount rows opt-in.
+    'iconMenuRows': {
+        'downgrade': True,
+        'alwaysSetup1': True,
+        'demountBounty': False,
+        'equipPrimary': True,
+        'equipPlaylist': True,
+    },
+    'carouselMenuRows': {
+        'demountEquip': True,
+        'demountBounty': False,
+    },
+    # Whether batch equip follows the hangar carousel filter. Primary does by
+    # default (it means "everything I am looking at"); a playlist is an
+    # explicit choice and ignores the filter unless the player opts in.
+    'equipPrimaryUsesFilter': True,
+    'equipPlaylistUsesFilter': False,
 }
 
 _EMPTY_ENTRY = {'set1': None, 'set2': None, 'vehicleCD': None, 'updatedAt': None, 'deleted': False}
 
 _settings = dict(_DEFAULTS)
+_settings['iconMenuRows'] = dict(_DEFAULTS['iconMenuRows'])
+_settings['carouselMenuRows'] = dict(_DEFAULTS['carouselMenuRows'])
 
 # True when load_for_account() found no config file at all - an install rather
 # than an upgrade. Read by patchnotes.py, which stays silent in that case.
@@ -159,6 +181,51 @@ def _clean_sets(raw):
                 if isinstance(entry, dict))
 
 
+_ICON_MENU_ROW_KEYS = (
+    'downgrade', 'alwaysSetup1', 'demountBounty', 'equipPrimary', 'equipPlaylist',
+)
+
+
+def _default_icon_menu_rows():
+    return dict(_DEFAULTS['iconMenuRows'])
+
+
+_CAROUSEL_MENU_ROW_KEYS = ('demountEquip', 'demountBounty')
+
+
+def _default_carousel_menu_rows():
+    return dict(_DEFAULTS['carouselMenuRows'])
+
+
+def _copy_defaults():
+    """Shallow-copy _DEFAULTS and clone nested dicts so a fresh account does
+    not share iconMenuRows/carouselMenuRows with the module-level defaults."""
+    settings = dict(_DEFAULTS)
+    settings['iconMenuRows'] = _default_icon_menu_rows()
+    settings['carouselMenuRows'] = _default_carousel_menu_rows()
+    return settings
+
+
+def _clean_icon_menu_rows(data):
+    rows = _default_icon_menu_rows()
+    raw = data.get('iconMenuRows')
+    if isinstance(raw, dict):
+        for key in _ICON_MENU_ROW_KEYS:
+            if key in raw:
+                rows[key] = bool(raw[key])
+    return rows
+
+
+def _clean_carousel_menu_rows(data):
+    rows = _default_carousel_menu_rows()
+    raw = data.get('carouselMenuRows')
+    if isinstance(raw, dict):
+        for key in _CAROUSEL_MENU_ROW_KEYS:
+            if key in raw:
+                rows[key] = bool(raw[key])
+    return rows
+
+
 def load_for_account(account_id):
     """(Re)loads the config for `account_id`. Must only be called once that is
     a real account id - see mod_auto_equip's account-load sequence."""
@@ -178,6 +245,10 @@ def load_for_account(account_id):
                 'equipmentSaveMode': (data.get('equipmentSaveMode')
                                       if data.get('equipmentSaveMode') in _SAVE_MODES
                                       else SAVE_MODE_POPOVER),
+                'iconMenuRows': _clean_icon_menu_rows(data),
+                'carouselMenuRows': _clean_carousel_menu_rows(data),
+                'equipPrimaryUsesFilter': bool(data.get('equipPrimaryUsesFilter', True)),
+                'equipPlaylistUsesFilter': bool(data.get('equipPlaylistUsesFilter', False)),
             }
             _was_fresh_install = False
             _sets = _clean_sets(data.get('sets', {}))
@@ -185,7 +256,7 @@ def load_for_account(account_id):
         else:
             # First time we see this account: start clean, then give kurzdor's
             # save for the same account id a chance to seed it.
-            _settings = dict(_DEFAULTS)
+            _settings = _copy_defaults()
             _sets = {}
             _was_fresh_install = True
             _import_kurzdor_save_once()
@@ -239,6 +310,10 @@ def save():
                 'selectedStreamerAccountId': _settings.get('selectedStreamerAccountId'),
                 'selectedStreamerName': _settings.get('selectedStreamerName'),
                 'equipmentSaveMode': _settings.get('equipmentSaveMode', SAVE_MODE_POPOVER),
+                'iconMenuRows': dict(_settings.get('iconMenuRows') or _default_icon_menu_rows()),
+                'carouselMenuRows': dict(_settings.get('carouselMenuRows') or _default_carousel_menu_rows()),
+                'equipPrimaryUsesFilter': bool(_settings.get('equipPrimaryUsesFilter', True)),
+                'equipPlaylistUsesFilter': bool(_settings.get('equipPlaylistUsesFilter', False)),
                 'sets': _sets,
             }, handle, separators=(',', ':'))
     except Exception:
@@ -324,6 +399,71 @@ def set_equipment_save_mode(mode):
     _settings['equipmentSaveMode'] = mode if mode in _SAVE_MODES else SAVE_MODE_POPOVER
     save()
     return _settings['equipmentSaveMode']
+
+
+def equip_primary_uses_filter():
+    """Whether Equip Primary Vehicles follows the hangar carousel filter."""
+    return bool(_settings.get('equipPrimaryUsesFilter', True))
+
+
+def set_equip_primary_uses_filter(enabled):
+    _settings['equipPrimaryUsesFilter'] = bool(enabled)
+    save()
+    return _settings['equipPrimaryUsesFilter']
+
+
+def equip_playlist_uses_filter():
+    """Whether Equip Playlist Vehicles follows the hangar carousel filter."""
+    return bool(_settings.get('equipPlaylistUsesFilter', False))
+
+
+def set_equip_playlist_uses_filter(enabled):
+    _settings['equipPlaylistUsesFilter'] = bool(enabled)
+    save()
+    return _settings['equipPlaylistUsesFilter']
+
+
+def is_icon_menu_row_enabled(row_id):
+    """Whether the hangar popover shows this row. Not gated on
+    _mod_disabled: a disabled mod already hides the popover."""
+    rows = _settings.get('iconMenuRows') or _default_icon_menu_rows()
+    return bool(rows.get(row_id, _DEFAULTS['iconMenuRows'].get(row_id, True)))
+
+
+def set_icon_menu_row_enabled(row_id, enabled):
+    if row_id not in _ICON_MENU_ROW_KEYS:
+        return False
+    rows = dict(_settings.get('iconMenuRows') or _default_icon_menu_rows())
+    rows[row_id] = bool(enabled)
+    _settings['iconMenuRows'] = rows
+    save()
+    return rows[row_id]
+
+
+def icon_menu_rows():
+    """All hangar-popover visibility flags, for the Gameface payload."""
+    rows = dict(_default_icon_menu_rows())
+    stored = _settings.get('iconMenuRows')
+    if isinstance(stored, dict):
+        rows.update(dict((key, bool(stored.get(key, rows[key])))
+                         for key in _ICON_MENU_ROW_KEYS))
+    return rows
+
+
+def is_carousel_menu_row_enabled(row_id):
+    """Whether the carousel right-click menu shows this row."""
+    rows = _settings.get('carouselMenuRows') or _default_carousel_menu_rows()
+    return bool(rows.get(row_id, _DEFAULTS['carouselMenuRows'].get(row_id, True)))
+
+
+def set_carousel_menu_row_enabled(row_id, enabled):
+    if row_id not in _CAROUSEL_MENU_ROW_KEYS:
+        return False
+    rows = dict(_settings.get('carouselMenuRows') or _default_carousel_menu_rows())
+    rows[row_id] = bool(enabled)
+    _settings['carouselMenuRows'] = rows
+    save()
+    return rows[row_id]
 
 
 # ---------------------------------------------------------------------------

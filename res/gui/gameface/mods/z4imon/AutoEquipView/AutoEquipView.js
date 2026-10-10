@@ -144,6 +144,12 @@ function parseModelJson(key, fallback) {
 }
 function ui(key, fallback) { return gUi[key] || fallback; }
 
+function iconMenuOn(rowId) {
+    const rows = gData.iconMenu;
+    if (!rows) return true;
+    return rows[rowId] !== false;
+}
+
 // --------------------------------------------------------------------------
 // Menu button (self-built, native background art, inline SVG icon)
 // --------------------------------------------------------------------------
@@ -281,6 +287,11 @@ const ROW_ICONS = {
     // arrow pointing down into a tray = save
     save: [
         "M9 2.5 h2 v6.5 h3 L10 13.5 6 9 h3 Z",
+        "M4 15.5 h12 v2 H4 Z",
+    ],
+    // arrow pointing up out of a tray = demount / return to depot
+    demount: [
+        "M9 13.5 h2 V7 h3 L10 2.5 6 7 h3 Z",
         "M4 15.5 h12 v2 H4 Z",
     ],
     // two opposing arrows = install/transfer (same motif as the menu button)
@@ -1080,16 +1091,16 @@ function buildPopover() {
     content.appendChild(buildCheckboxRow(ui("autoLabel", "Automatisch einbauen"), !!gData.enabled, function () {
         cmd("onToggleEnabled");
     }, ui("autoTooltip", "Installiert das gespeicherte Equipment automatisch, sobald dieses Fahrzeug ausgewählt wird")));
-    // downgrade: fall back to the standard variant when a trophy device
-    // cannot be sourced for free
-    content.appendChild(buildCheckboxRow(ui("downgradeLabel", "Enable Downgrade"), !!gData.downgrade, function () {
-        cmd("onToggleDowngrade");
-    }, ui("downgradeTooltip", "Weicht auf die Standard-Ausrüstung aus, falls ein Trophäen-Gerät nicht kostenlos verfügbar ist")));
-    // always end on set 1: also stops donors being switched back, which is the
-    // one server call the game reliably rate-limits
-    content.appendChild(buildCheckboxRow(ui("alwaysSetup1Label", "Always select setup 1"), !!gData.alwaysSetup1, function () {
-        cmd("onToggleAlwaysSetup1");
-    }, ui("alwaysSetup1Tooltip", "Wählt nach dem Einbauen immer Setup 1 aus, statt beim zuletzt genutzten Setup zu bleiben")));
+    if (iconMenuOn("downgrade")) {
+        content.appendChild(buildCheckboxRow(ui("downgradeLabel", "Enable Downgrade"), !!gData.downgrade, function () {
+            cmd("onToggleDowngrade");
+        }, ui("downgradeTooltip", "Weicht auf die Standard-Ausrüstung aus, falls ein Trophäen-Gerät nicht kostenlos verfügbar ist")));
+    }
+    if (iconMenuOn("alwaysSetup1")) {
+        content.appendChild(buildCheckboxRow(ui("alwaysSetup1Label", "Always select setup 1"), !!gData.alwaysSetup1, function () {
+            cmd("onToggleAlwaysSetup1");
+        }, ui("alwaysSetup1Tooltip", "Wählt nach dem Einbauen immer Setup 1 aus, statt beim zuletzt genutzten Setup zu bleiben")));
+    }
 
     // actions as menu rows - the manual Save buttons are redundant (and
     // would fight with it) once "confirmEquipment" (set in the mod's
@@ -1109,14 +1120,22 @@ function buildPopover() {
         }
     }
     if (gData.busy) {
-        content.appendChild(buildMenuRow(ui("busy", "Einbau läuft…"), "apply", null, true));
+        content.appendChild(buildMenuRow(gData.busyLabel || ui("busy", "Einbau läuft…"), "apply", null, true));
     } else {
-        content.appendChild(buildMenuRow(ui("equipPrimary", "Alle Primärpanzer ausstatten"), "star", function () {
-            cmd("onEquipPrimary");
-        }));
+        // opt-in row: hidden unless Python explicitly turned it on
+        if (gData.iconMenu && gData.iconMenu.demountBounty === true) {
+            content.appendChild(buildMenuRow(ui("demountAllTrophy", "Demount all bounty equipment"), "demount", function () {
+                cmd("onDemountAllTrophy");
+            }));
+        }
+        if (iconMenuOn("equipPrimary")) {
+            content.appendChild(buildMenuRow(ui("equipPrimary", "Alle Primärpanzer ausstatten"), "star", function () {
+                cmd("onEquipPrimary");
+            }));
+        }
         // Only present while a playlist is selected - Python sends the
         // finished label, so there is nothing to decide here.
-        if (gData.playlistLabel) {
+        if (iconMenuOn("equipPlaylist") && gData.playlistLabel) {
             content.appendChild(buildMenuRow(gData.playlistLabel, "apply", function () {
                 cmd("onEquipPlaylist");
             }));

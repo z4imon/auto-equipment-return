@@ -715,26 +715,29 @@ def _selected_playlist_criteria():
         return REQ_CRITERIA.EMPTY
 
 
-def filtered_primary_vehicles():
-    """Favourite vehicles of the hangar the player is currently in that pass
-    that hangar's carousel filter AND the selected vehicle playlist, best tier
+def filtered_primary_vehicles(use_carousel_filter=True):
+    """Favourite vehicles of the hangar the player is currently in, best tier
     first.
 
-    The playlist is a second, independent narrowing on top of the carousel
-    filter - see _selected_playlist_criteria(). Deliberately different from
-    playlist_vehicles(), which backs the separate "equip <playlist>" button and
-    ignores the carousel filter: that button IS the explicit choice of a
-    playlist, while this one means "everything I am looking at right now"."""
+    When use_carousel_filter is True, the set is narrowed to what the hangar
+    is actually showing: that hangar's carousel filter AND the selected
+    vehicle playlist. The equip-primary button
+    and the cleanup's Primary scope pass the Mod Menu behaviour toggle.
+
+    When False, every hangar-eligible favourite is returned, regardless of
+    the carousel filter or a selected playlist."""
     mode = hangar.active_mode()
     query = REQ_CRITERIA.INVENTORY | REQ_CRITERIA.VEHICLE.FAVORITE
     query |= _eligibility_criteria(REQ_CRITERIA, mode)
-    query |= _carousel_filter_criteria(mode)
-    query |= _selected_playlist_criteria()
+    if use_carousel_filter:
+        query |= _carousel_filter_criteria(mode)
+        query |= _selected_playlist_criteria()
     try:
         vehicles = _items_cache().items.getVehicles(query)
         targets = sorted(vehicles.itervalues(), key=lambda v: (-v.level, v.userName))
-        LOG.info('%d primary vehicle(s) in the %s hangar'
-                 % (len(targets), mode or 'standard'))
+        LOG.info('%d primary vehicle(s) in the %s hangar (carousel filter %s)'
+                 % (len(targets), mode or 'standard',
+                    'on' if use_carousel_filter else 'off'))
         return targets
     except Exception:
         LOG.exc('filtered_primary_vehicles failed')
@@ -773,26 +776,29 @@ def selected_playlist():
         return (None, None)
 
 
-def playlist_vehicles():
+def playlist_vehicles(use_carousel_filter=False):
     """(vehicles, missing count) for the selected playlist, best tier first.
 
     Only vehicles the player actually owns and that the current hangar allows
     can be equipped; everything else in the playlist is counted so the summary
-    can say so instead of quietly dropping it. The carousel filter is
-    deliberately NOT applied - a playlist is an explicit choice by the player
-    and must not be narrowed by whatever the carousel happens to show.
+    can say so instead of quietly dropping it. When use_carousel_filter is
+    True, the hangar carousel filter is applied on top of that playlist list.
     """
     title, device_cds = selected_playlist()
     if not device_cds:
         return ([], 0)
+    mode = hangar.active_mode()
     query = REQ_CRITERIA.INVENTORY | REQ_CRITERIA.IN_CD_LIST(list(device_cds))
-    query |= _eligibility_criteria(REQ_CRITERIA, hangar.active_mode())
+    query |= _eligibility_criteria(REQ_CRITERIA, mode)
+    if use_carousel_filter:
+        query |= _carousel_filter_criteria(mode)
     try:
         vehicles = _items_cache().items.getVehicles(query)
         targets = sorted(vehicles.itervalues(), key=lambda v: (-v.level, v.userName))
         missing = len(device_cds) - len(targets)
-        LOG.info('playlist "%s": %d of %d entr(ies) usable here'
-                 % (title, len(targets), len(device_cds)))
+        LOG.info('playlist "%s": %d of %d entr(ies) usable here (carousel filter %s)'
+                 % (title, len(targets), len(device_cds),
+                    'on' if use_carousel_filter else 'off'))
         return (targets, max(0, missing))
     except Exception:
         LOG.exc('playlist_vehicles failed')

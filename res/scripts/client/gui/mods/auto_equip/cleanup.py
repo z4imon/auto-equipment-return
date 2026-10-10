@@ -77,9 +77,11 @@ def targets(scope):
 
     SCOPE_PRIMARY narrows to the Primary vehicles of the hangar the player is
     in - the same set the batch install run works on, which is where downgrades
-    come from in the first place."""
+    come from in the first place. So it follows the same carousel-filter
+    toggle as that run."""
     if scope == SCOPE_PRIMARY:
-        vehicles = inventory.filtered_primary_vehicles()
+        vehicles = inventory.filtered_primary_vehicles(
+            use_carousel_filter=config.equip_primary_uses_filter())
     else:
         vehicles = inventory.owned_vehicles()
     found = [vehicle for vehicle in vehicles if _is_target(vehicle)]
