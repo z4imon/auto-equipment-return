@@ -233,7 +233,7 @@ def demount_misplaced(scope=SCOPE_ALL):
             yield _clean_vehicle(vehicle.invID, totals)
         messages.push_lines(totals.summary_lines(),
                             warning=bool(totals.errors or totals.kept))
-        LOG.info('cleanup: done - %d device(s) off %d vehicle(s), '
+        LOG.info('cleanup: done, %d device(s) off %d vehicle(s), '
                  'to depot=%s, kept=%s, errors=%d'
                  % (totals.removed, totals.vehicles, totals.to_depot,
                     totals.kept, len(totals.errors)))
@@ -346,7 +346,7 @@ def _clean_slot(veh_inv_id, setup_idx, slot_idx, totals, callback=None):
         else:
             if not inventory.is_free_to_demount(item):
                 totals.note_kept(item.userName)
-                LOG.info('cleanup: keeping %s on %s - removal would not be free'
+                LOG.info('cleanup: keeping %s on %s, removal would not be free'
                          % (item.userName, vehicle.userName))
                 return
             code, extra = yield rpc.equip_device(vehicle.invID, 0, slot_idx,

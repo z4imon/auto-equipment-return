@@ -261,7 +261,7 @@ def demount_free_equipment(veh_inv_id):
     try:
         LOG.info('carousel demount: start for %s' % vehicle.userName)
         removed = yield _demount_vehicle(veh_inv_id, _accept_all)
-        LOG.info('carousel demount: done for %s - %d device(s) removed'
+        LOG.info('carousel demount: done for %s, %d device(s) removed'
                  % (vehicle.userName, removed))
     except Exception:
         LOG.exc('demount_free_equipment failed')
@@ -308,7 +308,7 @@ def demount_trophy_equipment(veh_inv_id):
     try:
         LOG.info('carousel bounty demount: start for %s' % vehicle.userName)
         removed = yield _demount_vehicle(veh_inv_id, _is_trophy)
-        LOG.info('carousel bounty demount: done for %s - %d device(s) removed'
+        LOG.info('carousel bounty demount: done for %s, %d device(s) removed'
                  % (vehicle.userName, removed))
     except Exception:
         LOG.exc('demount_trophy_equipment failed')
@@ -352,7 +352,7 @@ def demount_all_trophy():
             if count:
                 vehicles_touched += 1
             removed += count
-        LOG.info('carousel trophy demount: done - %d device(s) off %d vehicle(s)'
+        LOG.info('carousel trophy demount: done, %d device(s) off %d vehicle(s)'
                  % (removed, vehicles_touched))
         messages.push_info(t('demountAllTrophyDone',
                              count=removed, vehicles=vehicles_touched),
@@ -457,7 +457,7 @@ def _clear_slot(veh_inv_id, setup_idx, slot_idx, accept, callback=None):
         if not accept(item):
             return
         if not inventory.is_free_to_demount(item):
-            LOG.info('carousel demount: keeping %s - removal would not be free'
+            LOG.info('carousel demount: keeping %s, removal would not be free'
                      % item.userName)
             return
 

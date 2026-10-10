@@ -572,7 +572,7 @@ def register(account_id):
     global _kurzdor_files, _own_files, _account_id
     g_modsSettingsApi, templates = _get_settings_api()
     if g_modsSettingsApi is None:
-        LOG.info('ModsSettingsAPI not installed - settings panel disabled')
+        LOG.info('ModsSettingsAPI not installed, settings panel disabled')
         return
 
     _account_id = account_id
@@ -627,7 +627,7 @@ def _hook_mod_menu_opened(g_modsSettingsApi):
     try:
         g_modsSettingsApi.onWindowOpened += _on_mod_menu_opened
     except Exception:
-        LOG.info('onWindowOpened not available on this ModsSettingsAPI implementation - skipping')
+        LOG.info('onWindowOpened not available on this ModsSettingsAPI implementation, skipping')
 
 
 def _on_mod_menu_opened():

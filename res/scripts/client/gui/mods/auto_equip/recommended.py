@@ -55,7 +55,7 @@ try:
     from renewable_subscription_common.optional_devices_usage_config import (
         GENERIC_OPTIONAL_DEVICE_MAP_TO_EQUIPMENT_NAME)
 except Exception:
-    LOG.exc('equipment assistant constants missing - recommendations disabled')
+    LOG.exc('equipment assistant constants missing, recommendations disabled')
     GENERIC_OPTIONAL_DEVICE_MAP_TO_EQUIPMENT_NAME = {}
 
 # getOptDeviceAssistPresets() answers with these two, in this order.

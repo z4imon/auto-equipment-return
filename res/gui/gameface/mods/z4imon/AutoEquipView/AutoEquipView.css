@@ -558,6 +558,77 @@
 .z4ae-corner-btn-inactive:hover .z4ae-corner-icon {
     opacity: 0.3;
 }
+/* Install buttons (auto-install off): one at the end of each set's slot row,
+   one for both sets between the rows, left of the corner column. */
+.z4ae-install-btn {
+    position: relative;
+    width: 26rem;
+    height: 26rem;
+    margin-left: 10rem;
+    align-self: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2rem;
+    cursor: pointer;
+    transition: background-color 0.1s ease-out;
+}
+.z4ae-install-btn:hover {
+    background-color: rgba(237, 230, 217, 0.24);
+}
+.z4ae-install-btn:hover .z4ae-corner-icon {
+    opacity: 1;
+}
+/* Already installed, or a run is busy. Below the hover rules so these win. */
+.z4ae-install-btn-inactive {
+    cursor: default;
+}
+.z4ae-install-btn-inactive .z4ae-corner-icon,
+.z4ae-install-btn-inactive:hover .z4ae-corner-icon {
+    opacity: 0.2;
+}
+.z4ae-install-btn-inactive:hover {
+    background-color: transparent;
+}
+/* Left-anchored, half a step right of the per-set buttons (which start at
+   20rem padding + 3 slots x 46rem + 10rem = 168rem). Slot sizes do not change
+   in large mode, so this holds there too. */
+.z4ae-install-both {
+    position: absolute;
+    left: 188rem;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-left: 0;
+    /* 50% is the middle of the whole sets area, but each set block carries its
+       label on top (~19rem with margin) and only 2rem/6rem padding, so the
+       middle between the two slot rows sits ~8rem lower. */
+    margin-top: 8rem;
+}
+/* Centered above the button, one line, the check-row tooltip spans its row. */
+.z4ae-install-tooltip {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+.z4ae-large .z4ae-install-btn {
+    width: 30rem;
+    height: 30rem;
+}
+.z4ae-install-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+.z4ae-install-icon .z4ae-row-svg {
+    width: 16rem;
+    height: 16rem;
+}
+.z4ae-large .z4ae-install-icon .z4ae-row-svg {
+    width: 18rem;
+    height: 18rem;
+}
 .z4ae-sets-delete {
     bottom: 6rem;
 }
@@ -649,6 +720,15 @@
     font-size: 11rem;
     line-height: 1.3;
     color: rgba(255, 221, 153, 0.85);
+}
+
+/* Viewer mode (no WoT Plus): why nothing but the streamer sets is there.
+   Orange like the client's own warning texts, not the warm note tone above. */
+.z4ae-noplus-hint {
+    padding: 0 20rem 4rem 20rem;
+    font-size: 11rem;
+    line-height: 1.3;
+    color: rgba(255, 140, 40, 0.95);
 }
 
 /* --- streamer picker trigger + dropdown ------------------------------- */

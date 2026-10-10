@@ -58,6 +58,7 @@ let gStatsScope = "all";          // which tab of the statistics panel is active
 let gStatsData = null;            // parsed statsJson, or null before the first open
 let gLastStatsJson = null;
 let gLastClosePopoverToken = null; // null until the first dataJson arrives
+let gViewerRequestedKey = null;   // viewer mode: vehicle+streamer the last set request was for
 let gVisibleTooltip = null;   // the one check-row tooltip element currently shown, or null
 
 // Explicit JS state instead of pure CSS :hover: a tooltip sits directly above
@@ -374,19 +375,56 @@ function buildSlotRow(slots) {
     return row;
 }
 
-function buildSetBlock(label, slots, missingText) {
+function buildSetBlock(label, slots, missingText, installWhich) {
     const block = el("div", "z4ae-set-block");
     const lab = el("div", "z4ae-set-label");
     lab.textContent = String(label).toUpperCase();
     block.appendChild(lab);
     if (slots) {
-        block.appendChild(buildSlotRow(slots));
+        const row = buildSlotRow(slots);
+        if (installWhich) row.appendChild(buildInstallButton(installWhich));
+        block.appendChild(row);
     } else {
         const miss = el("div", "z4ae-set-missing");
         miss.textContent = missingText;
         block.appendChild(miss);
     }
     return block;
+}
+
+// Install buttons, only while auto-install is off: then nothing installs a
+// saved set by itself any more. One next to each saved set, plus one between
+// them for both (only when both are saved). Python runs the normal
+// single-vehicle install narrowed to those setups (onInstallSet).
+function showInstallButtons() {
+    return !gData.enabled;
+}
+
+// Inert while a run is busy or when what it would install is already in
+// (installed1/installed2 from Python). Inert, not pointer-events:none, the
+// tooltip still shows.
+function buildInstallButton(which) {
+    const installed = which === 3 ? !!(gData.installed1 && gData.installed2)
+                                  : !!gData["installed" + which];
+    const active = !gData.busy && !installed;
+    const btn = el("div", "z4ae-install-btn" + (which === 3 ? " z4ae-install-both" : "")
+                        + (active ? "" : " z4ae-install-btn-inactive"));
+    const icon = el("div", "z4ae-corner-icon z4ae-install-icon");
+    icon.appendChild(rowIconSvg("apply"));
+    btn.appendChild(icon);
+    const tip = el("div", "z4ae-check-tooltip z4ae-install-tooltip");
+    tip.textContent = which === 1 ? ui("installSet1", "Install set 1")
+                    : which === 2 ? ui("installSet2", "Install set 2")
+                    : ui("installBoth", "Install both sets");
+    btn.appendChild(tip);
+    btn.addEventListener("mouseenter", function () { _showTooltip(tip); });
+    btn.addEventListener("mouseleave", function () { _hideTooltip(tip); });
+    btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (active) cmd("onInstallSet", { which: which });
+    });
+    addSounds(btn, active);
+    return btn;
 }
 
 // Bin in the bottom-right corner of the saved-sets area: forgets what is
@@ -572,8 +610,12 @@ function buildStreamerList() {
     const head = el("div", "z4ae-streamer-list-head");
     head.textContent = String(ui("streamerListTitle", "Streamers")).toUpperCase();
     list.appendChild(head);
-    // Always first: switches back to the WoT Plus recommendation.
-    list.appendChild(buildStreamerRow(ui("streamerListReset", "WoT Plus Recommendation"), null));
+    // Always first: switches back to the WoT Plus recommendation, which
+    // does not exist without the subscription, so the viewer goes without
+    // (its default streamer is simply one of the rows below).
+    if (!gData.noPlus) {
+        list.appendChild(buildStreamerRow(ui("streamerListReset", "WoT Plus Recommendation"), null));
+    }
     (gStreamerList || []).forEach(function (streamer) {
         list.appendChild(buildStreamerRow(streamer.streamerName, streamer.accountId));
     });
@@ -1056,6 +1098,89 @@ function cmd(name, args) {
     } catch (e) { err("command " + name + " failed: " + e); }
 }
 
+// --------------------------------------------------------------------------
+// Viewer mode (no WoT Plus): the streamer's sets, read-only
+// --------------------------------------------------------------------------
+// Laid out like the player's own saved sets, but filled with a streamer's set
+// exactly as shared. Until the player picks someone, Python sends the first
+// streamer of the server's catalog as selectedStreamer (null while that
+// catalog is still on its way, or empty). Python does not
+// map the set to this realm's
+// preferred tier here, since nothing is installed. Everything that would
+// change something is left out; Python refuses those commands as well.
+
+function viewerKey() {
+    return gData.vehicleInvID + ":" + gData.selectedStreamer;
+}
+
+// The set for the current vehicle+streamer is fetched on demand, once per
+// pair while the popover is open. Called from renderPopover().
+function maybeRequestViewerSets() {
+    if (!gData.noPlus || gData.selectedStreamer == null || !gData.vehicleInvID) return;
+    const key = viewerKey();
+    if (key === gViewerRequestedKey) return;
+    gViewerRequestedKey = key;
+    cmd("onRequestPreview");
+}
+
+// The answer only counts while it still belongs to the vehicle and streamer
+// on screen, a slow response for the previous one must not be drawn.
+function viewerPreview() {
+    const p = gPreviewData;
+    if (!p || p.kind !== "viewer") return null;
+    if (p.invID !== gData.vehicleInvID || p.streamer !== gData.selectedStreamer) return null;
+    return p;
+}
+
+// Top-right icon: the selected streamer's picture (star until it is cached).
+// Clicking it opens the picker too, it is the bigger target.
+function buildViewerStreamerIcon() {
+    const btn = el("div", "z4ae-corner-btn z4ae-sets-recommend");
+    const icon = el("div", "z4ae-corner-icon z4ae-sets-recommend-icon");
+    if (gData.selectedStreamer != null && gStreamerIconDataUri) {
+        icon.appendChild(buildImageIcon(gStreamerIconDataUri));
+    } else {
+        icon.appendChild(rowIconSvg("star"));
+    }
+    btn.appendChild(icon);
+    btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        toggleStreamerList();
+    });
+    addSounds(btn, true);
+    return btn;
+}
+
+function buildViewerContent(content) {
+    const header = el("div", "z4ae-header");
+    const title = (gData.selectedStreamerName || ui("streamerRecTitle", "Streamer Equipment"))
+        + " " + ui("streamerSetupSuffix", "Setup");
+    header.textContent = (title + (gData.vehicleName ? ": " + gData.vehicleName : "")).toUpperCase();
+    content.appendChild(header);
+
+    const sets = el("div", "z4ae-sets");
+    const preview = viewerPreview();
+    // No streamer at all once the catalog is in: it is empty, so there is
+    // nothing to wait for either.
+    const noStreamer = gData.selectedStreamer == null && gData.streamersLoaded;
+    const missing = preview || noStreamer
+        ? ui("viewerNoSet", "No set shared for this vehicle")
+        : ui("recLoading", "Loading…");
+    const slots1 = preview && preview.slots1 && preview.slots1.length ? preview.slots1 : null;
+    const slots2 = preview && preview.slots2 && preview.slots2.length ? preview.slots2 : null;
+    sets.appendChild(buildSetBlock(ui("set1", "Set 1"), slots1, missing));
+    sets.appendChild(buildSetBlock(ui("set2", "Set 2"), slots2, missing));
+    sets.appendChild(buildViewerStreamerIcon());
+    sets.appendChild(buildStreamerTrigger());
+    content.appendChild(sets);
+
+    content.appendChild(el("div", "z4ae-divider"));
+
+    const hint = el("div", "z4ae-noplus-hint");
+    hint.textContent = ui("noPlusHint", "All features are disabled because no WoT Plus subscription is active.");
+    content.appendChild(hint);
+}
+
 function buildPopover() {
     // Root copies the native MenuList: content + border overlay + bottom notch.
     const pop = el("div", "z4ae-popover" + (btnSize() === "small" ? "" : " z4ae-large"));
@@ -1063,18 +1188,37 @@ function buildPopover() {
     pop.addEventListener("click", function (e) { e.stopPropagation(); });
 
     const content = el("div", "z4ae-list-content");
+    if (gData.plusPending) {
+        // The button is up before the WoT Plus check has an answer, which
+        // popover this becomes depends on it, so until then only say so.
+        const header = el("div", "z4ae-header");
+        header.textContent = String(ui("title", "Equipment-Sets")).toUpperCase();
+        content.appendChild(header);
+        const loading = el("div", "z4ae-set-block z4ae-set-missing");
+        loading.textContent = ui("recLoading", "Loading…");
+        content.appendChild(loading);
+        return finishPopover(pop, content);
+    }
+    if (gData.noPlus) {
+        buildViewerContent(content);
+        return finishPopover(pop, content);
+    }
 
     // header: vehicle name, dimmed, uppercase
     const header = el("div", "z4ae-header");
-    const headText = ui("title", "Equipment-Sets") + (gData.vehicleName ? " — " + gData.vehicleName : "");
+    const headText = ui("title", "Equipment-Sets") + (gData.vehicleName ? ": " + gData.vehicleName : "");
     header.textContent = headText.toUpperCase();
     content.appendChild(header);
 
     // saved sets — wrapped so the bin can be anchored to the block's corner
     const sets = el("div", "z4ae-sets");
-    sets.appendChild(buildSetBlock(ui("set1", "Set 1"), gData.saved1, ui("notSaved", "Noch nichts gespeichert")));
+    const install = showInstallButtons();
+    sets.appendChild(buildSetBlock(ui("set1", "Set 1"), gData.saved1, ui("notSaved", "Noch nichts gespeichert"),
+                                   install ? 1 : 0));
     if (gData.hasSetup2) {
-        sets.appendChild(buildSetBlock(ui("set2", "Set 2"), gData.saved2, ui("notSaved", "Noch nichts gespeichert")));
+        sets.appendChild(buildSetBlock(ui("set2", "Set 2"), gData.saved2, ui("notSaved", "Noch nichts gespeichert"),
+                                       install ? 2 : 0));
+        if (install && gData.saved1 && gData.saved2) sets.appendChild(buildInstallButton(3));
     } else {
         sets.appendChild(buildSetBlock(ui("set2", "Set 2"), null, ui("noSetup2", "Kein zweites Loadout verfügbar")));
     }
@@ -1142,6 +1286,10 @@ function buildPopover() {
         }
     }
 
+    return finishPopover(pop, content);
+}
+
+function finishPopover(pop, content) {
     pop.appendChild(content);
 
     // border overlay + bottom notch, like the native MenuList
@@ -1172,6 +1320,7 @@ function renderPopover() {
     // Child of our button: anchored above it (bottom: 60/70rem, like the native
     // VehicleMenuWidget_menu) and it rides along when the button slides up.
     gButton.appendChild(buildPopover());
+    maybeRequestViewerSets();
     if (gRecPreviewHovering) {
         const recBtn = gButton.querySelector(".z4ae-sets-recommend");
         if (recBtn) _positionRecPreview(recBtn);
@@ -1185,6 +1334,9 @@ function setPopoverOpen(open) {
     gPopoverOpen = open;
     if (!open) {
         gStreamerListOpen = false;
+        // Asked again on the next open, the streamer may have changed their
+        // set in the meantime.
+        gViewerRequestedKey = null;
         // Drop the statistics with the popover: the numbers are a snapshot of
         // the garage, and showing a stale one on the next open would be worse
         // than the brief "..." while the fresh request comes back.
@@ -1230,8 +1382,13 @@ function onModelUpdate() {
     if (dataJson !== gLastDataJson) {
         gLastDataJson = dataJson;
         gData = parseModelJson("dataJson", {});
-        gPreviewData = null;
-        gLastPreviewJson = null;
+        // The viewer's set answer carries its own vehicle+streamer tag
+        // (viewerPreview), and is only asked for once per pair, dropping it
+        // on every unrelated data push would leave it loading for good.
+        if (!gData.noPlus) {
+            gPreviewData = null;
+            gLastPreviewJson = null;
+        }
         // A bump here means Python asked us to close - e.g. Aslain's Mod Menu
         // opened in its OWN separate Gameface view, which our own DOM/click
         // listeners can never see (see gameface.py's signal_close_popover).
@@ -1303,7 +1460,7 @@ function startObserver() {
 
 // --------------------------------------------------------------------------
 engine.whenReady.then(function () {
-    log("engine.whenReady — JS starting");
+    log("engine.whenReady, JS starting");
     try {
         model.onUpdate(onModelUpdate);
         model.subscribe();

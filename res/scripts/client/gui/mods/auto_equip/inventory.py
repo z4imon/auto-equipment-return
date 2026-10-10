@@ -357,7 +357,8 @@ def is_mode_only_vehicle(vehicle):
 
 
 def find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids=None):
-    """The cheapest unlocked vehicle (not in battle, queue or a prebattle)
+    """Vehicles with saved sets first (see _donor_rank), then the cheapest
+    unlocked vehicle (not in battle, queue or a prebattle)
     carrying the device. excluded_inv_ids rules out further vehicles - the batch
     run uses it so Primary vehicles never cannibalise each other's freshly
     installed equipment.
@@ -382,11 +383,30 @@ def find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids=None):
         _donor_search_count += 1
 
 
+def _donor_rank(vehicle, device_cd):
+    """Which vehicles are taken from first, lowest first.
+
+    0  has saved sets that do not use the device: the mod reinstalls its sets
+       on selection anyway, and it will not want this device back.
+    1  has saved sets that use the device: still restored on selection, but it
+       will pull the device back from someone then.
+    2  no saved sets: whatever it carries was fitted by hand, and nothing puts
+       it back, so it is only a donor when nobody else has the device."""
+    if not config.has_saved_sets(vehicle.invID):
+        return 2
+    saved = config.saved_sets(vehicle.invID)
+    for key in ('set1', 'set2'):
+        if device_cd in (saved.get(key) or ()):
+            return 1
+    return 0
+
+
 def _find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids):
-    # A donor that needs a setup switch is kept only as a fallback: it is used
-    # when the whole list holds nobody cheaper, which is the behaviour this
-    # search always had.
-    needs_switch = None
+    # Ranked by _donor_rank first, then by cost: within a rank a donor whose
+    # active setup holds the device (one server call) beats one that needs a
+    # setup switch (three).
+    best = None
+    best_key = None
     for vehicle in owned_vehicles():
         if vehicle.invID == exclude_inv_id:
             continue
@@ -397,14 +417,16 @@ def _find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids):
         try:
             if vehicle.isLocked or not vehicle_has_device(vehicle, device_cd):
                 continue
-            if vehicle_has_device(vehicle, device_cd,
-                                  setup_idx=active_setup_index(vehicle)):
-                return vehicle          # one call instead of three
-            if needs_switch is None:
-                needs_switch = vehicle
+            needs_switch = not vehicle_has_device(
+                vehicle, device_cd, setup_idx=active_setup_index(vehicle))
+            key = (_donor_rank(vehicle, device_cd), needs_switch)
+            if best_key is None or key < best_key:
+                best, best_key = vehicle, key
+                if key == (0, False):
+                    break           # nothing can beat it
         except Exception:
             continue
-    return needs_switch
+    return best
 
 
 # ---------------------------------------------------------------------------
@@ -867,7 +889,7 @@ def _eligibility_criteria(criteria, mode):
         gate = _MODE_GATES.get(mode)
         return gate(criteria) if gate is not None else _random_battle_criteria(criteria)
     except Exception:
-        LOG.exc('eligibility rules for "%s" unavailable - not restricting' % mode)
+        LOG.exc('eligibility rules for "%s" unavailable, not restricting' % mode)
         return criteria.EMPTY
 
 
@@ -880,7 +902,7 @@ def _carousel_filter_criteria(mode):
         carousel_filter.load()
         return carousel_filter.criteria
     except Exception:
-        LOG.exc('carousel filter %s unavailable - using all Primary vehicles'
+        LOG.exc('carousel filter %s unavailable, using all Primary vehicles'
                 % class_name)
         return REQ_CRITERIA.EMPTY
 

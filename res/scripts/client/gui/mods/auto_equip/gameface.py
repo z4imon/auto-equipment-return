@@ -5,7 +5,9 @@ list).
 
 The mod stays inert without a WoT Plus subscription (a hard gate the player
 asked for), so the flow is: hook the hangar load -> check for the subscription
--> inject the view -> keep it fed with data.
+-> inject the view -> keep it fed with data. Without the subscription the view
+is still injected, but in viewer mode: it only shows a streamer's shared sets,
+untouched, and every command that would change something is refused.
 """
 
 import json
@@ -26,13 +28,13 @@ try:
     from gui.impl.pub.view_impl import ViewImpl
     from openwg_gameface import ModDynAccessor, gf_mod_inject, manager as resmap
 except Exception:
-    LOG.exc('core gameface imports FAILED - module unusable')
+    LOG.exc('core gameface imports FAILED, module unusable')
     raise
 
 _VIEW_ALIAS = 'AutoEquipView'
 _VIEW_DIR = 'coui://gui/gameface/mods/z4imon/AutoEquipView'
 
-_PLUS_CHECK_MAX_ATTEMPTS = 10
+_PLUS_CHECK_MAX_ATTEMPTS = 5
 _PLUS_CHECK_INTERVAL = 1.0
 
 
@@ -150,8 +152,59 @@ def _playlist_label():
         return None
 
 
+# The viewer's default streamer: whoever is FIRST in the server's catalog, shown
+# until the player picks someone else. Taken from the catalog rather than
+# hardcoded, so the order in streamers.csv decides and a streamer who stops
+# sharing never stays the default. Not written to the config, "nothing picked"
+# stays None there, so the normal (WoT Plus) popover is unaffected.
+_viewer_default = (None, None)   # (account id, name), (None, None) until fetched
+_viewer_catalog_loaded = False   # a catalog answer arrived (it may be empty)
+
+
+def _viewer_streamer():
+    """(account id, name) the viewer shows: the picked streamer, else the
+    catalog's first one, (None, None) while that is not known (yet)."""
+    streamer_id = config.selected_streamer_account_id()
+    if streamer_id is None:
+        return _viewer_default
+    return streamer_id, config.selected_streamer_name()
+
+
+def _set_viewer_default(streamer_list):
+    """Adopts the first catalog entry as the viewer's default. Called with
+    every catalog answer, so a reordered or shortened CSV takes effect on the
+    next hangar load or list open."""
+    global _viewer_default, _viewer_catalog_loaded
+    first = streamer_list[0] if streamer_list else {}
+    default = (first.get('accountId'), first.get('streamerName'))
+    changed = default != _viewer_default or not _viewer_catalog_loaded
+    _viewer_default = default
+    _viewer_catalog_loaded = True
+    if changed and config.selected_streamer_account_id() is None:
+        _push_preview({})
+        _push_icon_data_uri('')
+        push_data()
+        _load_viewer_icon()
+
+
+def _viewer_mode():
+    """True once the account is known to have no WoT Plus: the popover then only
+    shows streamer sets. A pending check (None) is not viewer mode, the popover
+    just says it is loading until the check resolves."""
+    return _has_wot_plus is False
+
+
+def _read_only():
+    """Commands that change something only run with the subscription CONFIRMED -
+    not in viewer mode, and not while the check is still pending either (the
+    button is already on screen by then)."""
+    return _has_wot_plus is not True
+
+
 def _build_data():
     data = {
+        'noPlus': _viewer_mode(),
+        'plusPending': _has_wot_plus is None,
         'vehicleName': u'',
         'vehicleInvID': 0,
         'enabled': config.is_auto_enabled(),
@@ -174,6 +227,9 @@ def _build_data():
         # text instead of the default "installing" busy row.
         'busyLabel': _carousel_busy_text(),
     }
+    if _viewer_mode():
+        data['selectedStreamer'], data['selectedStreamerName'] = _viewer_streamer()
+        data['streamersLoaded'] = _viewer_catalog_loaded
     try:
         vehicle = g_currentVehicle.item
         if vehicle is None:
@@ -185,6 +241,12 @@ def _build_data():
         if saved:
             data['saved1'] = _set_payload(saved.get('set1'))
             data['saved2'] = _set_payload(saved.get('set2'))
+            # Greys out the install buttons: exactly the saved layout is in.
+            # Raw saved layout, no downgrades, a downgraded device leaves the
+            # button active, a click may get the real one back by now.
+            for setup_idx, wanted in apply_engine.build_plan(vehicle, saved):
+                data['installed%d' % (setup_idx + 1)] = (
+                    inventory.setup_device_cds(vehicle, setup_idx) == wanted)
     except Exception:
         LOG.exc('_build_data failed')
     return data
@@ -329,6 +391,13 @@ def _push_icon_data_uri(data_uri):
 
 def _on_vehicle_changed(*args, **kwargs):
     try:
+        if _viewer_mode():
+            # Nothing is installed or saved without the subscription, only the
+            # streamer view has to follow the vehicle. The JS asks for the new
+            # vehicle's set itself once it sees the changed data.
+            push_data()
+            _push_preview({})
+            return
         apply_engine.on_vehicle_changed()
         _maybe_save_confirmed_equipment(g_currentVehicle.item)
         push_data()
@@ -417,7 +486,7 @@ def _maybe_save_confirmed_equipment(vehicle):
         LOG.exc('_maybe_save_confirmed_equipment failed')
 
 
-def _subscribe_to_vehicle():
+def _subscribe_to_vehicle(prime=True):
     global _subscribed_to_vehicle
     try:
         try:
@@ -428,8 +497,9 @@ def _subscribe_to_vehicle():
         # The vehicle already selected at this point must not count as a
         # selection the player just made, and its current setup is the baseline
         # the player's first edit has to be compared against.
-        apply_engine.prime_selection()
-        _prime_setup_snapshot()
+        if prime:
+            apply_engine.prime_selection()
+            _prime_setup_snapshot()
         if not _subscribed_to_vehicle:
             LOG.info('subscribed to g_currentVehicle.onChanged')
         _subscribed_to_vehicle = True
@@ -460,10 +530,10 @@ class AutoEquipViewModel(ViewModel):
                  'onEquipPlaylist',
                  'onPopoverOpened',
                  'onRequestPreview', 'onOpenStreamerList', 'onSelectStreamer',
-                 'onOpenStats')
+                 'onOpenStats', 'onInstallSet')
 
     def __init__(self):
-        super(AutoEquipViewModel, self).__init__(properties=6, commands=15)
+        super(AutoEquipViewModel, self).__init__(properties=6, commands=16)
 
     def getDataJson(self):
         return self._getString(0)
@@ -524,6 +594,7 @@ class AutoEquipViewModel(ViewModel):
         self.onOpenStreamerList = self._addCommand('onOpenStreamerList')
         self.onSelectStreamer = self._addCommand('onSelectStreamer')
         self.onOpenStats = self._addCommand('onOpenStats')
+        self.onInstallSet = self._addCommand('onInstallSet')
         gf_mod_inject(self, _VIEW_ALIAS,
                       styles=['%s/AutoEquipView.css' % _VIEW_DIR],
                       modules=['%s/AutoEquipView.js' % _VIEW_DIR])
@@ -567,6 +638,7 @@ class AutoEquipView(ViewComponent):
             (self.viewModel.onOpenStreamerList, self._on_open_streamer_list),
             (self.viewModel.onSelectStreamer, self._on_select_streamer),
             (self.viewModel.onOpenStats, self._on_open_stats),
+            (self.viewModel.onInstallSet, self._on_install_set),
         )
 
     def _on_js_log(self, data=None):
@@ -586,6 +658,8 @@ class AutoEquipView(ViewComponent):
 
     def _on_toggle_enabled(self, data=None):
         try:
+            if _read_only():
+                return
             config.set_auto_enabled(not config.is_auto_enabled())
             push_data()
         except Exception:
@@ -593,6 +667,8 @@ class AutoEquipView(ViewComponent):
 
     def _on_toggle_downgrade(self, data=None):
         try:
+            if _read_only():
+                return
             if not config.is_icon_menu_row_enabled('downgrade'):
                 return
             config.set_downgrade_enabled(not config.is_downgrade_enabled())
@@ -602,6 +678,8 @@ class AutoEquipView(ViewComponent):
 
     def _on_toggle_always_setup1(self, data=None):
         try:
+            if _read_only():
+                return
             if not config.is_icon_menu_row_enabled('alwaysSetup1'):
                 return
             config.set_always_setup1(not config.is_always_setup1())
@@ -611,6 +689,8 @@ class AutoEquipView(ViewComponent):
 
     def _on_save_set(self, data=None):
         try:
+            if _read_only():
+                return
             which = int(data.get('which', save.BOTH_SETS)) if data else save.BOTH_SETS
             status = save.save_current_vehicle_sets(which)
             LOG.info('_on_save_set(%s): %s' % (which, status))
@@ -620,6 +700,8 @@ class AutoEquipView(ViewComponent):
 
     def _on_delete_sets(self, data=None):
         try:
+            if _read_only():
+                return
             save.delete_current_vehicle_sets()
             push_data()
         except Exception:
@@ -635,6 +717,8 @@ class AutoEquipView(ViewComponent):
         sets, so on a vehicle that already has one it would silently replace
         the player's own work."""
         try:
+            if _read_only():
+                return
             vehicle = g_currentVehicle.item
             if vehicle is None:
                 return
@@ -693,6 +777,11 @@ class AutoEquipView(ViewComponent):
             vehicle = g_currentVehicle.item
             if vehicle is None:
                 return
+            if _viewer_mode():
+                self._push_viewer_preview(vehicle, _viewer_streamer()[0])
+                return
+            if _read_only():
+                return      # Plus check still pending
             streamer_id = config.selected_streamer_account_id()
             if streamer_id is None:
                 _push_preview({'kind': 'wotplus', 'entries': _recommended_payload(vehicle)})
@@ -706,6 +795,21 @@ class AutoEquipView(ViewComponent):
         except Exception:
             LOG.exc('_on_request_preview failed')
 
+    def _push_viewer_preview(self, vehicle, streamer_id):
+        """Viewer mode: the streamer's sets exactly as shared, no
+        _transform_streamer_set(), since nothing gets installed and the player
+        wants to see what the streamer actually runs. Tagged with vehicle and
+        streamer so the JS can drop an answer that arrives after either one
+        changed."""
+        if streamer_id is None:
+            return
+        inv_id = vehicle.invID
+
+        def on_result(set1, set2):
+            _push_preview({'kind': 'viewer', 'invID': inv_id, 'streamer': streamer_id,
+                           'slots1': _set_payload(set1), 'slots2': _set_payload(set2)})
+        streamers.fetch_vehicle_set(streamer_id, vehicle.intCD, callback=on_result)
+
     def _on_open_streamer_list(self, data=None):
         try:
             def on_result(streamer_list):
@@ -717,6 +821,8 @@ class AutoEquipView(ViewComponent):
                     # whatever list is already showing rather than blanking it.
                     return
                 _push_streamer_list(streamer_list)
+                if _viewer_mode():
+                    _set_viewer_default(streamer_list)
                 selected_id = config.selected_streamer_account_id()
                 if selected_id is not None and not any(
                         s.get('accountId') == selected_id for s in streamer_list):
@@ -725,6 +831,8 @@ class AutoEquipView(ViewComponent):
                     _push_preview({})
                     _push_icon_data_uri('')
                     push_data()
+                    if _viewer_mode():
+                        _load_viewer_icon()
             streamers.list_streamers(on_result)
         except Exception:
             LOG.exc('_on_open_streamer_list failed')
@@ -748,7 +856,9 @@ class AutoEquipView(ViewComponent):
             _push_preview({})
             _push_icon_data_uri('')
             push_data()
-            if account_id is not None:
+            if _viewer_mode():
+                _load_viewer_icon()
+            elif account_id is not None:
                 streamers.ensure_icon_cached(account_id, streamer_name, callback=_push_icon_data_uri)
         except Exception:
             LOG.exc('_on_select_streamer failed')
@@ -772,6 +882,8 @@ class AutoEquipView(ViewComponent):
         """
         global _stats_token
         try:
+            if _read_only():
+                return
             scope = str((data or {}).get('scope') or stats.ALL)
             result = stats.collect(scope)
             _stats_token += 1
@@ -810,6 +922,8 @@ class AutoEquipView(ViewComponent):
 
     def _on_demount_all_trophy(self, data=None):
         try:
+            if _read_only():
+                return
             from . import carousel_menu
             if not config.is_icon_menu_row_enabled('demountBounty'):
                 return
@@ -820,6 +934,8 @@ class AutoEquipView(ViewComponent):
 
     def _on_equip_primary(self, data=None):
         try:
+            if _read_only():
+                return
             if not config.is_icon_menu_row_enabled('equipPrimary'):
                 return
             apply_engine.equip_primary_vehicles()
@@ -829,12 +945,30 @@ class AutoEquipView(ViewComponent):
 
     def _on_equip_playlist(self, data=None):
         try:
+            if _read_only():
+                return
             if not config.is_icon_menu_row_enabled('equipPlaylist'):
                 return
             apply_engine.equip_playlist_vehicles()
             push_data()
         except Exception:
             LOG.exc('_on_equip_playlist failed')
+
+    def _on_install_set(self, data=None):
+        """Install buttons next to the saved sets, shown while auto-install
+        is off: which = 1 (set 1), 2 (set 2) or 3 (both)."""
+        try:
+            if _read_only():
+                return
+            vehicle = g_currentVehicle.item
+            if vehicle is None or not config.has_saved_sets(vehicle.invID):
+                return
+            which = int(data.get('which', save.BOTH_SETS)) if data else save.BOTH_SETS
+            setups = {1: (0,), 2: (1,)}.get(which, (0, 1))
+            apply_engine.apply_saved_sets(vehicle.invID, only_setups=frozenset(setups))
+            push_data()
+        except Exception:
+            LOG.exc('_on_install_set failed')
 
 
 # ---------------------------------------------------------------------------
@@ -844,8 +978,6 @@ class AutoEquipView(ViewComponent):
 def _on_hangar_loaded(view):
     global _hangar_view, _pending_hangar_view
     _hangar_view = view
-    if _has_wot_plus is False:
-        return
     if not _initialized:
         _pending_hangar_view = view
         return
@@ -855,7 +987,15 @@ def _on_hangar_loaded(view):
     patchnotes.maybe_show()
     if _has_wot_plus is True:
         _activate(view)
+    elif _has_wot_plus is False:
+        _activate_viewer(view)
     else:
+        # The button goes up right away: without Plus the check only gives up
+        # after _PLUS_CHECK_MAX_ATTEMPTS seconds, and the button used to wait
+        # for it. Until the check resolves the popover only says it is loading
+        # (plusPending) and every command is refused (_read_only).
+        _inject_into(view)
+        push_data()
         _check_wot_plus(attempt=0)
 
 
@@ -868,6 +1008,31 @@ def _activate(view):
         streamers.ensure_icon_cached(streamer_id, config.selected_streamer_name(), callback=_push_icon_data_uri)
 
 
+def _activate_viewer(view):
+    """No subscription: the popover still comes up, but only as a read-only
+    streamer view. The vehicle subscription is taken without priming, the
+    apply engine and the save baseline stay out of it entirely."""
+    _subscribe_to_vehicle(prime=False)
+    _inject_into(view)
+    push_data()
+    _load_viewer_icon()
+    # The default streamer is the catalog's first entry, so the catalog is
+    # needed before the player ever opens the picker. A failed fetch (None)
+    # keeps whatever default an earlier load found.
+    def on_catalog(streamer_list):
+        if streamer_list is not None:
+            _set_viewer_default(streamer_list)
+    streamers.list_streamers(on_catalog)
+
+
+def _load_viewer_icon():
+    """The picture of the streamer the viewer shows, the default one included,
+    once the catalog has named it."""
+    streamer_id, streamer_name = _viewer_streamer()
+    if streamer_id is not None:
+        streamers.ensure_icon_cached(streamer_id, streamer_name, callback=_push_icon_data_uri)
+
+
 def _check_wot_plus(attempt):
     """Subscription data may not be synced when the hangar first loads, so poll
     a few times before declaring the account Plus-less. Without the
@@ -878,7 +1043,7 @@ def _check_wot_plus(attempt):
     try:
         if inventory.has_wot_plus():
             _has_wot_plus = True
-            LOG.info('WoT Plus subscription found - mod active')
+            LOG.info('WoT Plus subscription found, mod active')
             if _hangar_view is not None:
                 _activate(_hangar_view)
             return
@@ -893,13 +1058,18 @@ def _check_wot_plus(attempt):
 def _shut_down_without_subscription():
     global _has_wot_plus
     _has_wot_plus = False
-    LOG.warning('no WoT Plus subscription - shutting the mod down')
+    LOG.warning('no WoT Plus subscription, shutting the mod down')
     try:
         messages.push_warning(t('noSubscription'))
     except Exception:
         LOG.exc('could not push no-subscription message')
     config.disable_mod()
-    fini()
+    # Not fini(): the view is already in the hangar (injected while the check
+    # was pending) and only switches to viewer mode, dropping it here would
+    # inject a second one into the same hangar.
+    _unsubscribe_from_vehicle()
+    if _hangar_view is not None:
+        _activate_viewer(_hangar_view)
 
 
 def _inject_into(view):
@@ -908,7 +1078,7 @@ def _inject_into(view):
     if _injected_into_view_id == view_id:
         return
     if not resmap.isResMapValidated:
-        LOG.error('_inject_into: ResMap NOT validated - cannot inject')
+        LOG.error('_inject_into: ResMap NOT validated, cannot inject')
         return
     try:
         _view = AutoEquipView()

@@ -1,6 +1,21 @@
 {
     "notes": [
         {
+            "version": "1.5",
+            "de": [
+                "Neu: Streamer-Equipment auch ohne WoT Plus ansehen",
+                "Neu: Einbau-Buttons, wenn Automatisch einbauen aus ist",
+                "Speichern-Auswahl umbenannt: Automatisch und Manuell",
+                "Bugfixes"
+            ],
+            "en": [
+                "New: View streamer equipment without WoT Plus",
+                "New: Install buttons when Auto-install is disabled",
+                "Save mode options renamed: Automatic and Manual",
+                "Bugfixes"
+            ]
+        },
+        {
             "version": "1.4",
             "de": [
                 "Neu: Statistik-Seite",
