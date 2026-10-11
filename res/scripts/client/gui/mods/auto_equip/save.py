@@ -2,7 +2,7 @@
 """Snapshotting the current vehicle's setups into the config - the other half
 of the feature apply.py restores - and throwing a snapshot away again."""
 
-from . import config, inventory
+from . import inventory, mode_sets
 from .i18n import t
 from .log import LOG
 
@@ -28,7 +28,9 @@ def save_current_vehicle_sets(which):
 
     set1 = snapshot['set1'] if which in (SET_1, BOTH_SETS) else None
     set2 = snapshot['set2'] if which in (SET_2, BOTH_SETS) else None
-    config.store_sets(vehicle.invID, set1=set1, set2=set2, veh_cd=vehicle.intCD)
+    # Into the profile the popover's switch shows (mode_sets.py).
+    mode_sets.store(vehicle.invID, mode_sets.fit_view_profile(vehicle.level),
+                    set1=set1, set2=set2, veh_cd=vehicle.intCD)
     LOG.info('saved sets for %s (which=%s): set1=%s set2=%s'
              % (vehicle.userName, which, set1, set2))
     return t(_STATUS_TEXT.get(which, 'bothSetsSaved'))
@@ -41,7 +43,7 @@ def delete_current_vehicle_sets():
     vehicle = g_currentVehicle.item
     if vehicle is None:
         return False
-    if not config.delete_sets(vehicle.invID):
+    if not mode_sets.delete(vehicle.invID, mode_sets.fit_view_profile(vehicle.level)):
         return False
     LOG.info('deleted the saved sets of %s' % vehicle.userName)
     return True

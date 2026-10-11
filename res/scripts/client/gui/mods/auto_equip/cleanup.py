@@ -28,7 +28,7 @@ only thing between the player and a silent charge.
 
 from adisp import adisp_async, adisp_process
 
-from . import config, inventory, messages, rpc
+from . import config, inventory, messages, mode_sets, rpc
 from . import apply as apply_engine
 from .i18n import t
 from .log import LOG
@@ -109,25 +109,30 @@ def has_misplaced(vehicle):
     nothing."""
     try:
         saved = config.saved_sets(vehicle.invID)
-        return saved is not None and bool(misplaced_slots(vehicle, saved))
+        return saved is not None and bool(misplaced_slots(
+            vehicle, saved, mode_sets.all_mode_sets(vehicle.invID)))
     except Exception:
         LOG.exc('could not scan a vehicle for misplaced equipment')
         return False
 
 
-def misplaced_slots(vehicle, saved):
+def misplaced_slots(vehicle, saved, extras=()):
     """[(setup index, [slot indices])] - every occupied slot carrying something
     other than what the saved layout puts there.
 
     The test is per SLOT, not per set: a device that is in the saved set but in
     the wrong slot counts as misplaced and comes off, because the slot it sits
     in is not the one it was saved for. Setups that were never saved are not
-    part of the plan and keep whatever they are carrying."""
+    part of the plan and keep whatever they are carrying.
+
+    extras are the vehicle's Frontline/Onslaught entries (mode_sets.all_mode_sets):
+    a slot matching one of them stays too, so a cleanup never strips mode equipment."""
     plan = []
+    extra_plans = [dict(apply_engine.build_plan(vehicle, extra)) for extra in extras]
     for setup_idx, wanted in apply_engine.build_plan(vehicle, saved):
         current = inventory.setup_device_cds(vehicle, setup_idx)
-        slots = [slot_idx for slot_idx, device_cd in enumerate(current)
-                 if device_cd and device_cd != wanted[slot_idx]]
+        slots = mode_sets.slot_mismatches(
+            current, wanted, [p[setup_idx] for p in extra_plans if setup_idx in p])
         if slots:
             plan.append((setup_idx, slots))
     return plan
@@ -257,7 +262,7 @@ def _clean_vehicle(veh_inv_id, totals, callback=None):
         saved = config.saved_sets(veh_inv_id)
         if vehicle is None or saved is None:
             return
-        plan = misplaced_slots(vehicle, saved)
+        plan = misplaced_slots(vehicle, saved, mode_sets.all_mode_sets(veh_inv_id))
         if not plan:
             return
 

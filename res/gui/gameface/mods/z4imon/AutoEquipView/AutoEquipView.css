@@ -731,6 +731,76 @@
     color: rgba(255, 140, 40, 0.95);
 }
 
+/* Mode switch, after the Challenges mod's Co-Op/Race switch, small. */
+.z4ae-profile-switch {
+    position: relative;
+    display: flex;
+    /* Fixed: the list content aligns its children flex-start, so without a
+       width the switch shrinks to its labels' zero flex basis. 300rem popover
+       minus the 20rem margins; no calc() in Cohtml. */
+    width: 260rem;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    height: 20rem;
+    margin: 0 20rem 8rem 20rem;
+    border-radius: 3rem;
+    overflow: hidden;
+    border-width: 1rem;
+    border-style: solid;
+    border-color: rgba(238, 237, 233, 0.18);
+}
+.z4ae-profile-bg {
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    background-color: rgba(0, 0, 0, 0.35);
+}
+.z4ae-profile-slider {
+    position: absolute;
+    top: 2rem;
+    bottom: 2rem;
+    width: 33.3333%;
+    box-sizing: border-box;
+    border-radius: 2rem;
+    background-color: rgba(238, 237, 233, 0.16);
+    border-width: 1rem;
+    border-style: solid;
+    border-color: rgba(238, 237, 233, 0.35);
+    /* left is set and animated from JS (buildProfileSwitch). */
+}
+/* Two profiles (tier 10: Standard and Onslaught): half width each. */
+.z4ae-profile-switch-2 .z4ae-profile-slider { width: 50%; }
+.z4ae-profile-lbl {
+    position: relative;
+    z-index: 1;
+    flex: 1 1 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: rgba(238, 237, 233, 0.55);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color 0.15s ease;
+}
+.z4ae-profile-lbl:hover {
+    color: rgba(238, 237, 233, 0.85);
+}
+.z4ae-profile-lbl-active,
+.z4ae-profile-lbl-active:hover {
+    color: rgb(238, 237, 233);
+    cursor: default;
+}
+.z4ae-mode-hint {
+    padding: 0 20rem 6rem 20rem;
+    font-size: 11rem;
+    line-height: 1.3;
+    color: rgba(238, 237, 233, 0.5);
+}
+
 /* --- streamer picker trigger + dropdown ------------------------------- */
 .z4ae-streamer-trigger {
     top: 0;

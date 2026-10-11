@@ -5,13 +5,13 @@
             "de": [
                 "Neu: Streamer-Equipment auch ohne WoT Plus ansehen",
                 "Neu: Einbau-Buttons, wenn Automatisch einbauen aus ist",
-                "Speichern-Auswahl umbenannt: Automatisch und Manuell",
+                "Neu: Eigenes Equipment für Frontline und Ansturm (in den Einstellungen aktivieren)",
                 "Bugfixes"
             ],
             "en": [
                 "New: View streamer equipment without WoT Plus",
                 "New: Install buttons when Auto-install is disabled",
-                "Save mode options renamed: Automatic and Manual",
+                "New: Separate equipment for Frontline and Onslaught (enable in the settings)",
                 "Bugfixes"
             ]
         },

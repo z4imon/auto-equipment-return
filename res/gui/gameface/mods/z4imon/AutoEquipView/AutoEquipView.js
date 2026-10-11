@@ -397,7 +397,7 @@ function buildSetBlock(label, slots, missingText, installWhich) {
 // them for both (only when both are saved). Python runs the normal
 // single-vehicle install narrowed to those setups (onInstallSet).
 function showInstallButtons() {
-    return !gData.enabled;
+    return !gData.enabled && !gData.foreignView;
 }
 
 // Inert while a run is busy or when what it would install is already in
@@ -427,13 +427,120 @@ function buildInstallButton(which) {
     return btn;
 }
 
+// Mode switch (mode sets on): which profile the sets below show and the Save
+// buttons write to. Built like the Challenges mod's Co-Op/Race switch (a
+// background, a sliding thumb, the labels on top), smaller and in this
+// popover's colours. Python resets it to the hangar's mode on every load.
+const PROFILES = [
+    ["", "profileStandard", "Standard"],
+    ["frontline", "profileFrontline", "Frontline"],
+    ["comp7", "profileOnslaught", "Onslaught"],
+];
+
+// Only the profiles whose mode exists at the vehicle's tier (Python sends
+// them): all three at tier 8, Standard and Onslaught at tier 10.
+function availableProfiles() {
+    const allowed = gData.profilesAvailable;
+    if (!allowed) return PROFILES;
+    return PROFILES.filter(function (p) { return allowed.indexOf(p[0]) >= 0; });
+}
+
+function showProfileSwitch() {
+    return !!gData.modeSets && availableProfiles().length > 1;
+}
+
+// The thumb's slide runs in JS, frame by frame: every answer from Python
+// rebuilds the whole popover (sometimes more than once), which drops a CSS
+// transition. The state lives here, so each rebuilt thumb just picks up the
+// position of the moment. Same curve as the website's switch
+// (Server static/style.css .seg__slider): springs past and settles back.
+const SLIDE_MS = 500;
+let gProfileSlide = null;   // {from, to, count, start} while a slide runs
+
+function _bezierCoord(t, p1, p2) {
+    const u = 1 - t;
+    return 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t;
+}
+
+// cubic-bezier(0.47, 1.64, 0.41, 0.8): finds t for the time x by bisection
+// (x grows monotonically for these control points), returns the progress y.
+function _slideEase(x) {
+    let lo = 0, hi = 1, t = x;
+    for (let i = 0; i < 20; i++) {
+        t = (lo + hi) / 2;
+        if (_bezierCoord(t, 0.47, 0.41) < x) lo = t; else hi = t;
+    }
+    return _bezierCoord(t, 1.64, 0.8);
+}
+
+function _slideLeft(position, count) {
+    return (position * 100 / count) + "%";
+}
+
+function _slideFrame() {
+    const slide = gProfileSlide;
+    if (!slide) return;
+    const x = Math.min(1, (Date.now() - slide.start) / SLIDE_MS);
+    const position = slide.from + (slide.to - slide.from) * _slideEase(x);
+    const slider = document.querySelector(".z4ae-profile-slider");
+    if (slider) slider.style.left = _slideLeft(position, slide.count);
+    if (x >= 1) { gProfileSlide = null; return; }
+    requestAnimationFrame(_slideFrame);
+}
+
+function buildProfileSwitch() {
+    const active = gData.viewProfile || "";
+    const profiles = availableProfiles();
+    let activeIdx = 0;
+    profiles.forEach(function (p, i) { if (p[0] === active) activeIdx = i; });
+    const sw = el("div", "z4ae-profile-switch z4ae-profile-switch-" + profiles.length);
+    sw.appendChild(el("div", "z4ae-profile-bg"));
+    // A slide that no longer fits (refused, other vehicle or hangar) stops:
+    // the thumb is then drawn where the profile is.
+    if (gProfileSlide && (gProfileSlide.to !== activeIdx || gProfileSlide.count !== profiles.length)) {
+        gProfileSlide = null;
+    }
+    const slider = el("div", "z4ae-profile-slider");
+    let position = activeIdx;
+    if (gProfileSlide) {
+        const x = Math.min(1, (Date.now() - gProfileSlide.start) / SLIDE_MS);
+        position = gProfileSlide.from + (gProfileSlide.to - gProfileSlide.from) * _slideEase(x);
+    }
+    slider.style.left = _slideLeft(position, profiles.length);
+    sw.appendChild(slider);
+    const labels = [];
+    profiles.forEach(function (p, i) {
+        const lbl = el("div", "z4ae-profile-lbl" + (i === activeIdx ? " z4ae-profile-lbl-active" : ""));
+        lbl.textContent = ui(p[1], p[2]);
+        if (i !== activeIdx) {
+            lbl.addEventListener("click", function (e) {
+                e.stopPropagation();
+                // Starts right away; Python's answer rebuilds the popover and
+                // the new thumb carries on. A refusal redraws it all as it was.
+                const running = !gProfileSlide;
+                gProfileSlide = { from: activeIdx, to: i, count: profiles.length, start: Date.now() };
+                if (running) requestAnimationFrame(_slideFrame);
+                labels.forEach(function (other, j) {
+                    other.className = "z4ae-profile-lbl" + (j === i ? " z4ae-profile-lbl-active" : "");
+                });
+                cmd("onSelectProfile", { profile: p[0] });
+            });
+            addSounds(lbl, true);
+        }
+        labels.push(lbl);
+        sw.appendChild(lbl);
+    });
+    return sw;
+}
+
 // Bin in the bottom-right corner of the saved-sets area: forgets what is
 // stored for the vehicle currently in the hangar. No confirm dialog — nothing
 // here is expensive to redo, the two SAVE rows sit right below it.
 // Dimmed and inert while nothing is saved: the block next to it already says
 // so, and a bin that would do nothing must not look clickable.
 function buildDeleteButton() {
-    const hasSaved = !!(gData.saved1 || gData.saved2);
+    // Fallback: the normal sets only show in a mode profile, nothing to delete.
+    const hasSaved = !!(gData.saved1 || gData.saved2) && !gData.modeFallback;
     const btn = el("div", "z4ae-corner-btn z4ae-sets-delete"
                         + (hasSaved ? "" : " z4ae-corner-btn-disabled"));
     const icon = el("div", "z4ae-corner-icon z4ae-sets-delete-icon");
@@ -462,7 +569,10 @@ function buildDeleteButton() {
 // hover preview itself says now, the same way it always said "not available"
 // for a single missing set.
 function buildRecommendButton() {
-    const hasSaved = !!(gData.saved1 || gData.saved2);
+    // Blocked as before by saved sets (the fallback does not count). In
+    // another mode's view it works too, but only stores (Python skips the
+    // install there).
+    const hasSaved = !!(gData.saved1 || gData.saved2) && !gData.modeFallback;
     const btn = el("div", "z4ae-corner-btn z4ae-sets-recommend"
                         + (hasSaved ? " z4ae-corner-btn-inactive" : ""));
     const icon = el("div", "z4ae-corner-icon z4ae-sets-recommend-icon");
@@ -1209,6 +1319,7 @@ function buildPopover() {
     const headText = ui("title", "Equipment-Sets") + (gData.vehicleName ? ": " + gData.vehicleName : "");
     header.textContent = headText.toUpperCase();
     content.appendChild(header);
+    if (showProfileSwitch()) content.appendChild(buildProfileSwitch());
 
     // saved sets — wrapped so the bin can be anchored to the block's corner
     const sets = el("div", "z4ae-sets");
@@ -1227,6 +1338,11 @@ function buildPopover() {
     sets.appendChild(buildStatsButton());
     sets.appendChild(buildDeleteButton());
     content.appendChild(sets);
+    if (gData.modeFallback) {
+        const hint = el("div", "z4ae-mode-hint");
+        hint.textContent = ui("modeFallbackHint", "Normal set, nothing saved for this mode yet");
+        content.appendChild(hint);
+    }
 
     content.appendChild(el("div", "z4ae-divider"));
 

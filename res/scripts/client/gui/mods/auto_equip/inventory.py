@@ -18,7 +18,7 @@ from post_progression_common import TankSetupGroupsId
 from skeletons.gui.game_control import IWotPlusController
 from skeletons.gui.shared import IItemsCache
 
-from . import config, hangar
+from . import config, hangar, mode_sets
 from .log import LOG
 
 OPT_DEVICE_GROUP = TankSetupGroupsId.OPTIONAL_DEVICES_AND_BOOSTERS
@@ -241,6 +241,21 @@ def has_second_setup(vehicle):
     return 1 in setup_indices(vehicle)
 
 
+def second_setup_usable(vehicle):
+    """Whether the game offers the second equipment setup right now, the
+    check its own setup panel makes. Stricter than has_second_setup(): the
+    layout can exist while the switch is off, e.g. in the Onslaught hangar.
+    Only for what the popover shows; saving and installing keep using
+    has_second_setup()."""
+    if not has_second_setup(vehicle):
+        return False
+    try:
+        return bool(vehicle.isSetupSwitchActive(OPT_DEVICE_GROUP))
+    except Exception:
+        LOG.exc('isSetupSwitchActive failed')
+        return True
+
+
 def slot_capacity(vehicle):
     return vehicle.optDevices.installed.getCapacity()
 
@@ -388,16 +403,17 @@ def _donor_rank(vehicle, device_cd):
 
     0  has saved sets that do not use the device: the mod reinstalls its sets
        on selection anyway, and it will not want this device back.
-    1  has saved sets that use the device: still restored on selection, but it
-       will pull the device back from someone then.
+    1  has saved sets (normal, Frontline or Onslaught) that use the device:
+       still restored on selection, but it will pull the device back from
+       someone then.
     2  no saved sets: whatever it carries was fitted by hand, and nothing puts
        it back, so it is only a donor when nobody else has the device."""
     if not config.has_saved_sets(vehicle.invID):
         return 2
-    saved = config.saved_sets(vehicle.invID)
-    for key in ('set1', 'set2'):
-        if device_cd in (saved.get(key) or ()):
-            return 1
+    for entry in [config.saved_sets(vehicle.invID)] + mode_sets.all_mode_sets(vehicle.invID):
+        for key in ('set1', 'set2'):
+            if device_cd in (entry.get(key) or ()):
+                return 1
     return 0
 
 

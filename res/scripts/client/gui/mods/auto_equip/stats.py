@@ -24,7 +24,7 @@ TYPE, not the individual item, so two physically separate red lvl 2 rammers are
 indistinguishable here. Showing a gap that is not there beats hiding one.
 """
 
-from . import config, inventory
+from . import config, inventory, mode_sets
 from .log import LOG
 
 ALL = 'all'
@@ -36,11 +36,13 @@ _SETUPS = (0, 1)
 
 
 def _saved_device_cds(veh_inv_id):
-    """The distinct devices one vehicle has saved, across BOTH sets."""
-    entry = config.saved_sets(veh_inv_id)
-    if not entry:
-        return set()
+    """The distinct devices one vehicle has saved, across BOTH sets. With mode
+    sets on, the sets this hangar installs (user decision 2026-10-11): in the
+    Onslaught hangar the vehicle's Onslaught set, else its normal set."""
     found = set()
+    entry = mode_sets.effective_sets(veh_inv_id)
+    if not entry:
+        return found
     for key in ('set1', 'set2'):
         for device_cd in (entry.get(key) or []):
             if device_cd:
@@ -68,9 +70,11 @@ def _scope_vehicles(scope):
         else:
             LOG.warning('unknown stats scope %r' % (scope,))
             return []
+        # In a mode hangar only the tiers that mode has (mode_sets.py).
         return [vehicle for vehicle in candidates
                 if not inventory.is_mode_only_vehicle(vehicle)
-                and config.has_saved_sets(vehicle.invID)]
+                and mode_sets.in_hangar_mode(vehicle.level)
+                and mode_sets.has_effective_sets(vehicle.invID)]
     except Exception:
         LOG.exc('_scope_vehicles(%r) failed' % (scope,))
         return []
