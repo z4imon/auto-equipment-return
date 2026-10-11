@@ -67,6 +67,7 @@ def _init_sync():
     try:
         from .auto_equip import sync
         config.add_change_listener(sync._on_local_change)
+        mode_sets.add_change_listener(sync._on_mode_change)
     except Exception:
         LOG.exc('sync change-listener registration failed')
 

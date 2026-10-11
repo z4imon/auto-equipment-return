@@ -158,16 +158,22 @@ def list_streamers(callback):
     _get_json('/streamers', callback)
 
 
-def fetch_vehicle_set(account_id, vehicle_cd, callback):
+def fetch_vehicle_set(account_id, vehicle_cd, callback, profile=None):
     """callback(set1, set2) - both None if the streamer has nothing for this
     vehicle type, isn't activated for sharing, or the request failed.
-    On-demand only (hover-preview and click-to-apply); never cached."""
+    profile ('frontline' or 'comp7') asks for the streamer's set of that mode;
+    the server falls back to their normal set, and an older server ignores
+    the parameter. On-demand only (hover-preview and click-to-apply); never
+    cached."""
     def handle_response(data):
         if not data:
             callback(None, None)
             return
         callback(data.get('set1'), data.get('set2'))
-    _get_json('/streamers/%s/vehicle-set/%s' % (account_id, int(vehicle_cd)), handle_response)
+    path = '/streamers/%s/vehicle-set/%s' % (account_id, int(vehicle_cd))
+    if profile:
+        path += '?profile=%s' % profile
+    _get_json(path, handle_response)
 
 
 def forget_streamer(name):

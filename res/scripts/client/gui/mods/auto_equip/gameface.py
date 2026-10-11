@@ -805,7 +805,7 @@ class AutoEquipView(ViewComponent):
                          % vehicle.userName)
                 return
             apply_engine.apply_saved_sets(vehicle.invID)
-        streamers.fetch_vehicle_set(streamer_account_id, vehicle.intCD, callback=on_result)
+        streamers.fetch_vehicle_set(streamer_account_id, vehicle.intCD, callback=on_result, profile=profile)
 
     def _on_request_preview(self, data=None):
         try:
@@ -826,7 +826,8 @@ class AutoEquipView(ViewComponent):
                 _push_preview({'kind': 'streamer',
                                'slots1': _set_payload(_transform_streamer_set(vehicle, set1)),
                                'slots2': _set_payload(_transform_streamer_set(vehicle, set2))})
-            streamers.fetch_vehicle_set(streamer_id, vehicle.intCD, callback=on_result)
+            streamers.fetch_vehicle_set(streamer_id, vehicle.intCD, callback=on_result,
+                                        profile=mode_sets.fit_view_profile(vehicle.level))
         except Exception:
             LOG.exc('_on_request_preview failed')
 
@@ -843,7 +844,8 @@ class AutoEquipView(ViewComponent):
         def on_result(set1, set2):
             _push_preview({'kind': 'viewer', 'invID': inv_id, 'streamer': streamer_id,
                            'slots1': _set_payload(set1), 'slots2': _set_payload(set2)})
-        streamers.fetch_vehicle_set(streamer_id, vehicle.intCD, callback=on_result)
+        streamers.fetch_vehicle_set(streamer_id, vehicle.intCD, callback=on_result,
+                                    profile=mode_sets.hangar_profile_for(vehicle.level))
 
     def _on_open_streamer_list(self, data=None):
         try:

@@ -402,6 +402,12 @@ def onModSettingsChanged(linkage, newSettings):
                 config.set_mode_sets_enabled(enabled)
                 from . import mode_sets
                 mode_sets.reset_view_profile()
+                if enabled:
+                    # Catch up with the cloud once (mode sets cloud sync).
+                    from . import sync
+                    account_id = config.current_account_id()
+                    if account_id and sync.is_paired(account_id):
+                        sync.reconcile_modes(account_id)
                 # The popover shows the switch only while this is on.
                 toggled = True
         if toggled:

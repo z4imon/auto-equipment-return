@@ -9,7 +9,8 @@ file is read or written.
 
 One file per profile, <account>.<profile>.json next to the account config.
 The account importer only lists <digits>.json, so none of them shows up
-there. Not synced: sync.py only ever sees the normal sets.
+there. Synced to the cloud on their own routes (sync.reconcile_modes),
+separate from the normal sets.
 
 Two profiles are in play at any time. The HANGAR profile follows the hangar
 the player is in and decides what gets installed and where the equipment
@@ -39,6 +40,7 @@ _FILE_VERSION = 1
 _account_id = 0
 _sets = {}              # profile -> {str(invID): entry}, only profiles read so far
 _unreadable = set()     # profiles whose file exists but could not be read: never written
+_listeners = []         # callback(profile, invID) after a local store/delete
 
 _UNSET = object()
 _last_hangar_profile = _UNSET
@@ -81,10 +83,17 @@ def _clean_entry(raw):
             'set2': _cds(raw.get('set2')),
             'vehicleCD': int(raw['vehicleCD']) if raw.get('vehicleCD') is not None else None,
             'updatedAt': float(raw['updatedAt']) if raw.get('updatedAt') is not None else None,
-            'deleted': False,
+            'deleted': bool(raw.get('deleted')),
         }
     except (TypeError, ValueError):
         return None
+    if entry['deleted']:
+        # A delete tombstone for the cloud sync (see delete()); without its
+        # time it could never win a merge, so it is dropped.
+        if entry['updatedAt'] is None:
+            return None
+        entry['set1'] = entry['set2'] = None
+        return entry
     if entry['set1'] is None and entry['set2'] is None:
         return None
     return entry
@@ -212,11 +221,12 @@ def is_foreign_view(vehicle_level=None):
 
 def own_sets(veh_inv_id, profile):
     """The profile's own entry. None for a vehicle whose tier the mode does not
-    have, even if an entry exists: the normal sets apply there."""
+    have, even if an entry exists: the normal sets apply there. A delete
+    tombstone counts as no entry."""
     if profile is None or not enabled():
         return None
     entry = _profile_sets(profile).get(str(veh_inv_id))
-    if entry is None or not _fits(profile, _level_of(veh_inv_id)):
+    if entry is None or entry.get('deleted') or not _fits(profile, _level_of(veh_inv_id)):
         return None
     return entry
 
@@ -257,7 +267,7 @@ def store(veh_inv_id, profile, set1=None, set2=None, veh_cd=None):
         return config.store_sets(veh_inv_id, set1=set1, set2=set2, veh_cd=veh_cd)
     sets = _profile_sets(profile)
     entry = sets.get(str(veh_inv_id))
-    if entry is None:
+    if entry is None or entry.get('deleted'):
         base = config.saved_sets(veh_inv_id) if config.has_saved_sets(veh_inv_id) else None
         entry = {
             'set1': list(base['set1']) if base and base.get('set1') is not None else None,
@@ -274,22 +284,28 @@ def store(veh_inv_id, profile, set1=None, set2=None, veh_cd=None):
     if veh_cd is not None:
         entry['vehicleCD'] = int(veh_cd)
     entry['updatedAt'] = time.time()
+    entry['deleted'] = False
     _save(profile)
     LOG.info('%s sets stored for %s' % (profile, veh_inv_id))
+    _notify(profile, veh_inv_id)
     return entry
 
 
 def delete(veh_inv_id, profile):
     """config.delete_sets() for the normal sets. In a mode profile the entry
-    goes and the normal sets apply there again."""
+    becomes a delete tombstone, so the cloud sync does not bring it back,
+    and the normal sets apply there again."""
     if profile is None or not enabled():
         return config.delete_sets(veh_inv_id)
     sets = _profile_sets(profile)
-    if str(veh_inv_id) not in sets:
+    entry = sets.get(str(veh_inv_id))
+    if entry is None or entry.get('deleted'):
         return False
-    del sets[str(veh_inv_id)]
+    sets[str(veh_inv_id)] = {'set1': None, 'set2': None, 'vehicleCD': entry.get('vehicleCD'),
+                             'updatedAt': time.time(), 'deleted': True}
     _save(profile)
     LOG.info('%s sets deleted for %s' % (profile, veh_inv_id))
+    _notify(profile, veh_inv_id)
     return True
 
 
@@ -328,3 +344,63 @@ def note_hangar_profile():
     _last_hangar_profile = current
     reset_view_profile()
     return changed
+
+
+# ---------------------------------------------------------------------------
+# Cloud sync support (sync.py). The merge writes through apply_remote_entry,
+# which notifies nobody, so nothing it applies is pushed straight back.
+# ---------------------------------------------------------------------------
+
+def add_change_listener(callback):
+    """callback(profile, veh_inv_id) after every local store or delete in a
+    mode profile; veh_inv_id is a string."""
+    _listeners.append(callback)
+
+
+def _notify(profile, veh_inv_id):
+    for callback in list(_listeners):
+        try:
+            callback(profile, str(veh_inv_id))
+        except Exception:
+            LOG.exc('a mode sets change listener failed')
+
+
+def syncable(profile):
+    """Whether the sync may read and write this profile: feature on, a known
+    profile, an account, and a readable file."""
+    if not enabled() or profile not in PROFILES or not _account_id:
+        return False
+    _profile_sets(profile)
+    return profile not in _unreadable
+
+
+def all_inv_ids(profile):
+    """Every stored invID of the profile, tombstones included."""
+    return list(_profile_sets(profile).keys())
+
+
+def raw_entry(profile, veh_inv_id):
+    """The entry as stored: tombstones and vehicles of other tiers included."""
+    return _profile_sets(profile).get(str(veh_inv_id))
+
+
+def apply_remote_entry(profile, veh_inv_id, set1, set2, veh_cd, updated_at, deleted=False):
+    """The server's entry, as it is, for sync.py's merge."""
+    deleted = bool(deleted)
+    _profile_sets(profile)[str(veh_inv_id)] = {
+        'set1': [int(cd or 0) for cd in set1] if set1 is not None and not deleted else None,
+        'set2': [int(cd or 0) for cd in set2] if set2 is not None and not deleted else None,
+        'vehicleCD': int(veh_cd) if veh_cd is not None else None,
+        'updatedAt': float(updated_at),
+        'deleted': deleted,
+    }
+    _save(profile)
+
+
+def set_updated_at(profile, veh_inv_id, updated_at):
+    """The server's time for an entry after a push; content unchanged."""
+    entry = _profile_sets(profile).get(str(veh_inv_id))
+    if entry is None:
+        return
+    entry['updatedAt'] = float(updated_at)
+    _save(profile)

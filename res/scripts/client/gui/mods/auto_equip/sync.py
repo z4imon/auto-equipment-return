@@ -25,6 +25,7 @@ except ImportError:
 import BigWorld
 
 from . import config
+from . import mode_sets
 from . import messages
 from .i18n import t
 from .log import LOG
@@ -354,6 +355,9 @@ def full_reconcile(account_id):
         to_push = _merge_server_sets(sets)
         for veh_inv_id in to_push:
             _sync_vehicle(account_id, veh_inv_id)
+        # Then the mode sets, only after the normal pull went through (a 401
+        # has already been handled above, so it is never reported twice).
+        reconcile_modes(account_id)
 
     call_async('GET', '/accounts/%s' % account_id, token=token, callback=handle_pull)
 
@@ -484,6 +488,160 @@ def _delete_vehicle_remote(account_id, veh_inv_id, on_done=None):
 
     call_async('DELETE', '/accounts/%s/vehicles/%s' % (account_id, veh_inv_id), token=token,
               callback=handle_delete)
+
+
+# ---------------------------------------------------------------------------
+# Mode sets (Frontline, Onslaught): the same reconcile and debounced push as
+# above, on their own routes (/accounts/<id>/modes/<profile>/...) and with
+# their own bookkeeping, so the normal sync above stays exactly as it was.
+# Nothing happens while mode sets are off (mode_sets.syncable).
+# ---------------------------------------------------------------------------
+
+_mode_pending_pushes = {}           # (profile, invID) -> BigWorld callback id
+_mode_in_flight = set()             # (profile, invID) with a request out
+_mode_pending_resyncs = set()       # (profile, invID) to sync again after it
+_mode_server_missing_logged = set() # profiles whose 404 was logged already
+
+
+def _mode_path(account_id, profile, veh_inv_id=None):
+    path = '/accounts/%s/modes/%s' % (account_id, profile)
+    if veh_inv_id is not None:
+        path += '/vehicles/%s' % veh_inv_id
+    return path
+
+
+def _mode_server_missing(profile, status):
+    """A 404 means the server predates mode sets: they stay local, and the
+    player is not bothered. Logged once per profile and session."""
+    if status != 404:
+        return False
+    if profile not in _mode_server_missing_logged:
+        _mode_server_missing_logged.add(profile)
+        LOG.info('sync: the server has no mode sets yet, %s stays local' % profile)
+    return True
+
+
+def _mode_auth_failure(account_id, status):
+    """A 401 forgets the pairing once; the other profile's answer then finds
+    it forgotten and says nothing more."""
+    if status != 401:
+        return False
+    if is_paired(account_id):
+        _handle_auth_failure(account_id, status)
+    return True
+
+
+def reconcile_modes(account_id):
+    """full_reconcile for the mode sets: per profile pull, merge (newest
+    updatedAt wins) and push what is newer locally or missing on the server."""
+    token = current_token(account_id)
+    if token is None:
+        return
+    for profile in mode_sets.PROFILES:
+        if mode_sets.syncable(profile):
+            _pull_mode_profile(account_id, profile, token)
+
+
+def _pull_mode_profile(account_id, profile, token):
+    def handle_pull(status, data):
+        if status != 200 or data is None:
+            if _mode_server_missing(profile, status) or _mode_auth_failure(account_id, status):
+                return
+            LOG.warning('sync: %s pull failed (status=%s)' % (profile, status))
+            return
+        if not mode_sets.syncable(profile):
+            return
+        sets = data.get('sets', {})
+        if not isinstance(sets, dict):
+            LOG.warning('sync: %s pull returned malformed sets (type=%s)' % (profile, type(sets)))
+            sets = {}
+        for veh_inv_id in _merge_mode_server_sets(profile, sets):
+            _sync_mode_vehicle(account_id, profile, veh_inv_id)
+
+    call_async('GET', _mode_path(account_id, profile), token=token, callback=handle_pull)
+
+
+def _merge_mode_server_sets(profile, server_sets):
+    """_merge_server_sets for one mode profile. Returns the invIDs that still
+    need pushing (local only, or local won)."""
+    to_push = set(mode_sets.all_inv_ids(profile))
+    for inv_id, server_entry in server_sets.items():
+        try:
+            local_entry = mode_sets.raw_entry(profile, inv_id)
+            local_updated = local_entry.get('updatedAt') if local_entry else None
+            if local_updated is not None and local_updated >= server_entry['updatedAt']:
+                continue
+            mode_sets.apply_remote_entry(profile, inv_id, server_entry.get('set1'),
+                                         server_entry.get('set2'), server_entry.get('vehicleCD'),
+                                         server_entry['updatedAt'],
+                                         deleted=bool(server_entry.get('deleted')))
+            to_push.discard(str(inv_id))
+        except Exception:
+            LOG.exc('sync: failed merging %s entry for %s' % (profile, inv_id))
+    return list(to_push)
+
+
+def _on_mode_change(profile, veh_inv_id):
+    """mode_sets change listener: pushes 3 s after the last change."""
+    key = (profile, str(veh_inv_id))
+    existing = _mode_pending_pushes.pop(key, None)
+    if existing is not None:
+        BigWorld.cancelCallback(existing)
+
+    def fire():
+        _mode_pending_pushes.pop(key, None)
+        account_id = config.current_account_id()
+        if account_id and is_paired(account_id) and mode_sets.syncable(profile):
+            _sync_mode_vehicle(account_id, profile, key[1])
+
+    _mode_pending_pushes[key] = BigWorld.callback(_PUSH_DEBOUNCE_SECONDS, fire)
+
+
+def _sync_mode_vehicle(account_id, profile, veh_inv_id):
+    """_sync_vehicle for one mode entry: at most one request per profile and
+    vehicle in flight; a call meanwhile runs again once it is done."""
+    key = (profile, str(veh_inv_id))
+    if key in _mode_in_flight:
+        _mode_pending_resyncs.add(key)
+        return
+    _mode_in_flight.add(key)
+    entry = mode_sets.raw_entry(profile, key[1])
+    if entry is None:
+        _on_mode_sync_done(account_id, key)
+    elif entry.get('deleted'):
+        _send_mode_vehicle(account_id, key, 'DELETE', None)
+    else:
+        _send_mode_vehicle(account_id, key, 'PUT', {'set1': entry['set1'], 'set2': entry['set2'],
+                                                    'vehicleCD': entry['vehicleCD']})
+
+
+def _send_mode_vehicle(account_id, key, method, body):
+    profile, veh_inv_id = key
+    token = current_token(account_id)
+    if token is None:
+        _on_mode_sync_done(account_id, key)
+        return
+
+    def handle(status, data):
+        try:
+            if status == 200 and data and data.get('updatedAt') is not None:
+                mode_sets.set_updated_at(profile, veh_inv_id, data['updatedAt'])
+            elif status != 200 and not _mode_server_missing(profile, status) \
+                    and not _mode_auth_failure(account_id, status):
+                LOG.warning('sync: %s %s of %s failed (status=%s)'
+                            % (profile, method, veh_inv_id, status))
+        finally:
+            _on_mode_sync_done(account_id, key)
+
+    call_async(method, _mode_path(account_id, profile, veh_inv_id), token=token, body=body,
+               callback=handle)
+
+
+def _on_mode_sync_done(account_id, key):
+    _mode_in_flight.discard(key)
+    if key in _mode_pending_resyncs:
+        _mode_pending_resyncs.discard(key)
+        _sync_mode_vehicle(account_id, key[0], key[1])
 
 
 # ---------------------------------------------------------------------------
