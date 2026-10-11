@@ -11,6 +11,7 @@ untouched, and every command that would change something is refused.
 """
 
 import json
+import time   # TEMP diagnostics
 
 import BigWorld
 
@@ -838,14 +839,20 @@ class AutoEquipView(ViewComponent):
         streamer so the JS can drop an answer that arrives after either one
         changed."""
         if streamer_id is None:
+            LOG.info('[viewer-debug] preview skipped: no streamer yet')   # TEMP diagnostics
             return
         inv_id = vehicle.invID
+        started = time.time()   # TEMP diagnostics
+        LOG.info('[viewer-debug] preview request inv=%s streamer=%s profile=%s'
+                 % (inv_id, streamer_id, mode_sets.viewer_profile_for(vehicle.level)))
 
         def on_result(set1, set2):
+            LOG.info('[viewer-debug] preview answer inv=%s set1=%s set2=%s after %.2fs'
+                     % (inv_id, set1 is not None, set2 is not None, time.time() - started))
             _push_preview({'kind': 'viewer', 'invID': inv_id, 'streamer': streamer_id,
                            'slots1': _set_payload(set1), 'slots2': _set_payload(set2)})
         streamers.fetch_vehicle_set(streamer_id, vehicle.intCD, callback=on_result,
-                                    profile=mode_sets.hangar_profile_for(vehicle.level))
+                                    profile=mode_sets.viewer_profile_for(vehicle.level))
 
     def _on_open_streamer_list(self, data=None):
         try:

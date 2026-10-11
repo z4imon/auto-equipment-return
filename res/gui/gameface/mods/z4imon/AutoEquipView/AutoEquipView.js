@@ -1230,6 +1230,7 @@ function maybeRequestViewerSets() {
     const key = viewerKey();
     if (key === gViewerRequestedKey) return;
     gViewerRequestedKey = key;
+    log("[viewer-debug] request key=" + key);   // TEMP diagnostics
     cmd("onRequestPreview");
 }
 
@@ -1276,6 +1277,12 @@ function buildViewerContent(content) {
     const missing = preview || noStreamer
         ? ui("viewerNoSet", "No set shared for this vehicle")
         : ui("recLoading", "Loading…");
+    if (!preview && !noStreamer) {   // TEMP diagnostics
+        const p = gPreviewData;
+        log("[viewer-debug] loading: streamer=" + gData.selectedStreamer + " loaded=" + gData.streamersLoaded
+            + " inv=" + gData.vehicleInvID + " requested=" + gViewerRequestedKey
+            + " preview=" + (p ? (p.kind + "/" + p.invID + "/" + p.streamer) : "null"));
+    }
     const slots1 = preview && preview.slots1 && preview.slots1.length ? preview.slots1 : null;
     const slots2 = preview && preview.slots2 && preview.slots2.length ? preview.slots2 : null;
     sets.appendChild(buildSetBlock(ui("set1", "Set 1"), slots1, missing));
@@ -1522,6 +1529,10 @@ function onModelUpdate() {
     if (previewJson !== gLastPreviewJson) {
         gLastPreviewJson = previewJson;
         gPreviewData = previewJson ? parseModelJson("previewJson", null) : null;
+        // Viewer: Python empties the answer when a streamer is picked, even
+        // the one already shown. The vehicle+streamer key is then unchanged,
+        // so without this nothing would ask again and it would stay loading.
+        if (gData.noPlus && !(gPreviewData && gPreviewData.kind)) gViewerRequestedKey = null;
         if (gPopoverOpen) renderPopover();
     }
     const streamerListJson = m.streamerListJson || "";

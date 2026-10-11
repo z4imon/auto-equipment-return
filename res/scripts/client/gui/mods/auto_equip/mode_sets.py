@@ -163,6 +163,14 @@ def hangar_profile_for(vehicle_level):
     return profile if _fits(profile, vehicle_level) else None
 
 
+def viewer_profile_for(vehicle_level):
+    """The profile the view without WoT Plus asks streamers for: the hangar's
+    mode at that tier, whatever the own-equipment switch says (user decision
+    2026-10-12), else None for the normal set."""
+    profile = _PROFILE_OF_MODE.get(hangar.active_mode())
+    return profile if profile is not None and _fits(profile, vehicle_level) else None
+
+
 def in_hangar_mode(vehicle_level):
     """Whether a vehicle of this tier can play the hangar's mode. Always True
     in the normal hangar and while the feature is off."""
