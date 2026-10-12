@@ -165,5 +165,6 @@
     "statsVehicles": "Vozila",
     "statsEmpty": "Ovdje nema vozila sa spremljenim kompletima.",
     "viewerNoSet": "Za ovo vozilo nije podijeljen nijedan set",
-    "noPlusHint": "Sve su funkcije isključene jer nema aktivne pretplate na WoT Plus."
+    "noPlusHint": "Sve su funkcije isključene jer nema aktivne pretplate na WoT Plus.",
+    "patreonText": "Sviđa ti se mod? Podrži me na Patreonu"
 }

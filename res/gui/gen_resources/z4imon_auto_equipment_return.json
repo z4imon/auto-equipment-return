@@ -1,12 +1,11 @@
 [
   {
     "type": "Layout",
+    "id": "R.mods.z4imon_auto_equipment_return.views.AutoEquipView",
     "path": "coui://gui/gameface/mods/z4imon/AutoEquipView/AutoEquipView.html",
     "parameters": {
-      "extension": "",
       "entrance": "AutoEquipView",
       "impl": "gameface"
-    },
-    "itemID": "AutoEquipView"
+    }
   }
 ]

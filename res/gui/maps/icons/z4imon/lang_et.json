@@ -165,5 +165,6 @@
     "statsVehicles": "Sõidukid",
     "statsEmpty": "Siin pole ühtegi salvestatud komplektiga sõidukit.",
     "viewerNoSet": "Selle sõiduki jaoks pole komplekti jagatud",
-    "noPlusHint": "Kõik funktsioonid on välja lülitatud, sest aktiivset WoT Plusi tellimust pole."
+    "noPlusHint": "Kõik funktsioonid on välja lülitatud, sest aktiivset WoT Plusi tellimust pole.",
+    "patreonText": "Meeldib mod? Toeta mind Patreonis"
 }

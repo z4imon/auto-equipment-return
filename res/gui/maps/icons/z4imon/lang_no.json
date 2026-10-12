@@ -165,5 +165,6 @@
     "statsVehicles": "Kjøretøy",
     "statsEmpty": "Ingen kjøretøy med lagrede sett her.",
     "viewerNoSet": "Ingen delt sett for dette kjøretøyet",
-    "noPlusHint": "Alle funksjoner er deaktivert fordi det ikke finnes noe aktivt WoT Plus-abonnement."
+    "noPlusHint": "Alle funksjoner er deaktivert fordi det ikke finnes noe aktivt WoT Plus-abonnement.",
+    "patreonText": "Liker du modden? Støtt meg på Patreon"
 }

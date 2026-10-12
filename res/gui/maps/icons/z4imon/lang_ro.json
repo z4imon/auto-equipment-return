@@ -165,5 +165,6 @@
     "statsVehicles": "Vehicule",
     "statsEmpty": "Nu există vehicule cu seturi salvate aici.",
     "viewerNoSet": "Niciun set partajat pentru acest vehicul",
-    "noPlusHint": "Toate funcțiile sunt dezactivate, deoarece nu există un abonament WoT Plus activ."
+    "noPlusHint": "Toate funcțiile sunt dezactivate, deoarece nu există un abonament WoT Plus activ.",
+    "patreonText": "Îți place modul? Susține-mă pe Patreon"
 }

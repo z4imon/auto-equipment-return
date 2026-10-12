@@ -165,5 +165,6 @@
     "statsVehicles": "Vozidla",
     "statsEmpty": "Zde nejsou žádná vozidla s uloženými sadami.",
     "viewerNoSet": "Pro toto vozidlo není sdílená žádná sada",
-    "noPlusHint": "Všechny funkce jsou vypnuté, protože není aktivní předplatné WoT Plus."
+    "noPlusHint": "Všechny funkce jsou vypnuté, protože není aktivní předplatné WoT Plus.",
+    "patreonText": "Líbí se ti mod? Podpoř mě na Patreonu"
 }

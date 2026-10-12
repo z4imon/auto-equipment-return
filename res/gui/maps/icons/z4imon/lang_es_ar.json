@@ -165,5 +165,6 @@
     "statsVehicles": "Vehículos",
     "statsEmpty": "Acá no hay vehículos con conjuntos guardados.",
     "viewerNoSet": "No hay ningún set compartido para este vehículo",
-    "noPlusHint": "Todas las funciones están desactivadas porque no hay ninguna suscripción activa a WoT Plus."
+    "noPlusHint": "Todas las funciones están desactivadas porque no hay ninguna suscripción activa a WoT Plus.",
+    "patreonText": "¿Te gusta el mod? Apoyame en Patreon"
 }

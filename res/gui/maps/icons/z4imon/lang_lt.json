@@ -165,5 +165,6 @@
     "statsVehicles": "Technika",
     "statsEmpty": "Čia nėra technikos su įrašytais rinkiniais.",
     "viewerNoSet": "Šiai technikai bendrinamo rinkinio nėra",
-    "noPlusHint": "Visos funkcijos išjungtos, nes nėra aktyvios WoT Plus prenumeratos."
+    "noPlusHint": "Visos funkcijos išjungtos, nes nėra aktyvios WoT Plus prenumeratos.",
+    "patreonText": "Patinka modas? Paremk mane per Patreon"
 }

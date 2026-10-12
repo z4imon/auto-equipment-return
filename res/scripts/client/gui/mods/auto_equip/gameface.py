@@ -25,14 +25,28 @@ from .log import LOG
 try:
     from frameworks.wulf import ViewModel
     from gui.impl.pub.view_component import ViewComponent
+    from gui.impl.gen import R
     from gui.impl.pub.view_impl import ViewImpl
-    from openwg_gameface import ModDynAccessor, gf_mod_inject, manager as resmap
+    from openwg_gameface import gf_mod_inject
 except Exception:
     LOG.exc('core gameface imports FAILED, module unusable')
     raise
 
 _VIEW_ALIAS = 'AutoEquipView'
 _VIEW_DIR = 'coui://gui/gameface/mods/z4imon/AutoEquipView'
+
+# Layouts are declared in res/gui/gen_resources/z4imon_auto_equipment_return.json, which WoT
+# registers natively since 2.4.1 under R.mods.z4imon_auto_equipment_return.views.
+_MOD_ID = 'z4imon_auto_equipment_return'
+
+
+def _layout_id(alias):
+    """Native resID of one of this mod's layouts, -1 if the client did not register it."""
+    node = getattr(R, 'mods', None)
+    for key in (_MOD_ID, 'views', alias):
+        node = node.dyn(key) if node is not None else None
+    return node() if node is not None else -1
+
 
 _PLUS_CHECK_MAX_ATTEMPTS = 5
 _PLUS_CHECK_INTERVAL = 1.0
@@ -622,7 +636,7 @@ class AutoEquipViewModel(ViewModel):
 
 
 class AutoEquipView(ViewComponent):
-    viewLayoutID = ModDynAccessor(_VIEW_ALIAS)
+    viewLayoutID = staticmethod(lambda: _layout_id(_VIEW_ALIAS))
 
     def __init__(self):
         super(AutoEquipView, self).__init__(
@@ -1159,8 +1173,8 @@ def _inject_into(view):
     view_id = id(view)
     if _injected_into_view_id == view_id:
         return
-    if not resmap.isResMapValidated:
-        LOG.error('_inject_into: ResMap NOT validated, cannot inject')
+    if AutoEquipView.viewLayoutID() < 0:
+        LOG.error('_inject_into: layout not registered by the client (needs WoT 2.4.1+), cannot inject')
         return
     try:
         _view = AutoEquipView()

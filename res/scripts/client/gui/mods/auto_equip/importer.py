@@ -62,6 +62,8 @@ import os
 import pickle
 import zlib
 
+import BigWorld
+
 from . import cleanup, config, inventory, messages
 from .i18n import t
 from .log import LOG
@@ -331,6 +333,9 @@ def _handle_own_import(index):
 def onButtonClicked(linkage, varName, value):
     if linkage != _MOD_LINKAGE:
         return
+    if varName == _VAR_PATREON:
+        BigWorld.wg_openWebBrowser(_PATREON_URL)
+        return
     try:
         index = int(value)
     except (TypeError, ValueError):
@@ -551,9 +556,24 @@ def _build_column1(account_id, templates):
     return column
 
 
+_PATREON_URL = 'https://www.patreon.com/cw/Z4imon'
+_VAR_PATREON = 'patreon'
+
+
+def _patreon_rows(templates):
+    """The Patreon button on a row of its own. Only Aslain's Mod Menu has
+    action buttons; other settings APIs get no row."""
+    if not hasattr(templates, 'createActionButton'):
+        return []
+    return [templates.createEmpty(),
+            templates.createActionButton(_VAR_PATREON, buttonText='Patreon',
+                                         label=t('patreonText'))]
+
+
 def _build_column2(templates):
-    """Right column: feature toggles - behavior, then one section per UI surface."""
-    return _feature_toggle_rows(templates)
+    """Right column: feature toggles - behavior, then one section per UI
+    surface, and the Patreon row at the bottom."""
+    return _feature_toggle_rows(templates) + _patreon_rows(templates)
 
 
 def _get_settings_api():
@@ -608,35 +628,18 @@ def register(account_id):
         'column2': _build_column2(templates),
     }
     try:
-        saved = g_modsSettingsApi.getModSettings(_MOD_LINKAGE, template)
-        if saved:
-            g_modsSettingsApi.registerCallback(_MOD_LINKAGE, onModSettingsChanged, onButtonClicked)
-            # The stored template is the layout as well as the values. A later
-            # version that moves rows (feature toggles into column2) would
-            # otherwise keep the old single-column panel.
-            _refresh_mod_template(g_modsSettingsApi, template)
-        else:
-            g_modsSettingsApi.setModTemplate(_MOD_LINKAGE, template,
-                                             onModSettingsChanged, onButtonClicked)
+        # The stored template is the layout as well as the values, and
+        # setModTemplate is the only call that stores a changed layout (new
+        # rows, rows moved between columns). Aslain's reloadModTemplate only
+        # redraws a window that is open right now. As long as the settings
+        # fields stay the same, the saved values are kept.
+        g_modsSettingsApi.setModTemplate(_MOD_LINKAGE, template,
+                                         onModSettingsChanged, onButtonClicked)
         LOG.info('registered settings panel (%d kurzdor file(s), %d own account file(s), accountId=%s)'
                  % (len(_kurzdor_files), len(_own_files), account_id))
     except Exception:
         LOG.exc('register failed')
     _hook_mod_menu_opened(g_modsSettingsApi)
-
-
-def _refresh_mod_template(g_modsSettingsApi, template):
-    """Pushes an updated column1/column2 without orphaning already-saved values.
-    Aslain's menu has reloadModTemplate for exactly this; izeberg's original
-    only has setModTemplate, which still merges by varName."""
-    if hasattr(g_modsSettingsApi, 'reloadModTemplate'):
-        try:
-            g_modsSettingsApi.reloadModTemplate(_MOD_LINKAGE, template)
-            return
-        except Exception:
-            LOG.exc('reloadModTemplate failed, falling back to setModTemplate')
-    g_modsSettingsApi.setModTemplate(_MOD_LINKAGE, template,
-                                     onModSettingsChanged, onButtonClicked)
 
 
 def _hook_mod_menu_opened(g_modsSettingsApi):

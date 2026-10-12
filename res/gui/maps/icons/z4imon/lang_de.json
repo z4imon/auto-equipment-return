@@ -165,5 +165,6 @@
     "statsVehicles": "Fahrzeuge",
     "statsEmpty": "Keine Fahrzeuge mit gespeicherten Sets.",
     "viewerNoSet": "Für dieses Fahrzeug ist kein Set geteilt",
-    "noPlusHint": "Alle Funktionen sind deaktiviert, da kein WoT-Plus-Abonnement aktiv ist."
+    "noPlusHint": "Alle Funktionen sind deaktiviert, da kein WoT-Plus-Abonnement aktiv ist.",
+    "patreonText": "Gefällt dir die Mod? Unterstütze mich auf Patreon"
 }

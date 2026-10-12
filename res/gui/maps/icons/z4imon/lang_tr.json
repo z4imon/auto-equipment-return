@@ -165,5 +165,6 @@
     "statsVehicles": "Araçlar",
     "statsEmpty": "Burada kayıtlı setleri olan araç yok.",
     "viewerNoSet": "Bu araç için paylaşılmış bir set yok",
-    "noPlusHint": "Etkin bir WoT Plus aboneliği olmadığı için tüm işlevler devre dışı."
+    "noPlusHint": "Etkin bir WoT Plus aboneliği olmadığı için tüm işlevler devre dışı.",
+    "patreonText": "Modu beğendin mi? Patreon'da beni destekle"
 }

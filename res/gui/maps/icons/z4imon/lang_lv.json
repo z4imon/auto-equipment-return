@@ -165,5 +165,6 @@
     "statsVehicles": "Tehnika",
     "statsEmpty": "Šeit nav tehnikas ar saglabātiem komplektiem.",
     "viewerNoSet": "Šai tehnikai nav kopīgota komplekta",
-    "noPlusHint": "Visas funkcijas ir atspējotas, jo nav aktīva WoT Plus abonementa."
+    "noPlusHint": "Visas funkcijas ir atspējotas, jo nav aktīva WoT Plus abonementa.",
+    "patreonText": "Patīk mods? Atbalsti mani Patreon"
 }

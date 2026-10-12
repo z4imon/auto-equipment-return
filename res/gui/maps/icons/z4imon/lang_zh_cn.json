@@ -165,5 +165,6 @@
     "statsVehicles": "车辆",
     "statsEmpty": "这里没有已保存配置的车辆。",
     "viewerNoSet": "该车辆没有共享的配置",
-    "noPlusHint": "由于没有有效的 WoT Plus 订阅，所有功能均已停用。"
+    "noPlusHint": "由于没有有效的 WoT Plus 订阅，所有功能均已停用。",
+    "patreonText": "喜欢这个模组吗？在 Patreon 上支持我"
 }
