@@ -26,7 +26,7 @@ from adisp import adisp_async, adisp_process
 from CurrentVehicle import g_currentVehicle
 from gui.shared.notifications import NotificationPriorityLevel
 
-from . import config, inventory, messages, rpc
+from . import config, inventory, messages, mode_sets, rpc
 from .i18n import t
 from .log import LOG
 
@@ -62,6 +62,10 @@ _awaiting_first_selection = True
 # Set by the UI so the popover can redraw after anything changed.
 _refresh_callback = None
 
+# Vehicle whose run was asked for while another run was busy (a hangar
+# profile change, see gameface.py). Started once _busy is released.
+_pending_apply_inv_id = None
+
 
 def prime_selection():
     """Record the current selection without acting on it.
@@ -96,6 +100,35 @@ def _release_busy():
     global _busy, _busy_grace_until
     _busy = False
     _busy_grace_until = time.time() + _BUSY_GRACE_SECONDS
+    if _pending_apply_inv_id is not None:
+        # Outside the finally block that released us.
+        BigWorld.callback(0, _start_pending_apply)
+
+
+def request_apply_when_idle(veh_inv_id):
+    """Runs apply_saved_sets(veh_inv_id) once the current run has finished,
+    if auto install is still on and the vehicle is still selected."""
+    global _pending_apply_inv_id
+    _pending_apply_inv_id = veh_inv_id
+    LOG.info('a run is busy, installing for %s once it has finished' % veh_inv_id)
+
+
+def _start_pending_apply():
+    global _pending_apply_inv_id
+    veh_inv_id = _pending_apply_inv_id
+    _pending_apply_inv_id = None
+    try:
+        if veh_inv_id is None or not config.is_auto_enabled():
+            return
+        if _selection_moved_away(veh_inv_id):
+            LOG.info('deferred install for %s dropped: another vehicle is selected' % veh_inv_id)
+            return
+        if _busy or _other_run_busy():
+            LOG.warning('another run is busy, skipping the deferred install for %s' % veh_inv_id)
+            return
+        apply_saved_sets(veh_inv_id)
+    except Exception:
+        LOG.exc('_start_pending_apply failed')
 
 
 def is_busy_or_recent():
@@ -158,7 +191,8 @@ class RunOptions(object):
 
     def __init__(self, watch_selection=True, force_downgrade=False,
                  show_veil=True, push_summary=True, excluded_donor_inv_ids=None,
-                 allowed_paid_install_cds=None, only_install_cds=None):
+                 allowed_paid_install_cds=None, only_install_cds=None,
+                 only_setups=None):
         self.watch_selection = watch_selection
         self.force_downgrade = force_downgrade
         self.show_veil = show_veil
@@ -175,6 +209,9 @@ class RunOptions(object):
         # downgrades and re-borrow from donors, and the donor it would raid is
         # a vehicle the batch just finished equipping.
         self.only_install_cds = only_install_cds
+        # None means both saved sets. A set of setup indices narrows the run
+        # to those setups, the popover's per-set install buttons.
+        self.only_setups = only_setups
 
 
 class RunOutcome(object):
@@ -416,7 +453,8 @@ def apply_to_vehicle(veh_inv_id, options, callback=None):
     outcome = RunOutcome()
     veil_shown = False
     try:
-        saved = config.saved_sets(veh_inv_id)
+        # The Frontline/Onslaught sets in their hangar, else the normal ones.
+        saved = mode_sets.effective_sets(veh_inv_id)
         vehicle = inventory.vehicle_by_inv_id(veh_inv_id)
         if saved is None or vehicle is None:
             return
@@ -433,6 +471,8 @@ def apply_to_vehicle(veh_inv_id, options, callback=None):
 
         original_setup_idx = inventory.active_setup_index(vehicle)
         plan = build_plan(vehicle, saved)
+        if options.only_setups is not None:
+            plan = [entry for entry in plan if entry[0] in options.only_setups]
         if not plan:
             return
         if options.force_downgrade or config.is_downgrade_enabled():
@@ -463,7 +503,7 @@ def apply_to_vehicle(veh_inv_id, options, callback=None):
         if options.push_summary and outcome.has_anything_to_report():
             messages.push_lines(_summary_lines(outcome),
                                 warning=bool(outcome.skipped or outcome.errors))
-        LOG.info('apply: done for %s - installed=%d skipped=%d errors=%d'
+        LOG.info('apply: done for %s, installed=%d skipped=%d errors=%d'
                  % (veh_inv_id, outcome.installed, len(outcome.skipped), len(outcome.errors)))
     except Exception:
         LOG.exc('apply_to_vehicle failed')
@@ -528,7 +568,7 @@ def _prefetch_devices(vehicle, plan, options, outcome, ledger, callback=None):
             else:
                 # Not reported as an error: the per-slot path tries this device
                 # again on its own and reports whatever it finds there.
-                LOG.info('prefetch: %s from %s did not come off (code %s) - '
+                LOG.info('prefetch: %s from %s did not come off (code %s), '
                          'leaving it to the per-slot path'
                          % (item.userName, donor.userName, code))
         yield rpc.pause(rpc.OP_PAUSE)
@@ -988,8 +1028,9 @@ def _summary_lines(outcome):
 # ---------------------------------------------------------------------------
 
 @adisp_process
-def apply_saved_sets(veh_inv_id):
-    """Single-vehicle run, used by the selection trigger."""
+def apply_saved_sets(veh_inv_id, only_setups=None):
+    """Single-vehicle run, used by the selection trigger and by the
+    popover's install buttons (only_setups: see RunOptions)."""
     global _busy
     if _busy or _other_run_busy():
         return
@@ -997,7 +1038,8 @@ def apply_saved_sets(veh_inv_id):
     notify_refresh()
     inventory.reset_donor_search_stats()
     try:
-        outcome = yield apply_to_vehicle(veh_inv_id, RunOptions())
+        outcome = yield apply_to_vehicle(veh_inv_id,
+                                         RunOptions(only_setups=only_setups))
         _ask_about_paid_installs([(veh_inv_id, outcome)])
     except Exception:
         LOG.exc('apply_saved_sets failed')
@@ -1022,7 +1064,7 @@ def on_vehicle_changed():
             # loaded with, not one the player moved to.
             _awaiting_first_selection = False
             return
-        if not config.is_auto_enabled() or not config.has_saved_sets(vehicle.invID):
+        if not config.is_auto_enabled() or not mode_sets.has_effective_sets(vehicle.invID):
             return
         # Let the selection settle first, then start - unless the player
         # switched vehicles again in the meantime.
@@ -1064,7 +1106,7 @@ def equip_primary_vehicles():
     if not targets:
         messages.push_warning(t('batchNoTargets'))
         return
-    with_sets = [v for v in targets if config.has_saved_sets(v.invID)]
+    with_sets = [v for v in targets if mode_sets.has_effective_sets(v.invID)]
     without_sets = len(targets) - len(with_sets)
     if not with_sets:
         messages.push_warning(t('batchNoSavedSets', count=len(targets)))
@@ -1096,7 +1138,7 @@ def equip_primary_vehicles():
             messages.push_error(u'<br/>'.join(totals.missing_lines()))
         _ask_about_paid_installs(totals.confirm_runs)
         disable_auto_install_after_batch()
-        LOG.info('equip_primary_vehicles: done - processed=%d installed=%d missing=%s'
+        LOG.info('equip_primary_vehicles: done, processed=%d installed=%d missing=%s'
                  % (totals.processed, totals.installed, totals.missing_counts))
     except Exception:
         LOG.exc('equip_primary_vehicles failed')
@@ -1135,7 +1177,7 @@ def equip_playlist_vehicles():
     if not targets:
         messages.push_warning(t('batchPlaylistNoTargets'))
         return
-    with_sets = [v for v in targets if config.has_saved_sets(v.invID)]
+    with_sets = [v for v in targets if mode_sets.has_effective_sets(v.invID)]
     without_sets = len(targets) - len(with_sets)
     if not with_sets:
         messages.push_warning(t('batchPlaylistNoSavedSets', count=len(targets)))
@@ -1166,7 +1208,7 @@ def equip_playlist_vehicles():
             messages.push_error(u'<br/>'.join(totals.missing_lines()))
         _ask_about_paid_installs(totals.confirm_runs)
         disable_auto_install_after_batch()
-        LOG.info('equip_playlist_vehicles: done - processed=%d installed=%d missing=%s'
+        LOG.info('equip_playlist_vehicles: done, processed=%d installed=%d missing=%s'
                  % (totals.processed, totals.installed, totals.missing_counts))
     except Exception:
         LOG.exc('equip_playlist_vehicles failed')

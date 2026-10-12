@@ -121,7 +121,7 @@ class _ConfirmHandler(ActionHandler):
         super(_ConfirmHandler, self).handleAction(model, entityID, action)
         items = _take_pending(model, entityID)
         if not items:
-            LOG.warning('the confirmed notification %s is no longer known - '
+            LOG.warning('the confirmed notification %s is no longer known, '
                         'nothing installed' % entityID)
             return
         # Off the click: this runs inside the notification centre's own button
@@ -179,7 +179,7 @@ def ask(items):
              for inv_id, _veh_name, device_cd, _device_name in items]
     if _already_asking(pairs):
         LOG.info('the same paid-install question is already waiting for an '
-                 'answer - not asking twice')
+                 'answer, not asking twice')
         return True
     lines = _lines(items)
     if _push(pairs, lines):

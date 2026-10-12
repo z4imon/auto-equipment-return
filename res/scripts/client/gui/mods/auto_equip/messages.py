@@ -77,11 +77,11 @@ def _relabel_waiting(text):
     try:
         view = Waiting.getWaitingView(True)
         if view is None:
-            LOG.warning('no waiting view to relabel - keeping the default text')
+            LOG.warning('no waiting view to relabel, keeping the default text')
             return
         view.as_showWaitingS(text, False, True)
     except Exception:
-        LOG.exc('could not relabel the waiting veil - keeping the default text')
+        LOG.exc('could not relabel the waiting veil, keeping the default text')
 
 
 def hide_waiting(key=_WAITING_KEY):

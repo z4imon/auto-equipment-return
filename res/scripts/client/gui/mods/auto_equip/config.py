@@ -6,12 +6,13 @@
 (the same folder shape kurzdor's mod uses), so switching between accounts on
 the same PC never mixes up saved sets. File layout:
 
-    {"autoEquipEnabled": true,
-     "downgradeEnabled": false,
-     "alwaysSelectSetup1": true,
-     "sets": {"<vehicle invID>": {"set1": [intCD, intCD, intCD] or null,
+    {"sets": {"<vehicle invID>": {"set1": [intCD, intCD, intCD] or null,
                                   "set2": [intCD, intCD, intCD] or null,
                                   "vehicleCD": intCD or null}}}
+
+All settings (autoEquipEnabled, downgradeEnabled, ...) live next to it in
+<accountId>.settings.json. Versions up to 1.5 kept them in <accountId>.json;
+they are moved over on load.
 
 Sets are keyed by the vehicle's INVENTORY id, not by its type compactDescr, so
 data imported from kurzdor's Auto Equipment Return mod - which uses the same
@@ -75,6 +76,9 @@ _DEFAULTS = {
     # explicit choice and ignores the filter unless the player opts in.
     'equipPrimaryUsesFilter': True,
     'equipPlaylistUsesFilter': False,
+    # Separate equipment for Frontline and Onslaught (mode_sets.py). Off by
+    # default: while off, nothing about the normal sets changes.
+    'modeSetsEnabled': False,
 }
 
 _EMPTY_ENTRY = {'set1': None, 'set2': None, 'vehicleCD': None, 'updatedAt': None, 'deleted': False}
@@ -126,6 +130,38 @@ def account_files_dir():
 
 def _config_path(account_id):
     return os.path.join(account_files_dir(), '%s.json' % account_id)
+
+
+def _settings_path(account_id):
+    """All settings live here. <id>.json holds only the saved sets."""
+    return os.path.join(account_files_dir(), '%s.settings.json' % account_id)
+
+
+# The settings that 1.5 and older kept in <id>.json. Read from there once to
+# move them over, and again whenever an older version wrote them back.
+_LEGACY_SETTING_KEYS = (
+    'autoEquipEnabled', 'downgradeEnabled', 'alwaysSelectSetup1',
+    'selectedStreamerAccountId', 'selectedStreamerName', 'equipmentSaveMode',
+    'iconMenuRows', 'carouselMenuRows', 'equipPrimaryUsesFilter',
+    'equipPlaylistUsesFilter',
+)
+
+
+def write_json_atomic(path, payload):
+    """Writes through a temp file. Windows os.rename() will not replace an
+    existing file and this Python 2 has no os.replace(), so the old file goes
+    first. A crash while writing the temp file leaves the old file intact; a
+    crash between removing the old file and the rename leaves only the .tmp
+    file. Never half of a file under the real name."""
+    directory = os.path.dirname(path)
+    if directory and not os.path.exists(directory):
+        os.makedirs(directory)
+    tmp_path = path + '.tmp'
+    with open(tmp_path, 'w') as handle:
+        json.dump(payload, handle, separators=(',', ':'))
+    if os.path.exists(path):
+        os.remove(path)
+    os.rename(tmp_path, path)
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +262,79 @@ def _clean_carousel_menu_rows(data):
     return rows
 
 
+def _settings_from(data):
+    return {
+        'autoEquipEnabled': bool(data.get('autoEquipEnabled', True)),
+        'downgradeEnabled': bool(data.get('downgradeEnabled', False)),
+        'alwaysSelectSetup1': bool(data.get('alwaysSelectSetup1', True)),
+        'selectedStreamerAccountId': _as_int_or_none(data.get('selectedStreamerAccountId')),
+        'selectedStreamerName': _as_str_or_none(data.get('selectedStreamerName')),
+        'equipmentSaveMode': (data.get('equipmentSaveMode')
+                              if data.get('equipmentSaveMode') in _SAVE_MODES
+                              else SAVE_MODE_POPOVER),
+        'iconMenuRows': _clean_icon_menu_rows(data),
+        'carouselMenuRows': _clean_carousel_menu_rows(data),
+        'equipPrimaryUsesFilter': bool(data.get('equipPrimaryUsesFilter', True)),
+        'equipPlaylistUsesFilter': bool(data.get('equipPlaylistUsesFilter', False)),
+        'modeSetsEnabled': bool(data.get('modeSetsEnabled', False)),
+    }
+
+
+def _legacy_settings_payload():
+    """The settings in the shape 1.5 wrote them into <id>.json, plus
+    modeSetsEnabled (1.5 ignores unknown keys on load and drops them on save)."""
+    return {
+        'autoEquipEnabled': bool(_settings['autoEquipEnabled']),
+        'downgradeEnabled': bool(_settings['downgradeEnabled']),
+        'alwaysSelectSetup1': bool(_settings['alwaysSelectSetup1']),
+        'selectedStreamerAccountId': _settings.get('selectedStreamerAccountId'),
+        'selectedStreamerName': _settings.get('selectedStreamerName'),
+        'equipmentSaveMode': _settings.get('equipmentSaveMode', SAVE_MODE_POPOVER),
+        'iconMenuRows': dict(_settings.get('iconMenuRows') or _default_icon_menu_rows()),
+        'carouselMenuRows': dict(_settings.get('carouselMenuRows') or _default_carousel_menu_rows()),
+        'equipPrimaryUsesFilter': bool(_settings.get('equipPrimaryUsesFilter', True)),
+        'equipPlaylistUsesFilter': bool(_settings.get('equipPlaylistUsesFilter', False)),
+        'modeSetsEnabled': bool(_settings.get('modeSetsEnabled', False)),
+    }
+
+
+def _read_settings_file(account_id):
+    """The settings file's dict, or None when it is missing or unreadable. An
+    unreadable file is renamed to <name>.broken first, so it is never silently
+    lost and the next save can write a fresh one."""
+    path = _settings_path(account_id)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, 'r') as handle:
+            data = json.load(handle)
+        if isinstance(data, dict):
+            return data
+    except Exception:
+        LOG.exc('could not read %s' % path)
+    try:
+        broken = path + '.broken'
+        if os.path.exists(broken):
+            os.remove(broken)
+        os.rename(path, broken)
+    except Exception:
+        LOG.exc('could not set %s aside' % path)
+    return None
+
+
+def _write_settings_file():
+    """True when the settings file was written."""
+    try:
+        payload = dict(_settings)
+        payload['iconMenuRows'] = dict(_settings.get('iconMenuRows') or _default_icon_menu_rows())
+        payload['carouselMenuRows'] = dict(_settings.get('carouselMenuRows') or _default_carousel_menu_rows())
+        write_json_atomic(_settings_path(_account_id), payload)
+        return True
+    except Exception:
+        LOG.exc('could not write the settings file')
+        return False
+
+
 def load_for_account(account_id):
     """(Re)loads the config for `account_id`. Must only be called once that is
     a real account id - see mod_auto_equip's account-load sequence."""
@@ -233,30 +342,28 @@ def load_for_account(account_id):
     _account_id = account_id
     path = _config_path(account_id)
     try:
+        # Read before anything is written: a fresh-install save() below would
+        # otherwise replace a settings file that outlived its account file.
+        own_settings = _read_settings_file(account_id)
         if os.path.exists(path):
             with open(path, 'r') as handle:
                 data = json.load(handle)
-            _settings = {
-                'autoEquipEnabled': bool(data.get('autoEquipEnabled', True)),
-                'downgradeEnabled': bool(data.get('downgradeEnabled', False)),
-                'alwaysSelectSetup1': bool(data.get('alwaysSelectSetup1', True)),
-                'selectedStreamerAccountId': _as_int_or_none(data.get('selectedStreamerAccountId')),
-                'selectedStreamerName': _as_str_or_none(data.get('selectedStreamerName')),
-                'equipmentSaveMode': (data.get('equipmentSaveMode')
-                                      if data.get('equipmentSaveMode') in _SAVE_MODES
-                                      else SAVE_MODE_POPOVER),
-                'iconMenuRows': _clean_icon_menu_rows(data),
-                'carouselMenuRows': _clean_carousel_menu_rows(data),
-                'equipPrimaryUsesFilter': bool(data.get('equipPrimaryUsesFilter', True)),
-                'equipPlaylistUsesFilter': bool(data.get('equipPlaylistUsesFilter', False)),
-            }
+            # settingsFallback: the last save() could not replace the settings
+            # file, so <id>.json holds the newer settings (1.5 never writes it).
+            use_own = own_settings is not None and not data.get('settingsFallback')
+            _settings = _settings_from(own_settings if use_own else data)
             _was_fresh_install = False
             _sets = _clean_sets(data.get('sets', {}))
             _backfill_missing_updated_at()
+            if own_settings is None or any(key in data for key in _LEGACY_SETTING_KEYS):
+                # First start of this version, an older version ran in between,
+                # or the settings file was unreadable: save() moves the
+                # settings into their own file and leaves only the sets here.
+                save()
         else:
             # First time we see this account: start clean, then give kurzdor's
             # save for the same account id a chance to seed it.
-            _settings = _copy_defaults()
+            _settings = _settings_from(own_settings) if own_settings is not None else _copy_defaults()
             _sets = {}
             _was_fresh_install = True
             _import_kurzdor_save_once()
@@ -298,24 +405,20 @@ def _import_kurzdor_save_once():
 
 def save():
     path = _config_path(_account_id)
+    settings_saved = _write_settings_file()
     try:
         directory = os.path.dirname(path)
         if directory and not os.path.exists(directory):
             os.makedirs(directory)
+        payload = {'sets': _sets}
+        if not settings_saved:
+            # The settings file could not be written: keep the settings here
+            # as well, so they are not lost and the next load still finds them.
+            # The marker makes that load prefer them over a stale settings file.
+            payload.update(_legacy_settings_payload())
+            payload['settingsFallback'] = True
         with open(path, 'w') as handle:
-            json.dump({
-                'autoEquipEnabled': bool(_settings['autoEquipEnabled']),
-                'downgradeEnabled': bool(_settings['downgradeEnabled']),
-                'alwaysSelectSetup1': bool(_settings['alwaysSelectSetup1']),
-                'selectedStreamerAccountId': _settings.get('selectedStreamerAccountId'),
-                'selectedStreamerName': _settings.get('selectedStreamerName'),
-                'equipmentSaveMode': _settings.get('equipmentSaveMode', SAVE_MODE_POPOVER),
-                'iconMenuRows': dict(_settings.get('iconMenuRows') or _default_icon_menu_rows()),
-                'carouselMenuRows': dict(_settings.get('carouselMenuRows') or _default_carousel_menu_rows()),
-                'equipPrimaryUsesFilter': bool(_settings.get('equipPrimaryUsesFilter', True)),
-                'equipPlaylistUsesFilter': bool(_settings.get('equipPlaylistUsesFilter', False)),
-                'sets': _sets,
-            }, handle, separators=(',', ':'))
+            json.dump(payload, handle, separators=(',', ':'))
     except Exception:
         LOG.exc('save() failed')
 
@@ -421,6 +524,17 @@ def set_equip_playlist_uses_filter(enabled):
     _settings['equipPlaylistUsesFilter'] = bool(enabled)
     save()
     return _settings['equipPlaylistUsesFilter']
+
+
+def mode_sets_enabled():
+    """Whether Frontline and Onslaught use their own equipment (mode_sets.py)."""
+    return bool(_settings.get('modeSetsEnabled', False))
+
+
+def set_mode_sets_enabled(enabled):
+    _settings['modeSetsEnabled'] = bool(enabled)
+    save()
+    return _settings['modeSetsEnabled']
 
 
 def is_icon_menu_row_enabled(row_id):

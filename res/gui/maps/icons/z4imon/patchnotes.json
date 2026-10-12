@@ -1,6 +1,21 @@
 {
     "notes": [
         {
+            "version": "1.5",
+            "de": [
+                "Neu: Streamer-Equipment auch ohne WoT Plus ansehen",
+                "Neu: Einbau-Buttons, wenn Automatisch einbauen aus ist",
+                "Neu: Eigenes Equipment für Frontline und Ansturm (in den Einstellungen aktivieren)",
+                "Bugfixes"
+            ],
+            "en": [
+                "New: View streamer equipment without WoT Plus",
+                "New: Install buttons when Auto-install is disabled",
+                "New: Separate equipment for Frontline and Onslaught (enable in the settings)",
+                "Bugfixes"
+            ]
+        },
+        {
             "version": "1.4",
             "de": [
                 "Neu: Statistik-Seite",

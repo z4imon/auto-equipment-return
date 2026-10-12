@@ -56,7 +56,7 @@ def _read_seen():
             return [str(shown)]
         return []
     except Exception:
-        LOG.exc('could not read %s - treating everything as unseen' % path)
+        LOG.exc('could not read %s, treating everything as unseen' % path)
         return []
 
 
@@ -69,7 +69,7 @@ def _write_seen(ids):
         with open(path, 'w') as handle:
             json.dump({'shown': list(ids)}, handle, indent=4)
     except Exception:
-        LOG.exc('could not write %s - the notes may be shown again' % path)
+        LOG.exc('could not write %s, the notes may be shown again' % path)
 
 
 def _read_notes():
@@ -150,7 +150,7 @@ def maybe_show():
             # for a player who never had the previous version is just noise.
             # Recording still matters, or the next start would show it.
             _write_seen(ids)
-            LOG.info('fresh install - recorded %d note id(s) without showing' % len(ids))
+            LOG.info('fresh install, recorded %d note id(s) without showing' % len(ids))
             return
 
         body = _format(unseen)
@@ -162,7 +162,7 @@ def maybe_show():
             LOG.info('showed patch notes for %s'
                      % ', '.join(str(e.get('version')) for e in unseen))
         else:
-            LOG.warning('no text for %s - recording anyway so it cannot surface later'
+            LOG.warning('no text for %s, recording anyway so it cannot surface later'
                         % ', '.join(str(e.get('version')) for e in unseen))
         # Every id is recorded, not just the ones shown: an entry without text
         # must not re-check on every hangar load for the life of the build.

@@ -69,10 +69,36 @@ def language():
     return _language
 
 
+# Popover keys that show the game's own wording instead of the language file:
+# the mode switch's first field reads exactly like the battle type menu
+# ("Zufallsgefecht", "Random Battle", ...). The file's value stays as fallback.
+_GAME_STRINGS = {
+    'profileStandard': '#menu:headerButtons/battle/types/standart',
+}
+
+
+def _game_string(key):
+    """The client's translation of key, or None when it has none."""
+    try:
+        from helpers import i18n as game_i18n
+        text = game_i18n.makeString(key)
+    except Exception:
+        LOG.exc('makeString(%s) failed' % key)
+        return None
+    if not text or text == key or text.startswith('#'):
+        return None
+    return text
+
+
 def ui_strings():
     """Flat dict pushed to the popover JS as uiJson (same shape the JS side
     already expects — only where the data now comes from changed)."""
-    return dict(_strings)
+    strings = dict(_strings)
+    for name, key in _GAME_STRINGS.items():
+        text = _game_string(key)
+        if text:
+            strings[name] = text
+    return strings
 
 
 def t(key, **kwargs):

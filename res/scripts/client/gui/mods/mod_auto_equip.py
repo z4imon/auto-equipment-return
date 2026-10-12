@@ -25,7 +25,7 @@ import os
 from gui.shared.utils import getPlayerDatabaseID
 from PlayerEvents import g_playerEvents
 
-from .auto_equip import config, i18n, importer
+from .auto_equip import config, i18n, importer, mode_sets
 from .auto_equip import __version__
 from .auto_equip.log import LOG
 
@@ -67,6 +67,7 @@ def _init_sync():
     try:
         from .auto_equip import sync
         config.add_change_listener(sync._on_local_change)
+        mode_sets.add_change_listener(sync._on_mode_change)
     except Exception:
         LOG.exc('sync change-listener registration failed')
 
@@ -103,6 +104,7 @@ def _on_account_show_gui(ctx=None):
 
 def _finish_account_load(account_id):
     config.load_for_account(account_id)
+    mode_sets.load_for_account(account_id)
     try:
         importer.register(account_id)
     except Exception:

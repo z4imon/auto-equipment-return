@@ -78,6 +78,8 @@ _VAR_SAVE_MODE = 'equipmentSaveMode'
 # filter, equip playlist does not.
 _VAR_EQUIP_PRIMARY_USES_FILTER = 'equipPrimaryUsesFilter'
 _VAR_EQUIP_PLAYLIST_USES_FILTER = 'equipPlaylistUsesFilter'
+# Frontline/Onslaught equipment (mode_sets.py), off by default.
+_VAR_MODE_SETS_ENABLED = 'modeSetsEnabled'
 
 # Icon-menu visibility checkboxes, in popover order. varName is what
 # ModsSettingsAPI stores; row_id is the config.py / Gameface key.
@@ -394,6 +396,20 @@ def onModSettingsChanged(linkage, newSettings):
         if _VAR_EQUIP_PLAYLIST_USES_FILTER in newSettings:
             config.set_equip_playlist_uses_filter(
                 bool(newSettings[_VAR_EQUIP_PLAYLIST_USES_FILTER]))
+        if _VAR_MODE_SETS_ENABLED in newSettings:
+            enabled = bool(newSettings[_VAR_MODE_SETS_ENABLED])
+            if enabled != config.mode_sets_enabled():
+                config.set_mode_sets_enabled(enabled)
+                from . import mode_sets
+                mode_sets.reset_view_profile()
+                if enabled:
+                    # Catch up with the cloud once (mode sets cloud sync).
+                    from . import sync
+                    account_id = config.current_account_id()
+                    if account_id and sync.is_paired(account_id):
+                        sync.reconcile_modes(account_id)
+                # The popover shows the switch only while this is on.
+                toggled = True
         if toggled:
             from . import gameface
             gameface.push_data()
@@ -471,6 +487,12 @@ def _feature_toggle_rows(templates):
     rows.append(templates.createCheckbox(
         t('featureToggleEquipPlaylistUsesFilter'), _VAR_EQUIP_PLAYLIST_USES_FILTER,
         config.equip_playlist_uses_filter()))
+    rows.append(templates.createCheckbox(
+        t('modeSetsToggle'), _VAR_MODE_SETS_ENABLED,
+        config.mode_sets_enabled()))
+    # The equipment window's automatic save writes into the hangar's own
+    # profile, so another mode's set is saved through the Save buttons.
+    rows.append(templates.createLabel(t('modeSetsHint')))
     rows.append(templates.createEmpty())
     rows.append(templates.createLabel(t('featureTogglesIconMenuLabel'),
                                       tooltip=t('featureTogglesIconMenuTooltip')))
@@ -572,7 +594,7 @@ def register(account_id):
     global _kurzdor_files, _own_files, _account_id
     g_modsSettingsApi, templates = _get_settings_api()
     if g_modsSettingsApi is None:
-        LOG.info('ModsSettingsAPI not installed - settings panel disabled')
+        LOG.info('ModsSettingsAPI not installed, settings panel disabled')
         return
 
     _account_id = account_id
@@ -627,7 +649,7 @@ def _hook_mod_menu_opened(g_modsSettingsApi):
     try:
         g_modsSettingsApi.onWindowOpened += _on_mod_menu_opened
     except Exception:
-        LOG.info('onWindowOpened not available on this ModsSettingsAPI implementation - skipping')
+        LOG.info('onWindowOpened not available on this ModsSettingsAPI implementation, skipping')
 
 
 def _on_mod_menu_opened():
