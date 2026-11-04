@@ -18,7 +18,7 @@ from post_progression_common import TankSetupGroupsId
 from skeletons.gui.game_control import IWotPlusController
 from skeletons.gui.shared import IItemsCache
 
-from . import config, hangar, mode_sets
+from . import config, hangar, mode_sets, usage
 from .log import LOG
 
 OPT_DEVICE_GROUP = TankSetupGroupsId.OPTIONAL_DEVICES_AND_BOOSTERS
@@ -372,11 +372,21 @@ def is_mode_only_vehicle(vehicle):
 
 
 def find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids=None):
-    """Vehicles with saved sets first (see _donor_rank), then the cheapest
-    unlocked vehicle (not in battle, queue or a prebattle)
+    """Vehicles with saved sets first (see _donor_rank), then the LEAST
+    RECENTLY USED unlocked vehicle (not in battle, queue or a prebattle)
     carrying the device. excluded_inv_ids rules out further vehicles - the batch
     run uses it so Primary vehicles never cannibalise each other's freshly
     installed equipment.
+
+    LRU, not first: between two candidates that are equal on intent and on
+    cost, taking from the older one is what keeps a player flicking between two
+    tanks from stripping each of them on every selection (see usage.py - a
+    three-copy device, two of them on the tanks being flicked between, used to
+    ping-pong on every single switch while the third copy sat untouched). The
+    timestamp is only ever a tiebreaker: _donor_rank and the setup-switch cost
+    still decide first, because undoing the damage a bad donor does costs a
+    server round trip while recency only decides between donors that are
+    otherwise equally good.
 
     CHEAPEST, not first: a donor whose ACTIVE setup holds the device costs one
     server call, a donor that keeps it in the other setup costs three, because
@@ -418,9 +428,15 @@ def _donor_rank(vehicle, device_cd):
 
 
 def _find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids):
-    # Ranked by _donor_rank first, then by cost: within a rank a donor whose
-    # active setup holds the device (one server call) beats one that needs a
-    # setup switch (three).
+    # Ranked by _donor_rank first, then by cost (a donor whose active setup
+    # holds the device needs one server call, one that needs a setup switch
+    # needs three), and only then by AGE: the vehicle used longest ago wins, so
+    # a player switching back and forth between two tanks does not have them
+    # repeatedly strip each other while a third copy goes unused (usage.py).
+    #
+    # Age is last on purpose. Intent and cost are properties of the RUN (they
+    # decide how much work and how much damage undoing it would cost), while age
+    # only orders candidates that are already equally good on both.
     best = None
     best_key = None
     for vehicle in owned_vehicles():
@@ -435,11 +451,12 @@ def _find_donor_vehicle(device_cd, exclude_inv_id, excluded_inv_ids):
                 continue
             needs_switch = not vehicle_has_device(
                 vehicle, device_cd, setup_idx=active_setup_index(vehicle))
-            key = (_donor_rank(vehicle, device_cd), needs_switch)
+            key = (_donor_rank(vehicle, device_cd), needs_switch,
+                   usage.last_used(vehicle.invID))
             if best_key is None or key < best_key:
                 best, best_key = vehicle, key
-                if key == (0, False):
-                    break           # nothing can beat it
+                if key[0] == 0 and not key[1] and key[2] <= 0.0:
+                    break       # wanted nowhere, no switch, never selected: unbeatable
         except Exception:
             continue
     return best

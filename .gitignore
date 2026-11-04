@@ -2,3 +2,5 @@
 /.idea/
 /.claude/settings.local.json
 /Bug-Report-Logs/
+*.pyc
+__pycache__/

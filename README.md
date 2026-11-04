@@ -4,6 +4,9 @@
 - Saves your tank equipment and automatically reinstalls it when selecting the tank
 - Allows you to equip all your tanks with bounty equipment
 - The equipment is pulled from depot or other tanks (only if demounting is free)
+  - When several tanks hold the same device, the one you used **least recently**
+    is taken from, not the one you just left. Flicking between two tanks in the
+    garage therefore stops them stripping each other every time you switch.
 - *Downgrade:* if activated, installs a standard equipment instead of
  the bounty or bond equipment if there is none available.
 - *Equip primary vehicles:* if clicked, installs the equipment for all the (filtered)

@@ -7,6 +7,7 @@ next to it, one module per job:
 
     auto_equip.config      persisted settings and saved sets
     auto_equip.inventory   reads against the items cache
+    auto_equip.usage       when each vehicle was last selected (donor ordering)
     auto_equip.rpc         raw inventory calls to the server
     auto_equip.apply       restoring saved sets onto vehicles
     auto_equip.save        snapshotting the current setups
@@ -105,6 +106,11 @@ def _on_account_show_gui(ctx=None):
 def _finish_account_load(account_id):
     config.load_for_account(account_id)
     mode_sets.load_for_account(account_id)
+    try:
+        from .auto_equip import usage
+        usage.load_for_account(account_id)
+    except Exception:
+        LOG.exc('auto_equip.usage.load_for_account failed')
     try:
         importer.register(account_id)
     except Exception:
