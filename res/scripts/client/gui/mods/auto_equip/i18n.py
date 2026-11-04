@@ -26,6 +26,13 @@ _FALLBACK = 'en'
 
 _strings = {}
 _language = _FALLBACK
+# The English file, kept alongside whatever language actually loaded. Used only
+# for keys the player's language does not have: translations and code changes
+# ship in the same .wotmod, so a key added to the mod is missing from every
+# language file except the ones that were translated with it. Without this
+# fallback such a key reaches the player as the raw "!!key!!" marker below,
+# which is meant to flag a typo during development, not to be shipped.
+_fallback_strings = {}
 
 
 def _read_lang_file(code):
@@ -52,7 +59,7 @@ def _detect_language():
 def init():
     """Loads the strings for the current client language. Call once, early in
     mod init — the client language cannot change without a game restart."""
-    global _strings, _language
+    global _strings, _language, _fallback_strings
     _language = _detect_language()
     data = _read_lang_file(_language)
     if data is None and _language != _FALLBACK:
@@ -61,7 +68,12 @@ def init():
         _language = _FALLBACK
         data = _read_lang_file(_language)
     _strings = data or {}
-    LOG.info('loaded %d string(s) for language=%s' % (len(_strings), _language))
+    if _language == _FALLBACK:
+        _fallback_strings = _strings
+    else:
+        _fallback_strings = _read_lang_file(_FALLBACK) or {}
+    LOG.info('loaded %d string(s) for language=%s (%d in the English fallback)'
+             % (len(_strings), _language, len(_fallback_strings)))
 
 
 def language():
@@ -90,10 +102,35 @@ def _game_string(key):
     return text
 
 
+def _lookup(key):
+    """The value of `key`, chasing `@otherKey` aliases. None when neither the
+    loaded language nor the English fallback has it."""
+    for source in (_strings, _fallback_strings):
+        template = source.get(key)
+        seen = set([key])
+        while (template is not None and isinstance(template, basestring)
+                and len(template) > 1 and template[0] == '@'):
+            ref = template[1:]
+            if ref in seen:
+                LOG.warning('translation alias cycle at %s -> %s' % (key, ref))
+                template = None
+                break
+            seen.add(ref)
+            template = source.get(ref)
+        if template is not None:
+            return template
+    return None
+
+
 def ui_strings():
     """Flat dict pushed to the popover JS as uiJson (same shape the JS side
-    already expects — only where the data now comes from changed)."""
-    strings = dict(_strings)
+    already expects — only where the data now comes from changed).
+
+    Every key either file knows is included, the loaded language winning, so a
+    key that only exists in English still reaches the JS instead of falling
+    back to the hardcoded English default in the JS itself."""
+    strings = dict(_fallback_strings)
+    strings.update(_strings)
     for name, key in _GAME_STRINGS.items():
         text = _game_string(key)
         if text:
@@ -102,23 +139,18 @@ def ui_strings():
 
 
 def t(key, **kwargs):
-    """One localized, formatted string. Missing key/file -> the raw key
-    wrapped in !!...!! (loud on purpose: a silent fallback would hide a typo
-    or missing key behind mixed-language text during testing).
+    """One localized, formatted string.
+
+    A key missing from the player's language falls back to the English file;
+    one missing from both returns the raw key wrapped in !!...!!, which is loud
+    on purpose: during development that should hide nothing. That marker is not
+    meant to reach players, which is exactly what the English fallback is for -
+    translations and code ship together, so a newly added key is absent from
+    every language file nobody translated it into yet.
 
     A value of `@otherKey` reuses that other entry in the same language file
     so duplicated menu labels do not have to be copied by hand."""
-    template = _strings.get(key)
-    seen = set([key])
-    while (template is not None and isinstance(template, basestring)
-            and len(template) > 1 and template[0] == '@'):
-        ref = template[1:]
-        if ref in seen:
-            LOG.warning('translation alias cycle at %s -> %s' % (key, ref))
-            template = None
-            break
-        seen.add(ref)
-        template = _strings.get(ref)
+    template = _lookup(key)
     if template is None:
         LOG.warning('missing translation key: %s' % key)
         return u'!!%s!!' % key

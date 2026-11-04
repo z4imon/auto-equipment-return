@@ -22,6 +22,11 @@
 - *Demount bounty equipment:* right-click a tank in the carousel to demount only
   bounty equipment that demounts for free. Off by default, turn it on under
   *Feature Toggles (Tank Carousel Menu)*.
+- *Demount improved equipment (360 China only):* right-click a tank in the
+  carousel to demount only Improved (purple) equipment that demounts for free.
+  Off by default, turn it on under *Feature Toggles (Tank Carousel Menu)*.
+  Wargaming's WoT Plus does not free-demount Improved devices, so this row is
+  not built on WG servers at all.
 - *Demount all bounty equipment:* if clicked, demounts bounty equipment
   from every tank in the hangar. Off by default, turn it on under
   *Feature Toggles (Icon Menu)*. Ideal for **Frontline**, **Onslaught** and **Onslaught light**.
@@ -31,6 +36,11 @@
   in your upcoming session. Once a notification indicates that auto-install is
   stealing equipment from other tanks, you know that you used up all your free
   bounty equipment.
+- *Demount all improved equipment (360 China only):* the garage-wide twin of the
+  row above, for the realm where Plus free-demounts Improved (purple) devices.
+  Same limited-inventory strategy: pull every purple device back into the depot,
+  turn auto-install on again, and hand them out to the tanks you want to
+  prioritize. On WG the row never appears.
 - *Feature Toggles* in the ModsSettingsAPI panel:
   - **Behavior:** Changes behavior of specific mod features.
   - **Icon Menu:** Show/hide specific rows of the hangar icon menu.
@@ -65,6 +75,8 @@ next to the customization button.
   currently mounted on the selected tank
 - **Demount all bounty equipment:** takes bounty equipment off every tank
   in the hangar and leaves other equipment mounted.
+- **Demount all improved equipment (360 China only):** takes Improved (purple)
+  equipment off every tank in the hangar and leaves other equipment mounted.
 - **Equip primary vehicles:** equips all your filtered primary vehicles.
 - **Equip playlist vehicles:** equips all your filtered playlist vehicles.
 
@@ -74,6 +86,10 @@ It removes everything from that tank that can be demounted for free and leaves t
 
 **Demount bounty equipment** is also added to the right-click menu of every tank in the carousel.
 It removes only bounty equipment from that tank if it can be demounted for free and leaves the rest mounted.
+
+**Demount improved equipment** is the 360 China counterpart of the row above: it removes only
+Improved (purple) equipment that can be demounted for free and leaves the rest mounted. It does not
+exist on WG servers, where Plus does not free-demount Improved devices.
 
 
 ## Mod Menu Settings

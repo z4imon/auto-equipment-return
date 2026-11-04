@@ -64,12 +64,18 @@ _DEFAULTS = {
         'downgrade': True,
         'alwaysSetup1': True,
         'demountBounty': False,
+        # Improved (purple) demount, 360 China only - see carousel_menu.py.
+        # Opt-in like the bounty rows, and hidden entirely where the realm does
+        # not demount Improved for free, so the flag alone cannot show a row
+        # that could only ever fail.
+        'demountImproved': False,
         'equipPrimary': True,
         'equipPlaylist': True,
     },
     'carouselMenuRows': {
         'demountEquip': True,
         'demountBounty': False,
+        'demountImproved': False,
     },
     # Whether batch equip follows the hangar carousel filter. Primary does by
     # default (it means "everything I am looking at"); a playlist is an
@@ -218,7 +224,8 @@ def _clean_sets(raw):
 
 
 _ICON_MENU_ROW_KEYS = (
-    'downgrade', 'alwaysSetup1', 'demountBounty', 'equipPrimary', 'equipPlaylist',
+    'downgrade', 'alwaysSetup1', 'demountBounty', 'demountImproved',
+    'equipPrimary', 'equipPlaylist',
 )
 
 
@@ -226,7 +233,7 @@ def _default_icon_menu_rows():
     return dict(_DEFAULTS['iconMenuRows'])
 
 
-_CAROUSEL_MENU_ROW_KEYS = ('demountEquip', 'demountBounty')
+_CAROUSEL_MENU_ROW_KEYS = ('demountEquip', 'demountBounty', 'demountImproved')
 
 
 def _default_carousel_menu_rows():

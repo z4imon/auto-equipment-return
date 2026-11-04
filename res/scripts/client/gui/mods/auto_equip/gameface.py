@@ -215,6 +215,23 @@ def _read_only():
     return _has_wot_plus is not True
 
 
+def _improved_demount_supported():
+    """Whether the realm demounts Improved (purple) equipment for free.
+
+    Cached by inventory.improved_demount_is_free() after its first meaningful
+    probe, so calling it on every push_data() is one dict lookup after the
+    first. Asked only with the subscription confirmed: isFreeToDemount() ends
+    in hasSubscription(), so a pending check would answer "no" for the wrong
+    reason and cache that."""
+    if _read_only():
+        return False
+    try:
+        return inventory.improved_demount_is_free()
+    except Exception:
+        LOG.exc('_improved_demount_supported failed')
+        return False
+
+
 def _build_data():
     data = {
         'noPlus': _viewer_mode(),
@@ -237,6 +254,11 @@ def _build_data():
         # the language files instead of teaching the JS to interpolate.
         'playlistLabel': _playlist_label(),
         'iconMenu': config.icon_menu_rows(),
+        # Whether this realm demounts Improved (purple) equipment for free -
+        # true on 360 China, false on WG (issue #42). The JS shows the Improved
+        # row only when both this and its own toggle say so, so a WG player
+        # never sees a button that could only report "nothing found".
+        'improvedDemountSupported': _improved_demount_supported(),
         # None unless a carousel demount runs - the popover then shows its
         # text instead of the default "installing" busy row.
         'busyLabel': _carousel_busy_text(),
@@ -560,14 +582,15 @@ def _unsubscribe_from_vehicle():
 class AutoEquipViewModel(ViewModel):
     __slots__ = ('onJsLog', 'onToggleEnabled', 'onToggleDowngrade',
                  'onToggleAlwaysSetup1', 'onSaveSet', 'onDeleteSets',
-                 'onSaveRecommended', 'onDemountAllTrophy', 'onEquipPrimary',
+                 'onSaveRecommended', 'onDemountAllTrophy',
+                 'onDemountAllImproved', 'onEquipPrimary',
                  'onEquipPlaylist',
                  'onPopoverOpened',
                  'onRequestPreview', 'onOpenStreamerList', 'onSelectStreamer',
                  'onOpenStats', 'onInstallSet', 'onSelectProfile')
 
     def __init__(self):
-        super(AutoEquipViewModel, self).__init__(properties=6, commands=17)
+        super(AutoEquipViewModel, self).__init__(properties=6, commands=18)
 
     def getDataJson(self):
         return self._getString(0)
@@ -621,6 +644,7 @@ class AutoEquipViewModel(ViewModel):
         self.onDeleteSets = self._addCommand('onDeleteSets')
         self.onSaveRecommended = self._addCommand('onSaveRecommended')
         self.onDemountAllTrophy = self._addCommand('onDemountAllTrophy')
+        self.onDemountAllImproved = self._addCommand('onDemountAllImproved')
         self.onEquipPrimary = self._addCommand('onEquipPrimary')
         self.onEquipPlaylist = self._addCommand('onEquipPlaylist')
         self.onPopoverOpened = self._addCommand('onPopoverOpened')
@@ -666,6 +690,7 @@ class AutoEquipView(ViewComponent):
             (self.viewModel.onDeleteSets, self._on_delete_sets),
             (self.viewModel.onSaveRecommended, self._on_save_recommended),
             (self.viewModel.onDemountAllTrophy, self._on_demount_all_trophy),
+            (self.viewModel.onDemountAllImproved, self._on_demount_all_improved),
             (self.viewModel.onEquipPrimary, self._on_equip_primary),
             (self.viewModel.onEquipPlaylist, self._on_equip_playlist),
             (self.viewModel.onPopoverOpened, self._on_popover_opened),
@@ -982,6 +1007,21 @@ class AutoEquipView(ViewComponent):
             push_data()
         except Exception:
             LOG.exc('_on_demount_all_trophy failed')
+
+    def _on_demount_all_improved(self, data=None):
+        """Garage-wide Improved (purple) demount, 360 China only - the JS never
+        shows the row where the realm does not demount Improved for free, and
+        carousel_menu re-checks before it moves anything."""
+        try:
+            if _read_only():
+                return
+            from . import carousel_menu
+            if not config.is_icon_menu_row_enabled('demountImproved'):
+                return
+            carousel_menu.demount_all_improved()
+            push_data()
+        except Exception:
+            LOG.exc('_on_demount_all_improved failed')
 
     def _on_equip_primary(self, data=None):
         try:
