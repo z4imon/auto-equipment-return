@@ -1388,6 +1388,15 @@ function buildPopover() {
                 cmd("onDemountAllTrophy");
             }));
         }
+        // Improved (purple) equipment, 360 China only. Two gates on purpose:
+        // the realm has to demount them for free at all, and the player has to
+        // opt the row in. On WG the first one is false, so no row appears.
+        if (gData.improvedDemountSupported === true
+                && gData.iconMenu && gData.iconMenu.demountImproved === true) {
+            content.appendChild(buildMenuRow(ui("demountAllImproved", "Demount all improved equipment"), "demount", function () {
+                cmd("onDemountAllImproved");
+            }));
+        }
         if (iconMenuOn("equipPrimary")) {
             content.appendChild(buildMenuRow(ui("equipPrimary", "Alle Primärpanzer ausstatten"), "star", function () {
                 cmd("onEquipPrimary");

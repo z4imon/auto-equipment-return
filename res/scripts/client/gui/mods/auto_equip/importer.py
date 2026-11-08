@@ -89,6 +89,7 @@ _ICON_MENU_TOGGLES = (
     ('downgrade', 'iconMenuDowngrade', 'featureToggleDowngrade'),
     ('alwaysSetup1', 'iconMenuAlwaysSetup1', 'featureToggleAlwaysSetup1'),
     ('demountBounty', 'iconMenuDemountBounty', 'featureToggleDemountAllBounty'),
+    ('demountImproved', 'iconMenuDemountImproved', 'featureToggleDemountAllImproved'),
     ('equipPrimary', 'iconMenuEquipPrimary', 'featureToggleEquipPrimary'),
     ('equipPlaylist', 'iconMenuEquipPlaylist', 'featureToggleEquipPlaylist'),
 )
@@ -96,6 +97,8 @@ _ICON_MENU_TOGGLES = (
 _CAROUSEL_MENU_TOGGLES = (
     ('demountEquip', 'carouselMenuDemountEquip', 'featureToggleDemountEquip'),
     ('demountBounty', 'carouselMenuDemountBounty', 'featureToggleDemountAllBountyCarousel'),
+    ('demountImproved', 'carouselMenuDemountImproved',
+     'featureToggleDemountAllImprovedCarousel'),
 )
 
 # Dropdown index <-> config.py value, in the order the dropdown lists them.

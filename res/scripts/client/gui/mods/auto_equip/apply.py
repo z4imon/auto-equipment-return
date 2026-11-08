@@ -26,7 +26,7 @@ from adisp import adisp_async, adisp_process
 from CurrentVehicle import g_currentVehicle
 from gui.shared.notifications import NotificationPriorityLevel
 
-from . import config, inventory, messages, mode_sets, rpc
+from . import config, inventory, messages, mode_sets, rpc, usage
 from .i18n import t
 from .log import LOG
 
@@ -87,6 +87,9 @@ def prime_selection():
         return
     _last_inv_id = vehicle.invID
     _awaiting_first_selection = False
+    # The hangar's opening vehicle counts as used too: it is the one the player
+    # is sitting in, so it must be the last choice as a donor (usage.py).
+    usage.touch(vehicle.invID)
     LOG.info('selection trigger primed with the loaded vehicle (%s)' % vehicle.invID)
 
 
@@ -1061,9 +1064,14 @@ def on_vehicle_changed():
         notify_refresh()
         if _awaiting_first_selection:
             # The first vehicle seen since subscribing is the one the hangar
-            # loaded with, not one the player moved to.
+            # loaded with, not one the player moved to. It still counts as
+            # "used" for the donor ordering, though: the tank the player is
+            # sitting in must not be raided for its devices, and that is the
+            # same rule whether they drove here or logged in here.
+            usage.touch(vehicle.invID)
             _awaiting_first_selection = False
             return
+        usage.touch(vehicle.invID)
         if not config.is_auto_enabled() or not mode_sets.has_effective_sets(vehicle.invID):
             return
         # Let the selection settle first, then start - unless the player
