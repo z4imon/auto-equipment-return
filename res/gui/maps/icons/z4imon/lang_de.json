@@ -6,8 +6,8 @@
     "downgradeTooltip": "Beispiel: Nimmt ein Standard-Equipment, wenn kein erbeutetes Equipment zur Verfügung steht.",
     "alwaysSetup1Label": "Immer Set 1 auswählen",
     "alwaysSetup1Tooltip": "Wählt nach dem Einbauen immer Setup 1 aus, statt beim zuletzt genutzten Setup zu bleiben. Aus technischen Gründen führt das zu deutlich kürzeren Einbauzeiten.",
-    "saveModeLabel": "Equipment speichern über",
-    "saveModeTooltip": "Legt fest, wann Sets gespeichert werden: manuell über die Speichern-Buttons, oder automatisch bei jeder Bestätigung im Ausrüstungsfenster.",
+    "saveModeLabel": "Equipment speichern",
+    "saveModeTooltip": "Legt fest, wann Sets gespeichert werden: manuell über die Speichern-Buttons oder automatisch bei jeder Bestätigung im Ausrüstungsfenster.",
     "saveModePopover": "Manuell",
     "saveModeConfirmEquipment": "Automatisch",
     "set1": "Set 1",
@@ -166,5 +166,7 @@
     "statsEmpty": "Keine Fahrzeuge mit gespeicherten Sets.",
     "viewerNoSet": "Für dieses Fahrzeug ist kein Set geteilt",
     "noPlusHint": "Alle Funktionen sind deaktiviert, da kein WoT-Plus-Abonnement aktiv ist.",
-    "patreonText": "Gefällt dir die Mod? Unterstütze mich auf Patreon"
+    "patreonText": "Gefällt dir die Mod? Unterstütze mich auf Patreon",
+    "discordText": "Fragen oder Ideen? Tritt meinem Discord bei",
+    "faqText": "Wie funktioniert die Mod? Schau in die FAQ"
 }

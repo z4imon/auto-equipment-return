@@ -43,14 +43,18 @@ the popover pushes them at the client constantly.
 
 Storage
 -------
-A file of its own rather than a key in <accountId>.settings.json: this is
-written on every vehicle selection (hundreds per session), while the settings
+A file of its own rather than a key in <accountId>.settings.json: this changes
+on every vehicle selection (hundreds per session), while the settings
 file is a hand-editable document that should not grow a several-hundred-entry
 dict that changes under the player's feet. Same reasoning mode_sets.py uses for
 its own per-profile files.
 
 The account importer only ever lists <digits>.json, so this file never shows up
 as an importable account.
+
+Changes are written a few seconds after the last selection (_FLUSH_DELAY_SECONDS),
+so quickly clicking through the carousel costs one write instead of one per
+tank. Account switches and game shutdown write out whatever is still pending.
 
 Losing this file is harmless: every vehicle reads back as "never used", which
 restores the old first-match behaviour exactly.
@@ -59,6 +63,8 @@ restores the old first-match behaviour exactly.
 import json
 import os
 import time
+
+import BigWorld
 
 from . import config
 from .log import LOG
@@ -75,10 +81,16 @@ _REPEAT_WINDOW_SECONDS = 2.0
 # only has to stay comfortably above that while keeping the file small.
 _MAX_ENTRIES = 1000
 
+# How long after the last touch the file is written. Several selections inside
+# this window end up in one write.
+_FLUSH_DELAY_SECONDS = 5.0
+
 _account_id = 0
 _last_used = {}         # str(vehicle invID) -> float, unix time of last selection
 _loaded = False
 _most_recent = None     # invID of the last touch, for _REPEAT_WINDOW_SECONDS
+_dirty = False          # changes not yet written to disk
+_flush_callback = None  # BigWorld callback id of the pending write, or None
 
 
 # ---------------------------------------------------------------------------
@@ -94,6 +106,7 @@ def load_for_account(account_id):
     load sequence as config.load_for_account - the donor search reads this
     during a run, which can only happen after an account is known."""
     global _account_id, _last_used, _loaded, _most_recent
+    flush()             # the previous account's pending changes, if any
     _account_id = account_id
     _most_recent = None
     _loaded = True
@@ -129,11 +142,13 @@ def load_for_account(account_id):
 
 
 def flush():
-    """Writes the current map out. Saving is infrequent enough (one write per
-    vehicle selection, after the letterbox above) that it happens inline -
-    this runs on the main thread and only ever holds a few KB."""
-    if not _loaded or not _account_id:
+    """Writes pending changes out now and cancels the scheduled write. Does
+    nothing when there is nothing new to write."""
+    global _dirty
+    _cancel_scheduled_flush()
+    if not _dirty or not _loaded or not _account_id:
         return False
+    _dirty = False
     path = _path(_account_id)
     try:
         directory = os.path.dirname(path)
@@ -148,21 +163,43 @@ def flush():
         return False
 
 
+def _schedule_flush():
+    global _flush_callback
+    if _flush_callback is None:
+        _flush_callback = BigWorld.callback(_FLUSH_DELAY_SECONDS, _on_flush_timer)
+
+
+def _cancel_scheduled_flush():
+    global _flush_callback
+    if _flush_callback is not None:
+        try:
+            BigWorld.cancelCallback(_flush_callback)
+        except Exception:
+            pass        # already fired or invalid: nothing left to cancel
+        _flush_callback = None
+
+
+def _on_flush_timer():
+    global _flush_callback
+    _flush_callback = None
+    try:
+        flush()
+    except Exception:
+        LOG.exc('usage: scheduled write failed')
+
+
 # ---------------------------------------------------------------------------
 # Recording and reading
 # ---------------------------------------------------------------------------
 
-def touch(veh_inv_id, when=None):
+def touch(veh_inv_id):
     """Records that `veh_inv_id` is the vehicle the player is using right now.
-    Returns True when the stored value actually changed.
-
-    `when` is for tests and for replaying an import; production callers leave it
-    None and get the current time."""
-    global _most_recent
+    Returns True when the stored value actually changed."""
+    global _most_recent, _dirty
     if not _loaded or not _account_id or not veh_inv_id:
         return False
     key = str(veh_inv_id)
-    now = time.time() if when is None else float(when)
+    now = time.time()
 
     if _most_recent == key:
         previous = _last_used.get(key)
@@ -172,7 +209,8 @@ def touch(veh_inv_id, when=None):
     _most_recent = key
     _last_used[key] = now
     _prune()
-    flush()
+    _dirty = True
+    _schedule_flush()
     return True
 
 
@@ -183,12 +221,6 @@ def last_used(veh_inv_id):
     has never selected is the best possible donor as far as recency goes, which
     is what the pre-LRU behaviour effectively assumed for everything."""
     return _last_used.get(str(veh_inv_id), 0.0)
-
-
-def is_known():
-    """Whether an account's file is loaded - false before the account load
-    sequence runs, while last_used() would answer 0.0 for everything."""
-    return bool(_loaded and _account_id)
 
 
 # ---------------------------------------------------------------------------
@@ -206,13 +238,3 @@ def _prune():
     oldest = sorted(_last_used.items(), key=lambda pair: pair[1])[:excess]
     for key, _value in oldest:
         _last_used.pop(key, None)
-
-
-def reset_for_tests():
-    """Drops all state without touching disk - used by the test harness so one
-    process can simulate several accounts."""
-    global _account_id, _last_used, _loaded, _most_recent
-    _account_id = 0
-    _last_used = {}
-    _loaded = False
-    _most_recent = None

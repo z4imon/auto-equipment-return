@@ -166,5 +166,7 @@
     "statsEmpty": "Itt nincsenek mentett készlettel rendelkező járművek.",
     "viewerNoSet": "Ehhez a járműhöz nincs megosztott szett",
     "noPlusHint": "Minden funkció ki van kapcsolva, mert nincs aktív WoT Plus-előfizetés.",
-    "patreonText": "Tetszik a mod? Támogass a Patreonon"
+    "patreonText": "Tetszik a mod? Támogass a Patreonon",
+    "discordText": "Kérdésed vagy ötleted van? Csatlakozz a Discordomhoz",
+    "faqText": "Hogyan működik a mod? Olvasd el a GYIK-et"
 }

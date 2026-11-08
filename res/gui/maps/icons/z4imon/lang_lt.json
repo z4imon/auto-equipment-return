@@ -166,5 +166,7 @@
     "statsEmpty": "Čia nėra technikos su įrašytais rinkiniais.",
     "viewerNoSet": "Šiai technikai bendrinamo rinkinio nėra",
     "noPlusHint": "Visos funkcijos išjungtos, nes nėra aktyvios WoT Plus prenumeratos.",
-    "patreonText": "Patinka modas? Paremk mane per Patreon"
+    "patreonText": "Patinka modas? Paremk mane per Patreon",
+    "discordText": "Klausimai ar idėjos? Prisijunk prie mano Discord",
+    "faqText": "Kaip veikia modas? Perskaityk DUK"
 }

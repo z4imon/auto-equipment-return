@@ -507,9 +507,11 @@ def demount_all_improved():
     tank and leaves standard, bounty and Experimental devices mounted.
 
     The mirror image of demount_all_trophy, for the 360 China realm where Plus
-    demounts Improved equipment for free (issue #42): the player pulls all
-    their purple devices back into the depot, turns auto-install off, and then
-    hands them out deliberately to the tanks that should get them.
+    demounts Improved equipment for free (issue #42): every purple device goes
+    back into the depot, and auto-install is switched off afterwards (exactly
+    like the bounty run) so the next selection does not hand them straight
+    back out. The player then turns auto-install on again and selects the
+    tanks that should get them first.
 
     Only @adisp_process - see demount_trophy_equipment."""
     global _busy, _busy_text

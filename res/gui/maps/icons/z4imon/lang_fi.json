@@ -166,5 +166,7 @@
     "statsEmpty": "Täällä ei ole ajoneuvoja, joilla on tallennettuja sarjoja.",
     "viewerNoSet": "Tälle ajoneuvolle ei ole jaettu sarjaa",
     "noPlusHint": "Kaikki toiminnot on poistettu käytöstä, koska aktiivista WoT Plus -tilausta ei ole.",
-    "patreonText": "Pidätkö modista? Tue minua Patreonissa"
+    "patreonText": "Pidätkö modista? Tue minua Patreonissa",
+    "discordText": "Kysyttävää tai ideoita? Liity Discordiini",
+    "faqText": "Miten modi toimii? Lue UKK"
 }

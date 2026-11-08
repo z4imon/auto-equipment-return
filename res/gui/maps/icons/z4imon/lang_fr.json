@@ -166,5 +166,7 @@
     "statsEmpty": "Aucun véhicule avec des configurations enregistrées ici.",
     "viewerNoSet": "Aucun set partagé pour ce véhicule",
     "noPlusHint": "Toutes les fonctions sont désactivées, car aucun abonnement WoT Plus n'est actif.",
-    "patreonText": "Le mod vous plaît ? Soutenez-moi sur Patreon"
+    "patreonText": "Le mod vous plaît ? Soutenez-moi sur Patreon",
+    "discordText": "Des questions ou des idées ? Rejoignez mon Discord",
+    "faqText": "Comment fonctionne le mod ? Consultez la FAQ"
 }

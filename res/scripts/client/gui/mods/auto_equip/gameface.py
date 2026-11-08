@@ -1182,6 +1182,13 @@ def _check_wot_plus(attempt):
             LOG.info('WoT Plus subscription found, mod active')
             if _hangar_view is not None:
                 _activate(_hangar_view)
+            try:
+                # The settings panel may have been built before the
+                # subscription was known (Improved toggles, 360 China only).
+                from . import importer
+                importer.refresh_improved_toggles()
+            except Exception:
+                LOG.exc('could not refresh the Improved toggles')
             return
         if attempt >= _PLUS_CHECK_MAX_ATTEMPTS:
             _shut_down_without_subscription()

@@ -174,5 +174,7 @@
     "statsEmpty": "No vehicles with saved sets here.",
     "viewerNoSet": "No set shared for this vehicle",
     "noPlusHint": "All features are disabled because no WoT Plus subscription is active.",
-    "patreonText": "Enjoying the mod? Support me on Patreon"
+    "patreonText": "Enjoying the mod? Support me on Patreon",
+    "discordText": "Questions or ideas? Join my Discord",
+    "faqText": "How does the mod work? Read the FAQ"
 }

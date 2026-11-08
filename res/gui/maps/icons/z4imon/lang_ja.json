@@ -166,5 +166,7 @@
     "statsEmpty": "保存されたセットを持つ車輌がありません。",
     "viewerNoSet": "この車両の共有セットはありません",
     "noPlusHint": "WoT Plus のサブスクリプションが有効ではないため、すべての機能が無効になっています。",
-    "patreonText": "このModが気に入りましたか？Patreonで応援してください"
+    "patreonText": "このModが気に入りましたか？Patreonで応援してください",
+    "discordText": "質問やアイデアはありますか？Discordに参加してください",
+    "faqText": "Modの使い方は？FAQをご覧ください"
 }

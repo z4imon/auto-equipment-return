@@ -64,7 +64,7 @@ import zlib
 
 import BigWorld
 
-from . import cleanup, config, inventory, messages
+from . import __version__, cleanup, config, i18n, inventory, messages
 from .i18n import t
 from .log import LOG
 
@@ -116,6 +116,10 @@ _LABEL_MAX_CHARS = 130
 _kurzdor_files = []
 _own_files = []
 _account_id = None
+# Whether the registered panel carries the Improved demount toggles. They only
+# exist where the realm demounts Improved for free (360 China), see
+# refresh_improved_toggles().
+_improved_toggles_shown = False
 
 
 # ---------------------------------------------------------------------------
@@ -339,6 +343,12 @@ def onButtonClicked(linkage, varName, value):
     if varName == _VAR_PATREON:
         BigWorld.wg_openWebBrowser(_PATREON_URL)
         return
+    if varName == _VAR_DISCORD:
+        BigWorld.wg_openWebBrowser(_DISCORD_URL)
+        return
+    if varName == _VAR_FAQ:
+        BigWorld.wg_openWebBrowser(_faq_url())
+        return
     try:
         index = int(value)
     except (TypeError, ValueError):
@@ -483,7 +493,25 @@ def _save_mode_row(templates):
         tooltip=t('saveModeTooltip'))
 
 
-def _feature_toggle_rows(templates):
+_IMPROVED_ROW_ID = 'demountImproved'
+
+
+def _improved_demount_supported():
+    try:
+        return inventory.improved_demount_is_free()
+    except Exception:
+        LOG.exc('could not determine whether Improved demounts are free')
+        return False
+
+
+def _shown_toggles(toggles, improved):
+    """The toggles the panel offers. The Improved rows are left out where the
+    realm charges for demounting Improved devices (WG): the menu rows they
+    control can never appear there, so the checkbox would do nothing."""
+    return [row for row in toggles if improved or row[0] != _IMPROVED_ROW_ID]
+
+
+def _feature_toggle_rows(templates, improved):
     """Standing on/off switches, split by UI surface. Unlike cleanup/import,
     flipping a checkbox IS the whole action - picked up by
     onModSettingsChanged and stored in config.py, same as save mode."""
@@ -504,14 +532,14 @@ def _feature_toggle_rows(templates):
     rows.append(templates.createEmpty())
     rows.append(templates.createLabel(t('featureTogglesIconMenuLabel'),
                                       tooltip=t('featureTogglesIconMenuTooltip')))
-    for row_id, var_name, label_key in _ICON_MENU_TOGGLES:
+    for row_id, var_name, label_key in _shown_toggles(_ICON_MENU_TOGGLES, improved):
         rows.append(templates.createCheckbox(
             t(label_key), var_name,
             config.is_icon_menu_row_enabled(row_id)))
     rows.append(templates.createEmpty())
     rows.append(templates.createLabel(t('featureTogglesCarouselMenuLabel'),
                                       tooltip=t('featureTogglesCarouselMenuTooltip')))
-    for row_id, var_name, label_key in _CAROUSEL_MENU_TOGGLES:
+    for row_id, var_name, label_key in _shown_toggles(_CAROUSEL_MENU_TOGGLES, improved):
         rows.append(templates.createCheckbox(
             t(label_key), var_name,
             config.is_carousel_menu_row_enabled(row_id)))
@@ -561,22 +589,47 @@ def _build_column1(account_id, templates):
 
 _PATREON_URL = 'https://www.patreon.com/cw/Z4imon'
 _VAR_PATREON = 'patreon'
+_DISCORD_URL = 'https://discord.gg/vdp6r9Cgxs'
+_VAR_DISCORD = 'discord'
+# The FAQ exists in German and English only; every other client gets English.
+_FAQ_URL = 'https://z4imon.de/%s/mods/auto-equipment-return'
+_VAR_FAQ = 'faq'
 
 
-def _patreon_rows(templates):
-    """The Patreon button on a row of its own. Only Aslain's Mod Menu has
-    action buttons; other settings APIs get no row."""
-    if not hasattr(templates, 'createActionButton'):
+def _faq_url():
+    return _FAQ_URL % ('de' if i18n.language() == 'de' else 'en')
+
+# Shown by Aslain's Mod Menu under the mod's name (modAuthor, modVersion) with
+# a link mark beside them (modUrl). None of them is a control, so adding or
+# changing them resets nothing. modVersion is auto_equip.__version__, which
+# has to match pack.bat's -v.
+_MOD_AUTHOR = 'Z4imon'
+_MOD_URL = 'https://wgmods.net/7784/'
+
+
+def _is_aslain_menu(templates):
+    """Only Aslain's Mod Menu has action buttons, modAuthor and modUrl."""
+    return hasattr(templates, 'createActionButton')
+
+
+def _link_rows(templates):
+    """The FAQ, Patreon and Discord buttons, each on a row of its own. Other
+    settings APIs get no rows."""
+    if not _is_aslain_menu(templates):
         return []
     return [templates.createEmpty(),
+            templates.createActionButton(_VAR_FAQ, buttonText='FAQ',
+                                         label=t('faqText')),
             templates.createActionButton(_VAR_PATREON, buttonText='Patreon',
-                                         label=t('patreonText'))]
+                                         label=t('patreonText')),
+            templates.createActionButton(_VAR_DISCORD, buttonText='Discord',
+                                         label=t('discordText'))]
 
 
-def _build_column2(templates):
+def _build_column2(templates, improved):
     """Right column: feature toggles - behavior, then one section per UI
-    surface, and the Patreon row at the bottom."""
-    return _feature_toggle_rows(templates) + _patreon_rows(templates)
+    surface, and the FAQ, Patreon and Discord rows at the bottom."""
+    return _feature_toggle_rows(templates, improved) + _link_rows(templates)
 
 
 def _get_settings_api():
@@ -614,7 +667,7 @@ def register(account_id):
 
     The panel used to bow out when there was nothing to import; it no longer
     can, because the cleanup action stands on its own."""
-    global _kurzdor_files, _own_files, _account_id
+    global _kurzdor_files, _own_files, _account_id, _improved_toggles_shown
     g_modsSettingsApi, templates = _get_settings_api()
     if g_modsSettingsApi is None:
         LOG.info('ModsSettingsAPI not installed, settings panel disabled')
@@ -623,13 +676,18 @@ def register(account_id):
     _account_id = account_id
     _kurzdor_files = _list_kurzdor_files()
     _own_files = _list_own_account_files()
+    _improved_toggles_shown = _improved_demount_supported()
 
     template = {
         'modDisplayName': t('panelDisplayName'),
         'enabled': True,
         'column1': _build_column1(account_id, templates),
-        'column2': _build_column2(templates),
+        'column2': _build_column2(templates, _improved_toggles_shown),
     }
+    if _is_aslain_menu(templates):
+        template['modAuthor'] = _MOD_AUTHOR
+        template['modVersion'] = __version__
+        template['modUrl'] = _MOD_URL
     try:
         # The stored template is the layout as well as the values, and
         # setModTemplate is the only call that stores a changed layout (new
@@ -643,6 +701,22 @@ def register(account_id):
     except Exception:
         LOG.exc('register failed')
     _hook_mod_menu_opened(g_modsSettingsApi)
+
+
+def refresh_improved_toggles():
+    """Adds the Improved toggles once the realm turns out to demount Improved
+    for free.
+
+    register() runs on account load, often before the subscription is synced.
+    improved_demount_is_free() answers False until then, so a 360 China panel
+    would be built without the toggles. gameface calls this once its own
+    subscription check succeeds; on WG the answer stays False and nothing
+    happens."""
+    if _account_id is None or _improved_toggles_shown:
+        return
+    if _improved_demount_supported():
+        LOG.info('Improved demounts are free on this realm, adding their toggles')
+        register(_account_id)
 
 
 def _hook_mod_menu_opened(g_modsSettingsApi):

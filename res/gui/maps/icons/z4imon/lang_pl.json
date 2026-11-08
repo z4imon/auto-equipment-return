@@ -166,5 +166,7 @@
     "statsEmpty": "Brak pojazdów z zapisanymi zestawami.",
     "viewerNoSet": "Brak udostępnionego zestawu dla tego pojazdu",
     "noPlusHint": "Wszystkie funkcje są wyłączone, ponieważ nie ma aktywnej subskrypcji WoT Plus.",
-    "patreonText": "Podoba ci się mod? Wesprzyj mnie na Patreonie"
+    "patreonText": "Podoba ci się mod? Wesprzyj mnie na Patreonie",
+    "discordText": "Pytania lub pomysły? Dołącz do mojego Discorda",
+    "faqText": "Jak działa mod? Przeczytaj FAQ"
 }

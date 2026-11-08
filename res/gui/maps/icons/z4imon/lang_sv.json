@@ -166,5 +166,7 @@
     "statsEmpty": "Inga fordon med sparade uppsättningar här.",
     "viewerNoSet": "Inget delat set för det här fordonet",
     "noPlusHint": "Alla funktioner är avstängda eftersom ingen WoT Plus-prenumeration är aktiv.",
-    "patreonText": "Gillar du modden? Stöd mig på Patreon"
+    "patreonText": "Gillar du modden? Stöd mig på Patreon",
+    "discordText": "Frågor eller idéer? Gå med i min Discord",
+    "faqText": "Hur fungerar modden? Läs FAQ:n"
 }

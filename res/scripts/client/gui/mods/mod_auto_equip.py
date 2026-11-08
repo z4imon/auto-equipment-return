@@ -53,6 +53,13 @@ def fini():
         gameface.fini()
     except Exception:
         LOG.exc('mod_auto_equip.fini() failed')
+    try:
+        # Selections from the last few seconds are still waiting for their
+        # delayed write (usage.py).
+        from .auto_equip import usage
+        usage.flush()
+    except Exception:
+        LOG.exc('auto_equip.usage.flush failed')
     _carousel_menu('fini')
 
 
