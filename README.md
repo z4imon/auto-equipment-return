@@ -116,7 +116,7 @@ For example:
 Want to improve the mod? Please do! Fork the repository, make your changes and
 open a pull request.
 
-Bug reports and ideas are welcome in my channel of the official WoT discord: [Z4imon's mods](https://discord.com/channels/161053416796323840/1496838335857954887)
+Bug reports and ideas are welcome on my Discord server: [Z4imon's mods](https://discord.gg/vdp6r9Cgxs)
 
 ## License
 Copyright (C) 2026 Z4imon
