@@ -28,6 +28,7 @@ MODE_PACKAGES = (
     'frontline',        # Frontline
     'last_stand',       # Last Stand
     'fun_random',       # Arcade Cabinet
+    'fort_rush',        # Black Signal (Schwarzes Signal)
 )
 
 _STANDARD_LAYOUT_ID = R.views.mono.hangar.main()

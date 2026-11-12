@@ -744,6 +744,8 @@ _CAROUSEL_FILTERS = {
                    'LSBattleCarouselFilter'),
     'fun_random': ('fun_random.gui.filters.fun_random_carousel_filter',
                    'FunRandomCarouselFilter'),
+    'fort_rush': ('fort_rush.gui.filters.fort_rush_carousel_filter',
+                  'FortRushCarouselFilter'),
 }
 
 
@@ -870,8 +872,8 @@ def _random_battle_criteria(criteria):
 
 
 def _suitable_vehicle_criteria(criteria, interface):
-    """Onslaught and its light variant both answer per vehicle, returning None
-    when nothing speaks against taking it in."""
+    """Onslaught, its light variant and Black Signal answer per vehicle,
+    returning None when nothing speaks against taking it in."""
     controller = dependency.instance(interface)
     return criteria.CUSTOM(lambda vehicle: controller.isSuitableVehicle(vehicle) is None)
 
@@ -884,6 +886,11 @@ def _comp7_gate(criteria):
 def _comp7_light_gate(criteria):
     from skeletons.gui.game_control import IComp7LightController
     return _suitable_vehicle_criteria(criteria, IComp7LightController)
+
+
+def _fort_rush_gate(criteria):
+    from fort_rush.skeletons.battle_controller import IFortRushBattleController
+    return _suitable_vehicle_criteria(criteria, IFortRushBattleController)
 
 
 def _frontline_gate(criteria):
@@ -914,6 +921,7 @@ _MODE_GATES = {
     'frontline': _frontline_gate,
     'last_stand': _last_stand_gate,
     'fun_random': _fun_random_gate,
+    'fort_rush': _fort_rush_gate,
 }
 
 
